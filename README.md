@@ -8,7 +8,7 @@
   <h1>⚛️ QUANTUM CLICKER: ULTIMATE EDITION ⚛️</h1>
   
   <p>
-    <b>Un Idle Game Espacial en 3D construido con Three.js</b>
+    <b>Un Idle Game Espacial en 3D construido con cafeína y creatividad</b>
   </p>
 
   <p>
