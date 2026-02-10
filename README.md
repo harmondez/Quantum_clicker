@@ -5,7 +5,7 @@
   <br>
   <br>
 
-  <h1>⚛️ QUANTUM CLICKER: ULTIMATE EDITION ⚛️</h1>
+  <h1>⚛️ QUANTUM CLICKER ⚛️</h1>
   
   <p>
     <b>Un Idle Game Espacial en 3D construido con cafeína y creatividad</b>
