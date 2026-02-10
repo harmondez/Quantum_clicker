@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Quantum Clicker: Ultimate Edition</title>
+    <style>
+        :root {
+            --bg: #050510;
+            --panel: #141420;
+            --accent: #00ff88;
+            --upgrade-bg: #7c4dff;
+            --text: #e0e0e0;
+            --danger: #ff5252;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- IZQUIERDA: ZONA 3D --- */
+        #game-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+            cursor: crosshair;
+        }
+
+        #three-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            outline: none;
+            position: absolute; /* Asegura que ocupe todo el fondo */
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* HUD FLOTANTE */
+        .hud-overlay {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            text-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+            z-index: 10;
+        }
+        
+        #score { font-size: 4.5rem; font-weight: 800; color: var(--accent); margin: 0; letter-spacing: -2px; }
+        #cps-display { font-size: 1.2rem; color: #aaa; margin-top: 5px; font-weight: 600; }
+        
+        #prestige-hud {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            background: rgba(124, 77, 255, 0.2);
+            border: 1px solid var(--upgrade-bg);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #b388ff;
+            pointer-events: auto;
+            display: none; 
+            z-index: 20;
+        }
+
+        .floating-text {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            z-index: 20;
+            font-size: 1.5rem;
+            text-shadow: 0 0 5px black;
+        }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-80px) scale(1.2); }
+        }
+
+        /* --- DERECHA: TIENDA --- */
+        #store-area {
+            width: 400px;
+            background-color: var(--panel);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            border-left: 2px solid #222;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+            z-index: 30;
+        }
+
+        h2 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0; font-size: 1rem; text-transform: uppercase; color: #666; letter-spacing: 2px; font-weight: 800; }
+
+        /* MEJORAS */
+        #upgrades-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+            min-height: 40px;
+        }
+        
+        .upgrade-crate {
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, var(--upgrade-bg), #5c00d2);
+            border-radius: 6px;
+            cursor: pointer;
+            position: relative;
+            transition: 0.2s;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .upgrade-crate:hover { transform: translateY(-2px) scale(1.05); z-index: 5; border-color: white; box-shadow: 0 0 15px var(--upgrade-bg); }
+        .upgrade-crate.disabled { filter: grayscale(1); opacity: 0.3; cursor: not-allowed; transform: none; }
+
+        .upgrade-crate:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            right: 55px;
+            top: 0;
+            width: 220px;
+            background: rgba(15, 15, 25, 0.98);
+            color: white;
+            padding: 12px;
+            font-size: 0.85rem;
+            border-radius: 5px;
+            pointer-events: none;
+            z-index: 100;
+            border: 1px solid var(--upgrade-bg);
+            white-space: pre-wrap;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        /* LISTA EDIFICIOS */
+        #buildings-list {
+            overflow-y: auto;
+            flex: 1;
+            padding-right: 5px;
+        }
+        #buildings-list::-webkit-scrollbar { width: 6px; }
+        #buildings-list::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+        .building-item {
+            background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
+            margin-bottom: 8px;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.1s;
+            border-left: 3px solid #333;
+        }
+        .building-item:hover { background: rgba(255,255,255,0.08); border-left-color: var(--accent); }
+        .building-item.disabled { opacity: 0.3; cursor: not-allowed; }
+        .building-item:active { transform: scale(0.98); }
+        
+        .item-info h4 { margin: 0; font-size: 0.95rem; color: #fff; font-weight: 600; }
+        .item-info p { margin: 3px 0 0 0; font-size: 0.75rem; color: #888; }
+        .item-cost { font-weight: bold; color: var(--accent); margin-top: 5px; font-size: 0.9rem;}
+        .item-count { font-size: 1.5rem; color: #444; font-weight: 800; margin-left: 15px; }
+        .building-item:hover .item-count { color: #666; }
+
+        /* BOTONES DE SISTEMA */
+        #save-controls { margin-top: auto; padding-top: 20px; border-top: 1px solid #333; display: flex; gap: 10px;}
+        button.sys-btn { flex: 1; padding: 12px; background: #222; border: 1px solid #333; color: #aaa; cursor: pointer; border-radius: 6px; font-weight: bold; transition: 0.2s; font-size: 0.8rem; text-transform: uppercase;}
+        button.sys-btn:hover { background: #333; color: white; border-color: #555; }
+        #btn-prestige { background: #311b92; color: #b388ff; border-color: #651fff; display: none; }
+        #btn-prestige:hover { background: #651fff; color: white; box-shadow: 0 0 15px #651fff; }
+    
+    
+    
+            /* --- NEWS TICKER (Barra de noticias) --- */
+        #news-ticker {
+            position: absolute; top: 0; left: 0; width: 100%; height: 25px;
+            background: rgba(0,0,0,0.8); border-bottom: 1px solid #333;
+            display: flex; align-items: center; overflow: hidden; z-index: 100;
+            pointer-events: none;
+        }
+        #news-content {
+            white-space: nowrap; padding-left: 100%;
+            animation: tickerMove 20s linear infinite;
+            color: #888; font-size: 0.85rem; font-family: monospace;
+        }
+        @keyframes tickerMove { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+        /* --- NOTIFICACIONES / LOGROS --- */
+        #notification-area {
+            position: absolute; bottom: 20px; right: 20px;
+            display: flex; flex-direction: column; gap: 10px; z-index: 200; pointer-events: none;
+        }
+        .achievement-pop {
+            background: linear-gradient(90deg, #1a1a2e, #16213e);
+            border: 1px solid var(--accent); border-left: 4px solid var(--accent);
+            padding: 10px 20px; width: 250px; color: white; border-radius: 4px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            animation: slideIn 0.5s ease-out, fadeOut 0.5s ease-in 3.5s forwards;
+            pointer-events: auto;
+        }
+        .ach-title { font-weight: bold; color: var(--accent); font-size: 0.9rem; margin-bottom: 2px; }
+        .ach-desc { font-size: 0.75rem; color: #bbb; }
+
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    
+    
+            /* --- VENTANAS MODALES (General) --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 1000;
+            display: none; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .modal-box {
+            background: var(--panel); border: 2px solid var(--accent);
+            padding: 30px; border-radius: 10px; width: 500px; max-width: 90%;
+            box-shadow: 0 0 50px rgba(0, 255, 136, 0.2);
+            text-align: center; position: relative;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .close-btn {
+            position: absolute; top: 10px; right: 15px; font-size: 1.5rem;
+            color: #888; cursor: pointer; transition: 0.2s;
+        }
+        .close-btn:hover { color: white; }
+
+        /* --- VENTANA LOGROS --- */
+        #achievements-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px; max-height: 60vh; overflow-y: auto; margin-top: 20px;
+            padding-right: 5px;
+        }
+        .ach-card {
+            background: #222; padding: 10px; border-radius: 6px;
+            border: 1px solid #444; text-align: left; opacity: 0.5;
+            transition: 0.3s;
+        }
+        .ach-card.unlocked {
+            opacity: 1; border-color: var(--accent);
+            background: linear-gradient(135deg, #222, #003311);
+            box-shadow: 0 0 10px rgba(0,255,136,0.1);
+        }
+        .ach-card h4 { margin: 0 0 5px 0; color: var(--accent); font-size: 0.9rem; }
+        .ach-card p { margin: 0; font-size: 0.75rem; color: #aaa; }
+
+        /* --- VENTANA ASCENSIÓN --- */
+        .antimatter-icon { font-size: 3rem; margin: 10px 0; display: block; filter: drop-shadow(0 0 10px #7c4dff); }
+        .ascension-info { color: #ccc; margin: 20px 0; font-size: 0.9rem; line-height: 1.6; }
+        .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; }
+        .gain-text { color: #b388ff; font-weight: bold; font-size: 1.2rem; }
+            
+    
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+
+    
+
+
+    <div id="modal-achievements" class="modal-overlay">
+    <div class="modal-box">
+        <div class="close-btn" onclick="toggleAchievements()">×</div>
+        <h2 style="border:none; margin-bottom:0;">🏆 Galería de Trofeos</h2>
+        <div id="achievements-grid"></div>
+        </div>
+    </div>
+
+    <div id="modal-ascension" class="modal-overlay">
+        <div class="modal-box" style="border-color: #7c4dff;">
+            <div class="close-btn" onclick="closeAscension()">×</div>
+            <h2 style="color: #b388ff; border:none;">🌀 ASCENSIÓN CUÁNTICA</h2>
+            <div class="antimatter-icon">⚛️</div>
+            
+            <div class="ascension-info">
+                Al ascender, tu universo colapsará y renacerá.<br>
+                Perderás edificios, mejoras y energía.<br>
+                Ganarás <b>Antimateria</b> y un <b>Multiplicador Permanente</b>.
+            </div>
+
+            <div style="background:#111; padding:15px; border-radius:8px; text-align:left;">
+                <div class="stat-row">
+                    <span>Energía Acumulada:</span>
+                    <span id="asc-total-cookies">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Multiplicador Actual:</span>
+                    <span id="asc-current-mult">x1.0</span>
+                </div>
+                <div class="stat-row" style="border:none; margin-top:10px;">
+                    <span>Recompensa al Resetear:</span>
+                </div>
+                <div style="text-align:center; margin-top:5px;">
+                    <div class="gain-text">+<span id="asc-gain-antimatter">0</span> Antimateria</div>
+                    <div style="color:var(--accent); font-size:0.9rem;">(Nuevo Bonus: x<span id="asc-new-mult">0</span>)</div>
+                </div>
+            </div>
+
+            <button onclick="confirmAscension()" style="
+                margin-top:20px; width:100%; padding:15px; 
+                background: linear-gradient(45deg, #311b92, #651fff);
+                color: white; font-weight:bold; border:none; border-radius:6px;
+                cursor:pointer; font-size:1.1rem; box-shadow: 0 0 15px #651fff;
+            ">¡ASCENDER AHORA!</button>
+        </div>
+    </div>
+
+
+
+
+
+
+
+    <div id="news-ticker"><div id="news-content">Cargando noticias del multiverso...</div></div>
+    <div id="notification-area"></div>
+
+    <div id="game-area">
+        <canvas id="three-canvas"></canvas>
+        
+        <button id="btn-overcharge" onclick="activateOvercharge()" style="
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            padding: 15px 30px; background: #ff9100; border: 2px solid #fff;
+            color: #000; font-weight: bold; font-size: 1.2rem; border-radius: 30px;
+            cursor: pointer; box-shadow: 0 0 20px #ff9100; z-index: 50;
+            transition: 0.3s;
+        ">🔥 SOBRECARGA</button>
+
+        <div id="prestige-hud">⚡ Multiplicador Cuántico: <span id="prestige-display">x1.0</span></div>
+
+        <div class="hud-overlay">
+            <div id="score">0</div>
+            <div id="cps-display">0.0 / seg</div>
+            <div id="combo-display" style="color: #ff0055; font-weight:bold; font-size:1.5rem; opacity:0; transition: opacity 0.2s;">COMBO x1.0</div>
+        </div>
+    </div>
+
+    <div id="store-area">
+        <h2>Mejoras</h2>
+        
+        <div id="upgrades-panel">
+            <div style="color:#444; font-size:0.8rem; width:100%; text-align:center;">Juega para desbloquear tecnología</div>
+        </div>
+
+        <h2>Estructuras</h2>
+        <div id="buildings-list"></div>
+
+        <div id="save-controls" style="display: flex; gap: 5px;">
+    
+    <button class="sys-btn" onclick="toggleAchievements()" title="Logros" style="
+        flex: 0.4; 
+        background: #004d40; 
+        border-color: #00695c; 
+        padding: 0;
+        font-size: 1.2rem;
+    ">🏆</button>
+
+    <button class="sys-btn" id="btn-prestige" onclick="doPrestige()" style="display:none;">Ascender</button>
+
+    <button class="sys-btn" onclick="saveGame()">Guardar</button>
+
+    <button class="sys-btn" onclick="resetGame()" style="color: var(--danger);">Reset</button>
+</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+        // ==========================================
+        // 1. SISTEMA DE AUDIO
+        // ==========================================
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0.2; 
+        masterGain.connect(audioCtx.destination);
+
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function sfxClick() { 
+            playTone(800 + Math.random()*200, 'sine', 0.1, 0.1); 
+            playTone(200, 'triangle', 0.05, 0.1);
+        }
+        function sfxBuy() { 
+            playTone(150, 'square', 0.2, 0.1); 
+            playTone(400, 'sawtooth', 0.1, 0.05);
+        }
+        function sfxAnomaly() {
+            playTone(1200, 'sine', 0.5, 0.2);
+            setTimeout(() => playTone(1800, 'sine', 0.5, 0.2), 100);
+        }
+        function sfxPrestige() {
+            playTone(100, 'sawtooth', 2.0, 0.3);
+            setTimeout(() => playTone(50, 'square', 2.0, 0.3), 200);
+        }
+
+        // ==========================================
+        // 2. DATOS DEL JUEGO
+        // ==========================================
+        const buildingsConfig = [
+            { id: 'cursor', name: 'Nanobot', type: 'click', baseCost: 15, basePower: 1, desc: '+1 click base' },
+            { id: 'grandma', name: 'Servidor', type: 'auto', baseCost: 100, basePower: 1, desc: '+1/s base' },
+            { id: 'farm', name: 'Panel Solar', type: 'auto', baseCost: 1100, basePower: 8, desc: '+8/s base' },
+            { id: 'mine', name: 'Mina Cuántica', type: 'auto', baseCost: 12000, basePower: 47, desc: '+47/s base' },
+            { id: 'factory', name: 'Sincrotrón', type: 'auto', baseCost: 130000, basePower: 260, desc: '+260/s base' },
+            { id: 'bank', name: 'Materia Oscura', type: 'auto', baseCost: 1400000, basePower: 1400, desc: '+1.4k/s base' },
+            { id: 'temple', name: 'Esfera Dyson', type: 'auto', baseCost: 20000000, basePower: 7800, desc: '+7.8k/s base' },
+            { id: 'portal', name: 'Portal Dimensional', type: 'auto', baseCost: 330000000, basePower: 44000, desc: '+44k/s base' }
+        ];
+
+        const milestones = [10, 25, 50, 100, 200];
+        for (let i = 400; i <= 10000; i *= 2) milestones.push(i);
+        const upgradeIcons = ["⚡", "🔋", "💾", "📡", "🧪", "☢️", "🌌", "🪐", "⚛️"];
+
+        let game = {
+            cookies: 0,
+            totalCookiesEarned: 0,
+            clickCount: 0,
+            prestigeMult: 1,
+            antimatter: 0,
+            buildings: {},
+            achievements: [], 
+            upgrades: [] 
+        };
+
+        // ==========================================
+        // 3. MOTOR GRÁFICO (THREE.JS)
+        // ==========================================
+        let scene, camera, renderer, composer;
+        let mainObject, glowMesh, starMesh;
+        let particles = [];
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        
+        let comboMultiplier = 1.0;
+        let comboTimer = 0;
+        let isOvercharged = false;
+        let overchargeCooldown = false;
+        
+        const particleGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+        const particleMat = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
+
+        function initThree() {
+            const canvas = document.getElementById('three-canvas');
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.03);
+
+            camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
+            camera.position.z = 8;
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(window.devicePixelRatio > 1 ? 1.5 : 1);
+
+            // OBJETO PRINCIPAL
+            const geometry = new THREE.IcosahedronGeometry(1.8, 1);
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x00ff88, roughness: 0.2, metalness: 0.9,
+                emissive: 0x004422, emissiveIntensity: 0.6, flatShading: true
+            });
+            mainObject = new THREE.Mesh(geometry, material);
+            scene.add(mainObject);
+
+            const wireGeo = new THREE.IcosahedronGeometry(2.0, 1);
+            const wireMat = new THREE.MeshBasicMaterial({ color: 0x7c4dff, wireframe: true, transparent: true, opacity: 0.15 });
+            glowMesh = new THREE.Mesh(wireGeo, wireMat);
+            scene.add(glowMesh);
+
+            createStarfield();
+
+            const p1 = new THREE.PointLight(0xffffff, 2); p1.position.set(5, 5, 5); scene.add(p1);
+            const p2 = new THREE.PointLight(0x7c4dff, 3); p2.position.set(-5, -5, 2); scene.add(p2);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.1));
+
+            const renderScene = new RenderPass(scene, camera);
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 1.5, 0.4, 0.85);
+            bloomPass.threshold = 0.1; bloomPass.strength = 1.2; bloomPass.radius = 0.5;
+            
+            composer = new EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+            composer.addPass(new OutputPass());
+
+            window.addEventListener('resize', onResize);
+            canvas.addEventListener('mousedown', onCanvasClick);
+        }
+
+        function createStarfield() {
+            const starGeo = new THREE.BufferGeometry();
+            const count = 1000;
+            const positions = new Float32Array(count * 3);
+            for(let i=0; i<count*3; i++) {
+                positions[i] = (Math.random() - 0.5) * 60;
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const starMat = new THREE.PointsMaterial({color: 0xffffff, size: 0.05, transparent: true, opacity: 0.8});
+            starMesh = new THREE.Points(starGeo, starMat);
+            scene.add(starMesh);
+        }
+
+        function onCanvasClick(e) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            if (raycaster.intersectObject(mainObject).length > 0) {
+                doClickLogic(e.clientX, e.clientY);
+                
+                // Shake
+                camera.position.x = (Math.random() - 0.5) * 0.2; 
+                camera.position.y = (Math.random() - 0.5) * 0.2;
+                
+                mainObject.scale.setScalar(0.9);
+                glowMesh.scale.setScalar(0.95);
+                setTimeout(() => {
+                    mainObject.scale.setScalar(1);
+                    glowMesh.scale.setScalar(1);
+                }, 80);
+
+                spawnParticles(raycaster.intersectObject(mainObject)[0].point);
+            }
+        }
+
+        function spawnParticles(pos) {
+            for(let i=0; i<6; i++) {
+                const mesh = new THREE.Mesh(particleGeo, particleMat);
+                mesh.position.copy(pos);
+                mesh.userData.vel = new THREE.Vector3(
+                    (Math.random()-0.5), (Math.random()-0.5), (Math.random()-0.5)+0.5
+                ).normalize().multiplyScalar(Math.random() * 0.2);
+                scene.add(mesh);
+                particles.push(mesh);
+            }
+        }
+
+        function update3D() {
+            const cps = getCPS();
+            
+            const rotSpeed = 0.005 + Math.min(0.1, cps * 0.00001);
+            mainObject.rotation.y += rotSpeed;
+            mainObject.rotation.x += rotSpeed * 0.5;
+            glowMesh.rotation.y -= rotSpeed;
+            
+            const positions = starMesh.geometry.attributes.position.array;
+            const starSpeed = 0.05 + Math.min(2.0, cps * 0.0005); 
+            
+            for(let i=2; i<positions.length; i+=3) {
+                positions[i] += starSpeed;
+                if(positions[i] > 20) positions[i] = -40; 
+            }
+            starMesh.geometry.attributes.position.needsUpdate = true;
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.position.add(p.userData.vel);
+                p.scale.multiplyScalar(0.92);
+                if(p.scale.x < 0.01) { scene.remove(p); particles.splice(i, 1); }
+            }
+
+            camera.position.lerp(new THREE.Vector3(0,0,8), 0.1);
+            const time = Date.now() * 0.002;
+            mainObject.material.emissiveIntensity = 0.5 + Math.sin(time) * 0.2;
+
+            composer.render();
+        }
+
+        function onResize() {
+            const canvas = document.getElementById('three-canvas');
+            const w = canvas.parentElement.clientWidth;
+            const h = canvas.parentElement.clientHeight;
+            camera.aspect = w/h; camera.updateProjectionMatrix();
+            renderer.setSize(w, h); composer.setSize(w, h);
+        }
+
+        // ==========================================
+        // 4. LÓGICA DE JUEGO
+        // ==========================================
+        
+        function spawnAnomaly() {
+            const orb = document.createElement('div');
+            orb.innerHTML = '⚛️';
+            orb.style.cssText = `
+                position: absolute; font-size: 4rem; cursor: pointer; z-index: 999;
+                filter: drop-shadow(0 0 15px gold); animation: floatAnomaly 3s infinite ease-in-out;
+                left: ${Math.random() * 80 + 10}%; top: ${Math.random() * 80 + 10}%;
+            `;
+            orb.onclick = () => {
+                sfxAnomaly();
+                const bonus = Math.max(game.cookies * 0.25, getCPS() * 120); 
+                game.cookies += bonus;
+                game.totalCookiesEarned += bonus;
+                createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `¡ANOMALÍA! +${formatNumber(bonus)}`);
+                orb.remove();
+            };
+            document.getElementById('game-area').appendChild(orb);
+            setTimeout(() => orb.remove(), 8000); 
+            setTimeout(spawnAnomaly, 30000 + Math.random() * 60000);
+        }
+        setTimeout(spawnAnomaly, 60000); 
+
+        function getClickPower() {
+            const cursorData = buildingsConfig.find(u => u.type === 'click');
+            const count = game.buildings[cursorData.id] || 0;
+            let power = (1 + (count * cursorData.currentPower)) * game.prestigeMult;
+            return Math.floor(power * comboMultiplier); 
+        }
+
+        function getCPS() {
+            let cps = 0;
+            buildingsConfig.forEach(u => {
+                if (u.type === 'auto') cps += (game.buildings[u.id] || 0) * u.currentPower;
+            });
+            let total = cps * game.prestigeMult;
+            if (isOvercharged) total *= 5;
+            return total;
+        }
+
+        function getCost(id) {
+            const item = buildingsConfig.find(u => u.id === id);
+            return Math.floor(item.baseCost * Math.pow(1.15, game.buildings[id] || 0));
+        }
+
+        function recalculateStats() {
+            buildingsConfig.forEach(b => b.currentPower = b.basePower);
+            game.upgrades.forEach(uid => {
+                const [bid] = uid.split('-');
+                const b = buildingsConfig.find(i => i.id === bid);
+                if(b) b.currentPower *= 2;
+            });
+        }
+
+        // FUNCIONES EXPUESTAS PARA BOTONES HTML
+        window.buyBuilding = function(id) {
+            const cost = getCost(id);
+            if (game.cookies >= cost) {
+                sfxBuy();
+                game.cookies -= cost;
+                game.buildings[id]++;
+                renderStore(); 
+                updateUI();
+            }
+        };
+
+        window.buyUpgrade = function(upgradeId, cost) {
+            if (game.cookies >= cost) {
+                sfxBuy();
+                game.cookies -= cost;
+                game.upgrades.push(upgradeId);
+                recalculateStats();
+                renderStore();
+                updateUI();
+            }
+        };
+
+        // --- BUCLE PRINCIPAL ---
+        let lastTime = Date.now();
+
+        function gameLoop() {
+            checkAchievements();
+            requestAnimationFrame(gameLoop);
+            update3D();
+
+            const now = Date.now();
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+
+            // Combo Decay
+            if (comboTimer > 0) {
+                comboTimer -= dt;
+            } else {
+                if (comboMultiplier > 1.0) {
+                    comboMultiplier -= dt * 2; 
+                    if (comboMultiplier < 1.0) comboMultiplier = 1.0;
+                    const comboEl = document.getElementById('combo-display');
+                    comboEl.innerText = `COMBO x${comboMultiplier.toFixed(2)}`;
+                    if(comboMultiplier === 1.0) comboEl.style.opacity = 0;
+                }
+            }
+
+            const cps = getCPS();
+            if (cps > 0) {
+                const gained = cps * dt;
+                game.cookies += gained;
+                game.totalCookiesEarned += gained;
+            }
+
+            updateUI();
+            checkAvailability();
+        }
+
+        // --- UI ---
+        const scoreEl = document.getElementById('score');
+        const cpsEl = document.getElementById('cps-display');
+        const upgradesEl = document.getElementById('upgrades-panel');
+        const buildingsEl = document.getElementById('buildings-list');
+
+        function updateUI() {
+            scoreEl.innerText = formatNumber(Math.floor(game.cookies));
+            cpsEl.innerText = `${formatNumber(getCPS().toFixed(1))} / seg`;
+            document.title = `${formatNumber(Math.floor(game.cookies))} Energía`;
+            
+            const pBtn = document.getElementById('btn-prestige');
+            if(game.totalCookiesEarned > 1000000) {
+                pBtn.style.display = 'block';
+                const potentialMult = Math.floor(Math.cbrt(game.totalCookiesEarned / 1000000)) + 1;
+                pBtn.innerText = `ASCENDER (x${potentialMult})`;
+            }
+            
+            if(game.prestigeMult > 1) {
+                document.getElementById('prestige-hud').style.display = 'block';
+                document.getElementById('prestige-display').innerText = `x${game.prestigeMult}`;
+            }
+        }
+
+        function renderStore() {
+            upgradesEl.innerHTML = '';
+            let anyUp = false;
+            buildingsConfig.forEach(b => {
+                const count = game.buildings[b.id];
+                milestones.forEach((th, i) => {
+                    const uid = `${b.id}-${th}`;
+                    if (count >= th && !game.upgrades.includes(uid)) {
+                        anyUp = true;
+                        const cost = b.baseCost * 10 * th;
+                        const btn = document.createElement('div');
+                        btn.className = 'upgrade-crate';
+                        btn.innerHTML = upgradeIcons[i % upgradeIcons.length];
+                        btn.dataset.cost = cost;
+                        btn.setAttribute('data-tooltip', `${b.name} MK-${i+1}\nx2 Producción\nCoste: ${formatNumber(cost)}`);
+                        btn.onclick = () => window.buyUpgrade(uid, cost);
+                        upgradesEl.appendChild(btn);
+                    }
+                });
+            });
+            if(!anyUp) upgradesEl.innerHTML = '<div style="color:#444; font-size:0.8rem; width:100%; text-align:center;">Juega más para desbloquear tecnología...</div>';
+
+            buildingsEl.innerHTML = '';
+            buildingsConfig.forEach(b => {
+                const count = game.buildings[b.id];
+                const cost = getCost(b.id);
+                const div = document.createElement('div');
+                div.className = 'building-item';
+                div.dataset.cost = cost;
+                
+                const mult = b.currentPower / b.basePower;
+                const multTxt = mult > 1 ? `<span style="color:var(--accent); font-size:0.8em">x${mult}</span>` : '';
+
+                div.innerHTML = `
+                    <div class="item-info">
+                        <h4>${b.name} ${multTxt}</h4>
+                        <p>${b.desc}</p>
+                        <div class="item-cost">⚡ ${formatNumber(cost)}</div>
+                    </div>
+                    <div class="item-count">${count}</div>
+                `;
+                div.onclick = () => window.buyBuilding(b.id);
+                buildingsEl.appendChild(div);
+            });
+        }
+
+        function checkAvailability() {
+            document.querySelectorAll('[data-cost]').forEach(el => {
+                const c = parseFloat(el.dataset.cost);
+                if(game.cookies < c) el.classList.add('disabled');
+                else el.classList.remove('disabled');
+            });
+        }
+
+        window.doPrestige = function() {
+            const potentialMult = Math.floor(Math.cbrt(game.totalCookiesEarned / 1000000)) + 1;
+            if(potentialMult <= game.prestigeMult) {
+                alert("Necesitas acumular más energía total para aumentar tu multiplicador.");
+                return;
+            }
+
+            if(confirm(`¿ASCENDER?\n\nReiniciarás estructuras y mejoras.\nGanarás un multiplicador permanente de x${potentialMult}.\n¡Vale la pena!`)) {
+                sfxPrestige();
+                game.cookies = 0;
+                game.buildings = {};
+                game.upgrades = [];
+                game.prestigeMult = potentialMult;
+                
+                buildingsConfig.forEach(u => {
+                    game.buildings[u.id] = 0;
+                    u.currentPower = u.basePower;
+                });
+
+                saveGame();
+                renderStore();
+            }
+        };
+
+        window.activateOvercharge = function() {
+            if (isOvercharged || overchargeCooldown) return;
+            isOvercharged = true;
+            overchargeCooldown = true;
+            const btn = document.getElementById('btn-overcharge');
+            btn.style.filter = "grayscale(1)";
+            btn.innerText = "⚡ ACTIVO ⚡";
+            document.getElementById('three-canvas').style.filter = "hue-rotate(90deg)";
+            sfxPrestige();
+
+            setTimeout(() => {
+                isOvercharged = false;
+                btn.innerText = "⏳ ENFRIANDO...";
+                document.getElementById('three-canvas').style.filter = "none";
+                setTimeout(() => {
+                    overchargeCooldown = false;
+                    btn.style.filter = "none";
+                    btn.innerText = "🔥 SOBRECARGA";
+                }, 30000);
+            }, 10000);
+        }
+
+        function doClickLogic(cx, cy) {
+            sfxClick();
+            comboMultiplier += 0.05; 
+            if(comboMultiplier > 5.0) comboMultiplier = 5.0; 
+            comboTimer = 2.0; 
+            const comboEl = document.getElementById('combo-display');
+            comboEl.style.opacity = 1;
+            comboEl.innerText = `COMBO x${comboMultiplier.toFixed(2)}`;
+
+            const val = getClickPower();
+            game.cookies += val;
+            game.totalCookiesEarned += val;
+            game.clickCount++;
+            createFloatingText(cx, cy, `+${formatNumber(val)}`);
+            updateUI();
+        }
+
+        function createFloatingText(x, y, txt) {
+            const el = document.createElement('div');
+            el.className = 'floating-text';
+            el.innerText = txt;
+            el.style.left = (x + (Math.random()-0.5)*30) + 'px';
+            el.style.top = (y - 30) + 'px';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+        }
+
+        function formatNumber(n) {
+            if (n >= 1e12) return (n / 1e12).toFixed(2) + 'T';
+            if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+            if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
+            return Math.floor(n);
+        }
+
+        window.saveGame = function() {
+            game.lastSaveTime = Date.now();
+            localStorage.setItem('quantumClickerUlt', JSON.stringify(game));
+            const btn = document.querySelector('button[onclick="saveGame()"]');
+            if(btn) {
+                const old = btn.innerText; btn.innerText = "OK!"; setTimeout(()=>btn.innerText=old, 1000);
+            }
+        }
+
+        function loadGame() {
+            const d = JSON.parse(localStorage.getItem('quantumClickerUlt'));
+            if(d) {
+                game = { ...game, ...d };
+                if(!game.upgrades) game.upgrades = [];
+                if(!game.prestigeMult) game.prestigeMult = 1;
+                if(!game.antimatter) game.antimatter = 0; // <--- Asegurar esto
+                if(!game.achievements) game.achievements = [];
+
+                // Offline progress
+                if (game.lastSaveTime) {
+                    const now = Date.now();
+                    const secondsOffline = (now - game.lastSaveTime) / 1000;
+                    if (secondsOffline > 60) {
+                        const offlineProduction = (getCPS() * secondsOffline) * 0.5;
+                        if (offlineProduction > 0) {
+                            game.cookies += offlineProduction;
+                            game.totalCookiesEarned += offlineProduction;
+                            alert(`¡Bienvenido de nuevo!\nHas generado: +${formatNumber(offlineProduction)} Energía offline.`);
+                        }
+                    }
+                }
+            }
+        }
+
+        window.resetGame = function() {
+            if(confirm("¿BORRAR TODO EL PROGRESO?")) {
+                localStorage.removeItem('quantumClickerUlt');
+                location.reload();
+            }
+        }
+
+
+        // --- CONFIG LOGROS ---
+        const achievementsConfig = [
+            // Clicks Manuales
+            { id: 'click100', name: 'Dedo Caliente', desc: '100 clicks manuales.', req: g => g.clickCount >= 100 },
+            { id: 'click1k', name: 'Dedo Biónico', desc: '1,000 clicks manuales.', req: g => g.clickCount >= 1000 },
+            { id: 'click10k', name: 'Dedo Cuántico', desc: '10,000 clicks manuales.', req: g => g.clickCount >= 10000 },
+            
+            // Mejoras Compradas
+            { id: 'upg5', name: 'Innovador', desc: 'Compra 5 mejoras de tecnología.', req: g => g.upgrades.length >= 5 },
+            { id: 'upg20', name: 'Científico Loco', desc: 'Compra 20 mejoras de tecnología.', req: g => g.upgrades.length >= 20 },
+            
+            // Progreso General
+            { id: 'build10', name: 'Arquitecto', desc: 'Ten 10 edificios en total.', req: g => Object.values(g.buildings).reduce((a,b)=>a+b,0) >= 10 },
+            { id: 'cps100', name: 'Generador', desc: 'Alcanza 100 energía/seg.', req: () => getCPS() >= 100 },
+            { id: 'million', name: 'Millonario', desc: 'Acumula 1 Millón de energía total.', req: g => g.totalCookiesEarned >= 1000000 },
+            { id: 'hacker', name: 'Hacker', desc: 'Haz un combo x3.0.', req: () => comboMultiplier >= 3.0 }
+        ];
+
+        // --- FRASES NOTICIAS ---
+        const newsHeadlines = [
+            "Científicos descubren que la energía cuántica sabe a vainilla.",
+            "El universo se expande, pero tus edificios lo hacen más rápido.",
+            "Un gato de Schrödinger ha sido encontrado vivo y muerto a la vez en tu granja.",
+            "Los aliens piden que bajes el volumen de tus reactores.",
+            "Economía global colapsa; ahora la moneda oficial es el Watt.",
+            "Tu madre llama: '¿Cuándo vas a conseguir un trabajo real?'"
+        ];
+
+        // --- SISTEMA DE NOTICIAS Y LOGROS ---
+
+        function checkAchievements() {
+            achievementsConfig.forEach(ach => {
+                if (!game.achievements.includes(ach.id)) {
+                    if (ach.req(game)) {
+                        unlockAchievement(ach);
+                    }
+                }
+            });
+        }
+
+        function unlockAchievement(ach) {
+            game.achievements.push(ach.id);
+            showNotification("🏆 LOGRO DESBLOQUEADO", `${ach.name}: ${ach.desc}`);
+            sfxPrestige(); // Usamos sonido de victoria
+        }
+
+        function showNotification(title, text) {
+            const area = document.getElementById('notification-area');
+            const el = document.createElement('div');
+            el.className = 'achievement-pop';
+            el.innerHTML = `<div class="ach-title">${title}</div><div class="ach-desc">${text}</div>`;
+            area.appendChild(el);
+            setTimeout(() => el.remove(), 4000);
+        }
+
+        // Ciclo de noticias
+        function updateNews() {
+            const el = document.getElementById('news-content');
+            const headline = newsHeadlines[Math.floor(Math.random() * newsHeadlines.length)];
+            // Truco para reiniciar la animación CSS
+            el.style.animation = 'none';
+            el.offsetHeight; /* trigger reflow */
+            el.style.animation = 'tickerMove 20s linear infinite';
+            el.innerText = headline + "   |   " + headline; // Duplicar para efecto loop visual
+        }
+        setInterval(updateNews, 20000); // Cambiar noticia cada 20s
+        updateNews(); // Primera noticia
+
+                // --- LÓGICA DE INTERFAZ DE LOGROS ---
+        window.toggleAchievements = function() {
+            const modal = document.getElementById('modal-achievements');
+            const grid = document.getElementById('achievements-grid');
+            
+            if (modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            } else {
+                // Renderizar lista al abrir
+                grid.innerHTML = '';
+                achievementsConfig.forEach(ach => {
+                    const unlocked = game.achievements.includes(ach.id);
+                    const card = document.createElement('div');
+                    card.className = `ach-card ${unlocked ? 'unlocked' : ''}`;
+                    card.innerHTML = `
+                        <h4>${unlocked ? '🏆' : '🔒'} ${ach.name}</h4>
+                        <p>${ach.desc}</p>
+                    `;
+                    grid.appendChild(card);
+                });
+                modal.style.display = 'flex';
+            }
+        }
+
+        // --- LÓGICA DE ASCENSIÓN MEJORADA ---
+
+        // 1. Mostrar la ventana y calcular datos
+        window.doPrestige = function() {
+            const modal = document.getElementById('modal-ascension');
+            
+            // Fórmula: 1 Antimateria por cada 1M de energía total (Raíz cúbica para balance)
+            // Ejemplo: 1M = 1, 8M = 2, 27M = 3...
+            const potentialAntimatter = Math.floor(Math.cbrt(game.totalCookiesEarned / 1000000));
+            
+            // Si no gana nada nuevo respecto a lo que ya tiene (simplificado para ejemplo)
+            if (potentialAntimatter <= 0) {
+                alert("Necesitas al menos 1 Millón de energía acumulada para ascender.");
+                return;
+            }
+
+            // Calcular el nuevo multiplicador: Cada punto de antimateria da +10% (x0.1) o lo que quieras
+            // Aquí usaremos tu lógica anterior: el multiplicador ES la antimateria acumulada + 1
+            const futureMult = 1 + potentialAntimatter; 
+
+            // Actualizar textos del modal
+            document.getElementById('asc-total-cookies').innerText = formatNumber(game.totalCookiesEarned);
+            document.getElementById('asc-current-mult').innerText = `x${game.prestigeMult}`;
+            document.getElementById('asc-gain-antimatter').innerText = formatNumber(potentialAntimatter);
+            document.getElementById('asc-new-mult').innerText = formatNumber(futureMult);
+
+            // Guardar dato temporal para el botón de confirmar
+            modal.dataset.futureMult = futureMult;
+            modal.dataset.futureAntimatter = potentialAntimatter;
+
+            modal.style.display = 'flex';
+        }
+
+        window.closeAscension = function() {
+            document.getElementById('modal-ascension').style.display = 'none';
+        }
+
+        // 2. Ejecutar el reset
+        window.confirmAscension = function() {
+            const modal = document.getElementById('modal-ascension');
+            const newMult = parseFloat(modal.dataset.futureMult);
+            const gainAntimatter = parseInt(modal.dataset.futureAntimatter);
+
+            if (!newMult) return;
+
+            sfxPrestige();
+
+            // Reset del juego (Mantenemos logros y estadísticas históricas si quieres)
+            game.cookies = 0;
+            game.buildings = {};
+            game.upgrades = [];
+            
+            // Aplicar recompensas
+            game.prestigeMult = newMult;
+            game.antimatter += gainAntimatter; // Sumamos la moneda premium
+
+            // Reiniciar configs
+            buildingsConfig.forEach(u => {
+                game.buildings[u.id] = 0;
+                u.currentPower = u.basePower;
+            });
+
+            saveGame();
+            renderStore();
+            updateUI();
+            closeAscension();
+            
+            showNotification("🌀 ASCENSIÓN COMPLETADA", `Has renacido con x${newMult} de poder.`);
+        }
+
+
+
+
+
+
+
+        // --- BOOT ---
+        loadGame();
+        // Inicializar contadores a 0 si no existen
+        buildingsConfig.forEach(u => {
+            if (!game.buildings[u.id]) game.buildings[u.id] = 0;
+            u.currentPower = u.basePower; 
+        });
+        recalculateStats();
+        initThree();
+        renderStore();
+        gameLoop();
+        setInterval(saveGame, 60000);
+
+    </script>
+</body>
+</html>
