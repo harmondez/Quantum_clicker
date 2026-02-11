@@ -340,66 +340,61 @@ function onResize() {
 // 4. LÓGICA DE JUEGO
 // ==========================================
 // ANOMALIAS RANDOM (FRENZY GOLDEN COOKIES)
+
 function spawnAnomaly() {
-    const types = ['money', 'money', 'production', 'click']; // 50% dinero, 25% prod, 25% click
+    const types = ['money', 'money', 'production', 'click']; 
     const type = types[Math.floor(Math.random() * types.length)];
     
     const orb = document.createElement('div');
-    // Cambiamos el color según el tipo
     let icon = '⚛️';
     let color = 'gold';
     
-    if (type === 'production') { icon = '🔥'; color = '#ff5252'; } // Rojo fuego
-    if (type === 'click') { icon = '⚡'; color = '#00e5ff'; }      // Azul eléctrico
+    if (type === 'production') { icon = '🔥'; color = '#ff5252'; } 
+    if (type === 'click') { icon = '⚡'; color = '#00e5ff'; }
 
     orb.innerHTML = icon;
     orb.style.cssText = `
         position: absolute; font-size: 4rem; cursor: pointer; z-index: 999;
         filter: drop-shadow(0 0 15px ${color}); animation: floatAnomaly 3s infinite ease-in-out;
         left: ${Math.random() * 80 + 10}%; top: ${Math.random() * 80 + 10}%;
-        transition: transform 0.1s;
     `;
-window.spawnAnomaly = spawnAnomaly;
 
-
-
-    
     orb.onclick = () => {
         sfxAnomaly();
-        
         if (type === 'money') {
-            // Premio clásico: 15% de lo que tienes o 15 mins de producción
             const bonus = Math.max(game.cookies * 0.15, getCPS() * 900); 
             game.cookies += bonus;
             game.totalCookiesEarned += bonus;
-            createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `+${formatNumber(bonus)} Energía`);
-        } 
-        else if (type === 'production') {
-            // FRENESÍ: x7 producción durante 30s
+            createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `+${formatNumber(bonus)}`);
+        } else if (type === 'production') {
             activateBuff('production', 7, 30);
-            createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `¡FRENESÍ! x7 Prod (30s)`);
-        } 
-        else if (type === 'click') {
-            // CLICK STORM: x777 click power durante 10s
+        } else if (type === 'click') {
             activateBuff('click', 777, 10);
-            createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `¡SOBRECARGA! x777 Clicks (10s)`);
         }
-
         orb.remove();
     };
 
     document.getElementById('game-area').appendChild(orb);
     
-    // Desaparece más rápido si no lo clickas (hace que estés atento)
-    setTimeout(() => { if(orb.parentNode) orb.remove(); }, 6000); 
+    // MEJORA: Lente Cuántica (+2s de duración en pantalla)
+    let lifeTime = 6000;
+    if (game.upgrades.includes('quantum-lens')) lifeTime += 2000;
+    setTimeout(() => { if(orb.parentNode) orb.remove(); }, lifeTime); 
 
-    // Calculamos el siguiente spawn (Lógica de tu amigo + Aleatoriedad)
+    // MEJORA: Antena de Entropía (Aparición más frecuente)
     const anomalyHelper = helpersConfig.find(h => h.effect === 'anomalyRate');
-    let baseTime = 30000 + Math.random() * 60000; // Entre 30s y 90s
+    let baseTime = 30000 + Math.random() * 60000; 
     if (anomalyHelper && game.helpers.includes(anomalyHelper.id)) baseTime /= anomalyHelper.value;
+    
+    // Bonus de mejora de utilidad
+    if (game.upgrades.includes('entropy-antenna')) baseTime *= 0.8; 
     
     setTimeout(spawnAnomaly, baseTime);
 }
+
+
+
+window.spawnAnomaly = spawnAnomaly;
 
 // Función auxiliar para gestionar los tiempos de los buffs
 function activateBuff(type, amount, seconds) {
@@ -429,11 +424,19 @@ function activateBuff(type, amount, seconds) {
 
 
 function getClickPower() {
-    const cursorData = buildingsConfig.find(u => u.type === 'click');
+    const cursorData = buildingsConfig.find(u => u.id === 'cursor');
     const count = game.buildings[cursorData.id] || 0;
+    
+    // Poder base + mejoras MK
     let power = (1 + (count * cursorData.currentPower)) * game.prestigeMult;
     
-    // Aplicar efecto de ayudante de clicks
+    // MEJORA ESPECIAL: Sinergia Sincrotrón (Cada uno da +5 poder base al click)
+    if (game.upgrades.includes('factory-click-synergy')) {
+        const factoryCount = game.buildings['factory'] || 0;
+        power += (factoryCount * 5);
+    }
+
+    // Efecto de ayudante de clicks
     const clickHelper = helpersConfig.find(h => h.effect === 'clickPower');
     if (clickHelper && game.helpers.includes(clickHelper.id)) {
         power *= clickHelper.value;
@@ -442,22 +445,39 @@ function getClickPower() {
     return Math.floor(power * comboMultiplier * clickBuffMultiplier);
 }
 
+
 function getCPS() {
     let cps = 0;
     buildingsConfig.forEach(u => {
-        if (u.type === 'auto') cps += (game.buildings[u.id] || 0) * u.currentPower;
+        if (u.type === 'auto') {
+            let bPower = (game.buildings[u.id] || 0) * u.currentPower;
+            
+            // MEJORA ESPECIAL: Red Neuronal (Servidores potencian Minas un 1% cada uno)
+            if (u.id === 'mine' && game.upgrades.includes('grandma-mine-synergy')) {
+                const grandmaCount = game.buildings['grandma'] || 0;
+                bPower *= (1 + (grandmaCount * 0.01));
+            }
+            
+            cps += bPower;
+        }
     });
+
     let total = cps * game.prestigeMult;
     
-    // Aplicar multiplicador de ayudante de producción
+    // Multiplicador de ayudante de producción
     const prodHelper = helpersConfig.find(h => h.effect === 'cpsMultiplier');
     if (prodHelper && game.helpers.includes(prodHelper.id)) {
         total *= prodHelper.value;
     }
     
     if (isOvercharged) total *= 5;
+
+    // Frenesí de Anomalía (buffMultiplier)
     return total * buffMultiplier;
 }
+
+
+
 
 function getNetCPS() {
     const grossCPS = getCPS();
@@ -724,16 +744,20 @@ function updateUI() {
     }
 }
 
+
+
 function renderStore() {
     upgradesEl.innerHTML = '';
     let anyUp = false;
+
+    // 1. MEJORAS DE EDIFICIOS (MK-1, MK-2...)
     buildingsConfig.forEach(b => {
-        const count = game.buildings[b.id];
+        const count = game.buildings[b.id] || 0;
         milestones.forEach((th, i) => {
             const uid = `${b.id}-${th}`;
             if (count >= th && !game.upgrades.includes(uid)) {
                 anyUp = true;
-                const cost = b.baseCost * 10 * th;
+                const cost = b.baseCost * 20 * (i + 1) * th;
                 const btn = document.createElement('div');
                 btn.className = 'upgrade-crate';
                 btn.innerHTML = upgradeIcons[i % upgradeIcons.length];
@@ -744,19 +768,41 @@ function renderStore() {
             }
         });
     });
+
+    // 2. MEJORAS ESPECIALES (UTILIDAD Y SINERGIA)
+    const specials = [
+        { id: 'entropy-antenna', name: 'Antena de Entropía', icon: '📡', cost: 50000, desc: 'Anomalías aparecen un 20% más rápido.', req: () => game.totalCookiesEarned > 100000 },
+        { id: 'quantum-lens', name: 'Lente Cuántica', icon: '🔍', cost: 150000, desc: 'Las anomalías duran +2s en pantalla.', req: () => game.clickCount > 500 },
+        { id: 'grandma-mine-synergy', name: 'Red Neuronal', icon: '🧠', cost: 500000, desc: 'Servidores potencian Minas (+1%/cad uno).', req: () => game.buildings['grandma'] >= 50 && game.buildings['mine'] >= 10 },
+        { id: 'factory-click-synergy', name: 'Sobrecarga de Pulsos', icon: '🌀', cost: 1000000, desc: 'Cada Sincrotrón da +5 de poder de click base.', req: () => game.buildings['factory'] >= 15 },
+        { id: 'overcharge-plus', name: 'Batería de Helio', icon: '🔋', cost: 250000, desc: 'Sobrecarga dura 5 segundos más.', req: () => game.totalCookiesEarned > 750000 }
+    ];
+
+    specials.forEach(s => {
+        if (s.req() && !game.upgrades.includes(s.id)) {
+            anyUp = true;
+            const btn = document.createElement('div');
+            btn.className = 'upgrade-crate special'; // Puedes añadir color morado en CSS
+            btn.innerHTML = s.icon;
+            btn.dataset.cost = s.cost;
+            btn.setAttribute('data-tooltip', `${s.name}\n${s.desc}\nCoste: ${formatNumber(s.cost)}`);
+            btn.onclick = () => window.buyUpgrade(s.id, s.cost);
+            upgradesEl.appendChild(btn);
+        }
+    });
+
     if(!anyUp) upgradesEl.innerHTML = '<div style="color:#444; font-size:0.8rem; width:100%; text-align:center;">Juega más para desbloquear tecnología...</div>';
 
+    // 3. RENDERIZAR EDIFICIOS (Sin cambios necesarios aquí)
     buildingsEl.innerHTML = '';
     buildingsConfig.forEach(b => {
-        const count = game.buildings[b.id];
+        const count = game.buildings[b.id] || 0;
         const cost = getCost(b.id);
         const div = document.createElement('div');
         div.className = 'building-item';
         div.dataset.cost = cost;
-        
         const mult = b.currentPower / b.basePower;
         const multTxt = mult > 1 ? `<span style="color:var(--accent); font-size:0.8em">x${mult}</span>` : '';
-
         div.innerHTML = `
             <div class="item-info">
                 <h4>${b.name} ${multTxt}</h4>
@@ -769,6 +815,11 @@ function renderStore() {
         buildingsEl.appendChild(div);
     });
 }
+
+
+
+
+
 
 function checkAvailability() {
     document.querySelectorAll('[data-cost]').forEach(el => {
