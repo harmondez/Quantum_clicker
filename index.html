@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Quantum Clicker: Ultimate Edition</title>
     <link rel="stylesheet" href="styles.css">
-
     <script type="importmap">
         {
             "imports": {
@@ -16,101 +15,43 @@
 </head>
 <body>
 
-    <div id="modal-achievements" class="modal-overlay">
-    <div class="modal-box">
-        <div class="close-btn" onclick="toggleAchievements()">×</div>
-        <h2 style="border:none; margin-bottom:0;">🏆 Galería de Trofeos</h2>
-        <div id="achievements-grid"></div>
-        </div>
-    </div>
-
-    <div id="modal-ascension" class="modal-overlay">
-        <div class="modal-box" style="border-color: #7c4dff;">
-            <div class="close-btn" onclick="closeAscension()">×</div>
-            <h2 style="color: #b388ff; border:none;">🌀 ASCENSIÓN CUÁNTICA</h2>
-            <div class="antimatter-icon">⚛️</div>
-            
-            <div class="ascension-info">
-                Al ascender, tu universo colapsará y renacerá.<br>
-                Perderás edificios, mejoras y energía.<br>
-                Ganarás <b>Antimateria</b> y un <b>Multiplicador Permanente</b>.
-            </div>
-
-            <div style="background:#111; padding:15px; border-radius:8px; text-align:left;">
-                <div class="stat-row">
-                    <span>Energía Acumulada:</span>
-                    <span id="asc-total-cookies">0</span>
-                </div>
-                <div class="stat-row">
-                    <span>Multiplicador Actual:</span>
-                    <span id="asc-current-mult">x1.0</span>
-                </div>
-                <div class="stat-row" style="border:none; margin-top:10px;">
-                    <span>Recompensa al Resetear:</span>
-                </div>
-                <div style="text-align:center; margin-top:5px;">
-                    <div class="gain-text">+<span id="asc-gain-antimatter">0</span> Antimateria</div>
-                    <div style="color:var(--accent); font-size:0.9rem;">(Nuevo Bonus: x<span id="asc-new-mult">0</span>)</div>
-                </div>
-            </div>
-
-            <button onclick="confirmAscension()" style="
-                margin-top:20px; width:100%; padding:15px; 
-                background: linear-gradient(45deg, #311b92, #651fff);
-                color: white; font-weight:bold; border:none; border-radius:6px;
-                cursor:pointer; font-size:1.1rem; box-shadow: 0 0 15px #651fff;
-            ">¡ASCENDER AHORA!</button>
-        </div>
-    </div>
-
-    
-    <div id="modal-system" class="modal-overlay" style="z-index: 3000;">
-        <div class="modal-box" style="border-color: #ff5252; min-width: 320px;">
-            <h3 id="sys-title" style="margin-top: 0; color: #ff5252; text-transform: uppercase; letter-spacing: 2px;">⚠️ ALERTA DEL SISTEMA</h3>
-            <p id="sys-msg" style="color: #ddd; font-size: 1rem; margin: 20px 0; line-height: 1.5;">Mensaje...</p>
-            
-            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-                <button id="sys-btn-cancel" onclick="closeSystemModal()" style="
-                    background: transparent; border: 1px solid #444; color: #888; 
-                    padding: 10px 20px; border-radius: 4px; cursor: pointer; display: none;">
-                    CANCELAR
-                </button>
-                <button id="sys-btn-ok" style="
-                    background: var(--accent); border: none; color: #000; font-weight: bold;
-                    padding: 10px 20px; border-radius: 4px; cursor: pointer; box-shadow: 0 0 10px var(--accent);">
-                    ACEPTAR
-                </button>
-            </div>
-        </div>
-    </div>
-
-
-
-    
-
-
-
     <div id="news-ticker"><div id="news-content">Cargando noticias del multiverso...</div></div>
     <div id="notification-area"></div>
 
     <div id="game-area">
+        
         <div id="anomaly-notifications"></div>
+
         <canvas id="three-canvas"></canvas>
-        
-        
 
         <div id="prestige-hud">⚡ Multiplicador Cuántico: <span id="prestige-display">x1.0</span></div>
 
         <div class="hud-overlay">
             <div id="score">0</div>
             <div id="cps-display">0.0 / seg</div>
-            <div id="combo-display" style="color: #ff0055; font-weight:bold; font-size:1.5rem; opacity:0; transition: opacity 0.2s;">COMBO x1.0</div>
+            <div id="combo-display">COMBO x1.0</div>
+        </div>
+
+        <div id="pearls-container">
+            <div id="slot-red" class="pearl-slot locked" onclick="togglePearl('red')">
+                <div class="pearl-icon">🔴</div>
+                <div class="pearl-tooltip">PERLA ROJA<br>Vacía</div>
+            </div>
+            
+            <div id="slot-blue" class="pearl-slot locked" onclick="togglePearl('blue')">
+                <div class="pearl-icon">🔵</div>
+                <div class="pearl-tooltip">PERLA AZUL<br>Vacía</div>
+            </div>
+            
+            <div id="slot-green" class="pearl-slot locked" onclick="togglePearl('green')">
+                <div class="pearl-icon">🟢</div>
+                <div class="pearl-tooltip">PERLA VERDE<br>Vacía</div>
+            </div>
         </div>
     </div>
 
     <div id="store-area">
         <h2>Mejoras</h2>
-        
         <div id="upgrades-panel">
             <div style="color:#444; font-size:0.8rem; width:100%; text-align:center;">Juega para desbloquear tecnología</div>
         </div>
@@ -119,75 +60,105 @@
         <div id="buildings-list"></div>
 
         <h2>👽 Ayudantes Alienígenas</h2>
-
         <div id="helpers-list"></div>
 
-
-        <div id="save-controls" style="display: flex; gap: 5px;">
-            <button class="sys-btn" onclick="toggleCollection()" title="Códice (Colección)" style="
-                flex: 0.4; 
-                background: #3e2723; 
-                border-color: #5d4037; 
-                padding: 0;
-                font-size: 1.2rem;
-            ">📖</button>
-    
-            <button class="sys-btn" onclick="toggleAchievements()" title="Logros" style="
-                flex: 0.4; 
-                background: #004d40; 
-                border-color: #00695c; 
-                padding: 0;
-                font-size: 1.2rem;
-            ">🏆</button>
-
-            <button class="sys-btn" onclick="exportSave()" title="Exportar Partida (Copiar código)">📤</button>
-            <button class="sys-btn" onclick="importSave()" title="Importar Partida (Pegar código)">📥</button>
-            <button class="sys-btn" id="btn-prestige" onclick="doPrestige()" style="display:none;">Ascender</button>
+        <div id="save-controls">
+            <button class="sys-btn" onclick="toggleCollection()" title="Códice (Colección)" style="flex: 0.4; background: #3e2723; border-color: #5d4037; font-size: 1.2rem;">📖</button>
+            <button class="sys-btn" onclick="toggleAchievements()" title="Logros" style="flex: 0.4; background: #004d40; border-color: #00695c; font-size: 1.2rem;">🏆</button>
+            <button class="sys-btn" onclick="exportSave()" title="Exportar Partida">📤</button>
+            <button class="sys-btn" onclick="importSave()" title="Importar Partida">📥</button>
+            <button class="sys-btn" id="btn-prestige" onclick="doPrestige()">Ascender</button>
             <button class="sys-btn" onclick="saveGame()">Guardar</button>
             <button class="sys-btn" onclick="resetGame()" style="color: var(--danger);">Reset</button>
         </div>
+    </div>
 
-    <script type="module" src="game.js"></script>
-    
-
-    <div id="modal-collection" class="modal-overlay" style="z-index: 2500;">
-        <div class="modal-box" style="width: 700px; max-width: 95%; max-height: 80vh; overflow-y: auto;">
-            <div class="close-btn" onclick="toggleCollection()">×</div>
-            <h2 style="color: #ffd700; border-bottom: 1px solid #555;">📖 Códice Cuántico</h2>
-
-            <h3 style="text-align: left; color: #aaa; font-size: 0.9rem; margin-top: 20px;">TECNOLOGÍA DESCUBIERTA</h3>
-            <div id="collection-upgrades" class="collection-grid"></div>
-
-            <h3 style="text-align: left; color: #aaa; font-size: 0.9rem; margin-top: 30px;">BASE DE DATOS ALIENÍGENA</h3>
-            <div id="collection-helpers" class="collection-grid"></div>
+    <div id="modal-achievements" class="modal-overlay">
+        <div class="modal-box">
+            <div class="close-btn" onclick="toggleAchievements()">×</div>
+            <h2 style="border:none; margin-bottom:0;">🏆 Galería de Trofeos</h2>
+            <div id="achievements-grid"></div>
         </div>
     </div>
+
+    <div id="modal-ascension" class="modal-overlay">
+        <div class="modal-box" style="border-color: #7c4dff;">
+            <div class="close-btn" onclick="closeAscension()">×</div>
+            <h2 style="color: #b388ff; border:none;">🌀 ASCENSIÓN CUÁNTICA</h2>
+            <div class="antimatter-icon">⚛️</div>
+            <div class="ascension-info">
+                Al ascender, tu universo colapsará y renacerá.<br>
+                Perderás edificios, mejoras y energía.<br>
+                Ganarás <b>Antimateria</b> y un <b>Multiplicador Permanente</b>.
+            </div>
+            <div style="background:#111; padding:15px; border-radius:8px; text-align:left;">
+                <div class="stat-row">
+                    <span>Energía Acumulada:</span> <span id="asc-total-cookies">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Multiplicador Actual:</span> <span id="asc-current-mult">x1.0</span>
+                </div>
+                <div style="text-align:center; margin-top:15px;">
+                    <div class="gain-text">+<span id="asc-gain-antimatter">0</span> Antimateria</div>
+                    <div style="color:var(--accent); font-size:0.9rem;">(Nuevo Bonus: x<span id="asc-new-mult">0</span>)</div>
+                </div>
+            </div>
+            <button onclick="confirmAscension()" class="reincarnate-btn" style="width:100%; margin-top:20px;">¡ASCENDER AHORA!</button>
+        </div>
+    </div>
+
+    <div id="modal-system" class="modal-overlay" style="z-index: 3000;">
+        <div class="modal-box" style="border-color: #ff5252; min-width: 320px;">
+            <h3 id="sys-title" style="margin-top: 0; color: #ff5252;">⚠️ ALERTA</h3>
+            <p id="sys-msg" style="color: #ddd; font-size: 1rem; margin: 20px 0;">Mensaje...</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="sys-btn-cancel" onclick="closeSystemModal()" style="display: none; padding: 10px 20px; background:transparent; border:1px solid #555; color:#aaa; cursor:pointer;">CANCELAR</button>
+                <button id="sys-btn-ok" style="background: var(--accent); border: none; color: #000; font-weight: bold; padding: 10px 20px; cursor: pointer;">ACEPTAR</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="modal-collection" class="modal-overlay" style="z-index: 2500;">
+        <div class="modal-box" style="width: 750px; max-width: 95%; max-height: 85vh; overflow-y: auto;">
+            <div class="close-btn" onclick="toggleCollection()">×</div>
+            <h2 style="color: #ffd700; border-bottom: 1px solid #555; margin-bottom: 20px;">📖 Códice Cuántico</h2>
+
+            <h3 style="text-align: left; color: #00e5ff; font-size: 1rem; margin-top: 10px;">💎 ARTEFACTOS DE LA TRINIDAD</h3>
+            <div id="collection-artifacts" class="collection-grid"></div>
+
+            <h3 style="text-align: left; color: #ff9100; font-size: 1rem; margin-top: 25px;">👥 PERSONAL CONTRATADO</h3>
+            <div id="collection-helpers" class="collection-grid"></div>
+
+            <h3 style="text-align: left; color: #aaa; font-size: 1rem; margin-top: 25px;">⚙️ TECNOLOGÍA DESCUBIERTA</h3>
+            <div id="collection-upgrades" class="collection-grid"></div>
+        </div>
+    </div>
+    
+
     <div id="modal-heaven" class="modal-overlay" style="z-index: 9000;">
         <div class="heaven-modal-box">
-            
             <div class="heaven-header">
                 <div>
-                    <h2 style="color: #d1c4e9; margin:0; text-shadow: 0 0 10px #b388ff;">🌌 Plano Celestial</h2>
-                    <div style="color: #b388ff; font-size: 0.9rem; margin-top: 5px;">
+                    <h2 style="color: #d1c4e9; margin:0;">🌌 Plano Celestial</h2>
+                    <div style="color: #b388ff; font-size: 0.9rem;">
                         Antimateria: <span id="heaven-antimatter" style="color:#fff; font-weight:bold;">0</span> 
-                        <span style="color:#666; font-size:0.8rem; margin-left:10px;">(Nivel de Prestigio: <span id="heaven-level">0</span>)</span>
+                        <span style="color:#666;">(Nivel: <span id="heaven-level">0</span>)</span>
                     </div>
                 </div>
-                
+                <div class="close-heaven-btn" onclick="closeHeaven()">×</div>
             </div>
-
             <div id="heaven-tree-container">
                 <canvas id="heaven-canvas"></canvas>
                 <div id="heaven-nodes"></div>
             </div>
-
             <div id="heaven-tooltip" class="heaven-tooltip"></div>
-
             <div class="heaven-footer">
-                <button onclick="finishAscension()" class="reincarnate-btn">🧬 ASCENDER</button>
+                <button onclick="finishAscension()" class="reincarnate-btn">🧬 REENCARNAR</button>
             </div>
         </div>
     </div>
 
+    <script type="module" src="game.js"></script>
 </body>
 </html>

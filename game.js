@@ -57,6 +57,27 @@ const buildingsConfig = [
     { id: 'portal', name: 'Condesador de Singularidad', type: 'auto', baseCost: 330000000, basePower: 44000, desc: '+44k/s base' }
 ];
 
+const pearlsConfig = {
+    red: { 
+        name: "Perla de la Entropía", 
+        desc: "El poder del fin. Multiplica la Producción Global x10.", 
+        bonusType: 'production', 
+        value: 10 
+    },
+    blue: { 
+        name: "Perla del Tiempo", 
+        desc: "El poder del tiempo. Los Clicks son x50 más potentes.", 
+        bonusType: 'click', 
+        value: 50 
+    },
+    green: { 
+        name: "Perla de la Vida", 
+        desc: "El poder del origen. Todo es un 50% más barato.", 
+        bonusType: 'discount', 
+        value: 0.5 
+    }
+};
+
 const milestones = [10, 25, 50, 100, 200];
 for (let i = 400; i <= 10000; i *= 2) milestones.push(i);
 const upgradeIcons = ["⚡", "🔋", "💾", "📡", "🧪", "☢️", "🌌", "🪐", "⚛️"];
@@ -71,6 +92,8 @@ let game = {
     achievements: [], 
     upgrades: [],
     heavenlyUpgrades: [],
+    pearls: [],
+    activePearl: null,
     prestigeLevel: 0,   // Nivel TOTAL (Determina el multiplicador) <-- NUEVO
     helpers: [] // IDs de ayudantes activos
 };
@@ -397,9 +420,18 @@ function dispose3D(object) {
 // ANOMALIAS RANDOM (FRENZY GOLDEN COOKIES)
 
 function spawnAnomaly() {
-    // Probabilidad de corrupción (30% si hay Apocalipsis)
+    // 1. Probabilidad de Corrupción (Apocalipsis)
     const isCorrupt = isApocalypse && Math.random() < 0.3;
+    // - 30% de probabilidad de aparición (para que no salga siempre).
+    const isTemporalEvent = !game.pearls.includes('blue') && (game.totalClicks >= 10000) && Math.random() < 0.3;
     
+    // 2. DETECCIÓN DE EVENTO ÉPICO: PERLA AZUL (SINGULARIDAD)
+    // CONDICIÓN: 
+    // - No tener la perla.
+    // - El Combo debe estar ARDIENDO (mayor a 4.5, el máximo es 5.0).
+    // - 30% de probabilidad de que ocurra si cumples lo anterior.
+    
+
     const types = ['money', 'money', 'production', 'click']; 
     const type = types[Math.floor(Math.random() * types.length)];
     
@@ -407,93 +439,54 @@ function spawnAnomaly() {
     let icon = '⚛️';
     let color = 'gold';
     
-    // VISUALES
-
-    
-    if (isCorrupt) {
-        icon = '🤬'; 
-        color = '#ff0000'; // Rojo sangre
-    } else {
-        if (type === 'production') { icon = '🔥'; color = '#ff5252'; } 
-        if (type === 'click') { icon = '⚡'; color = '#00e5ff'; }
+    // --- VISUALES ---
+    if (isTemporalEvent) {
+        // VISUALES DE LA PERLA AZUL
+        icon = '⏳'; // Icono de Reloj de Arena
+        color = '#00e5ff'; // Azul Cyan
+        orb.style.animation = 'pulseBlue 0.5s infinite alternate';
     }
 
+   
     orb.innerHTML = icon;
+    // Si es el evento de velocidad, la bola es un poco más grande
+    
+    
     orb.style.cssText = `
-        position: absolute; font-size: 4rem; cursor: pointer; z-index: 999;
+        position: absolute; font-size: ${size}; cursor: pointer; z-index: 999;
         filter: drop-shadow(0 0 15px ${color}); 
-        animation: floatAnomaly ${isCorrupt ? '0.5s' : '3s'} infinite ease-in-out;
         left: ${Math.random() * 80 + 10}%; top: ${Math.random() * 80 + 10}%;
     `;
 
-    orb.onclick = () => {
-        sfxAnomaly();
-        
-        if (isCorrupt) {
-            // --- LÓGICA DE CORRUPCIÓN ---
-            const roll = Math.random();
-            if (roll < 0.4) { 
-                // 40% Malo: Ruptura
-                activateBuff('production', 0.5, 30);
-                showAnomalyPopup("⚠️ FALLO DE SISTEMA<br><span style='font-size:0.9em; color:#fff'>Producción -50% (30s)</span>", "evil");
-            } else if (roll < 0.8) { 
-                // 40% Malo: Pérdida
-                const loss = game.cookies * 0.05;
-                game.cookies -= loss;
-                createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `-${formatNumber(loss)}`, "#ff0000");
-                showAnomalyPopup(`📉 FUGA DE ENERGÍA<br><span style='font-size:0.9em; color:#fff'>Perdiste ${formatNumber(loss)}</span>`, "evil");
-            } else { 
-                // 20% Épico: Elder Frenzy
-                activateBuff('production', 666, 6); 
-                showAnomalyPopup("👹 ¡PODER ABSOLUTO!<br><span style='font-size:0.9em; color:#fff'>Producción x666 (6s)</span>", "evil");
-            }
-        } else {
-            // --- EFECTOS NORMALES ---
-            if (type === 'money') {
-                const percentage = 0.15; // 15% (Puedes cambiarlo a 0.10 o 0.20)
-                let bonus = game.cookies * percentage;
-                game.cookies += bonus;
-                game.totalCookiesEarned += bonus;
-                createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `+${formatNumber(bonus)}`);
-                // Notificación verde
-                showAnomalyPopup(
-                    `⚛️ IMPULSO DE MATERIA<br>
-                    <span style='font-size:0.9em; color:#fff'>
-                        Ganancia: +${formatNumber(bonus)} 
-                        <span style="font-size:0.7em; color:#aaa">(+${percentage*100}% de energía)</span>
-                    </span>`, 
-                    "good"
-                );
-
-            } else if (type === 'production') {
-                // Notificación fuego
-                showAnomalyPopup("🔥 FRENESÍ<br><span style='font-size:0.9em; color:#fff'>Producción x7 (30s)</span>", "fire");
-            } else if (type === 'click') {
-                activateBuff('click', 777, 10);
-                // Notificación eléctrica
-                showAnomalyPopup("⚡ SOBRECARGA CÓSMICA<br><span style='font-size:0.9em; color:#fff'>Producción x777 (10s)</span>", "shock");
-            }
-        }
-        orb.remove();
-    };
-
+    // Animación de movimiento (La azul se mueve diferente si quieres, o igual)
+    
 
     
 
     document.getElementById('game-area').appendChild(orb);
     
     // TIEMPOS
-    let lifeTime = isCorrupt ? 10000 : 6000; // Las malas duran más
+    // Si es la perla azul, ¡dura POCO! Tienes que ser rápido
+    let lifeTime = isCorrupt ? 10000 : 6000;
+    
+
     if (game.upgrades.includes('quantum-lens')) lifeTime += 2000;
     setTimeout(() => { if(orb.parentNode) orb.remove(); }, lifeTime); 
 
+    // REINICIAR TIMER
     const anomalyHelper = helpersConfig.find(h => h.effect === 'anomalyRate');
     let baseTime = 30000 + Math.random() * 60000; 
     if (anomalyHelper && game.helpers.includes(anomalyHelper.id)) baseTime /= anomalyHelper.value;
     if (game.upgrades.includes('entropy-antenna')) baseTime *= 0.8; 
     
+    // Si el combo es alto, las anomalías aparecen un poco más rápido para ayudar
+    if (comboMultiplier > 3.0) baseTime *= 0.7;
+
     setTimeout(spawnAnomaly, baseTime);
 }
+
+
+
 
 
 function showAnomalyPopup(text, type = 'good') {
@@ -539,13 +532,27 @@ function activateBuff(type, amount, seconds) {
     }, seconds * 1000);
 }
 
-
+function updateStats() {
+    const statsHTML = `
+        <h3>📊 ESTADÍSTICAS CORPORATIVAS</h3>
+        <p>Tiempo Jugado: ${formatTime(game.totalTimePlayed)}</p>
+        <p>Energía Total Generada: ${formatNumber(game.totalCookiesEarned)}</p>
+        
+        <p>Clicks Manuales Totales: <span style="color: #00e5ff">${game.totalClicks.toLocaleString()}</span> / 10,000</p>
+        
+        <p>Anomalías Capturadas: ${game.anomaliesClicked || 0}</p>
+        <p>Nivel de Prestigio Actual: ${formatNumber(game.prestigeLevel)}</p>
+    `;
+    document.getElementById('stats-content').innerHTML = statsHTML;
+}
 
 
 
 function getClickPower() {
     const cursorData = buildingsConfig.find(u => u.id === 'cursor');
     const count = game.buildings[cursorData.id] || 0;
+
+    if (game.activePearl === 'blue') power *= 50; // Bonus click masivo
     
     // Poder base + mejoras MK
     let power = (1 + (count * cursorData.currentPower)) * game.prestigeMult;
@@ -571,6 +578,8 @@ function getClickPower() {
 
 function getCPS() {
     let cps = 0;
+
+    
     buildingsConfig.forEach(u => {
         if (u.type === 'auto') {
             // CAMBIO AQUÍ: Añadido "|| 0"
@@ -609,6 +618,7 @@ function getCPS() {
     // Sobrecarga y Frenesí
     if (isOvercharged) total *= 5;
     if (game.heavenlyUpgrades.includes('perm_prod')) total *= 1.10; // +10% permanente
+    if (game.activePearl === 'red') total *= 10; // Bonus masivo
     return total * buffMultiplier;
 }
 
@@ -640,7 +650,14 @@ function getHelpersCost() {
 function getCost(id) {
     const item = buildingsConfig.find(u => u.id === id);
     const currentAmount = game.buildings[id] || 0;
-    return Math.floor(item.baseCost * Math.pow(1.15, game.buildings[id] || 0));
+    
+    // Calculamos el coste base
+    let cost = Math.floor(item.baseCost * Math.pow(1.15, currentAmount));
+    
+    // Aplicar descuento de perla verde
+    if (game.activePearl === 'green') cost *= 0.5;
+
+    return cost;
 }
 
 function recalculateStats() {
@@ -666,6 +683,18 @@ window.buyBuilding = function(id) {
 };
 
 window.buyUpgrade = function(upgradeId, cost) {
+    if (upgradeId === 'omega-final') {
+    // En vez de isApocalypse = true, ahora desbloqueamos la perla
+    unlockPearl('red');
+
+    showSystemModal(
+        "🔴 PERLA ANGULAR OBTENIDA", 
+        "El Protocolo Omega ha condensado toda la entropía en una joya física.\n\nEquípala en el Relicario para desatar su poder (y el Apocalipsis).", 
+        false, null
+    );
+    // (Borra el isApocalypse = true de aquí si lo tenías)
+}
+
     if (game.cookies >= cost) {
         sfxBuy();
         game.cookies -= cost;
@@ -694,43 +723,73 @@ window.buyUpgrade = function(upgradeId, cost) {
 };
 
 
+// --- MISIÓN PERLA VERDE: SINCRONIZACIÓN DE ÉLITE ---
+function checkGreenPearlMission() {
+    // 1. Si ya la tienes, no hacemos nada
+    if (game.pearls.includes('green')) return;
+
+    // 2. Identificamos cuáles son los últimos 4 ayudantes de la lista
+    // (Usamos .slice(-4) para coger los 4 del final del array de configuración)
+    const last4Helpers = helpersConfig.slice(-4); 
+    
+    // 3. Comprobamos si tienes los 4 ACTIVOS (equipados) al mismo tiempo
+    // .every() devuelve true solo si TODOS cumplen la condición
+    const allEquipped = last4Helpers.every(helper => game.helpers.includes(helper.id));
+
+    // 4. Si están los 4 puestos... ¡PREMIO!
+    if (allEquipped) {
+        unlockPearl('green');
+        
+        showSystemModal(
+            "🟢 ECOSISTEMA PERFECTO", 
+            "Has logrado estabilizar a los 4 entes más poderosos de la corporación al mismo tiempo.\n\nLa vida fluye a través de la estructura.\nHas obtenido la PERLA DE LA VIDA.", 
+            false, null
+        );
+    }
+}
+
+
+
+
+
 window.toggleHelper = function(helperId) {
     const helper = helpersConfig.find(h => h.id === helperId);
     if (!helper) return;
     
-    // Calcular nivel actual del jugador (Raíz Cúbica del Total)
+    // Calcular nivel actual del jugador
     const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned));
     
-    // Seguridad: No puedes fichar si no tienes nivel (anti-hackers)
     if (playerLevel < helper.reqLevel) return;
 
     const isActive = game.helpers.includes(helperId);
     
     if (isActive) {
-        // DESACTIVAR (Siempre se puede)
+        // --- DESACTIVAR ---
+        // Usamos filter para quitarlo de la lista
         game.helpers = game.helpers.filter(id => id !== helperId);
         showNotification("❌ Ayudante Despedido", `${helper.name} ha vuelto a su planeta.`);
     } else {
-        // ACTIVAR (Hay restricciones)
+        // --- ACTIVAR ---
         
-        // 1. ¿Hay hueco en la nave?
+        // 1. ¿Hay hueco?
         if (game.helpers.length >= MAX_HELPERS) {
             showSystemModal(
                 "NAVE LLENA", 
-                `Solo tienes ${MAX_HELPERS} asientos disponibles.\nDebes despedir a alguien antes de contratar a ${helper.name}.`, 
+                `Solo tienes ${MAX_HELPERS} asientos disponibles.\nDebes despedir a alguien antes.`, 
                 false
             );
             return;
         }
 
         // 2. ¿Puedes pagar su sueldo?
+        // (Asumimos que los ayudantes restan CPS o requieren un flujo positivo)
         const currentCPS = getCPS();
         const currentHelperCost = getHelpersCost(); 
         
         if (currentCPS - currentHelperCost < helper.cost) {
             showSystemModal(
                 "SIN FONDOS",
-                `Tu imperio no genera suficiente energía para pagar a ${helper.name}.\nCoste: ${helper.cost}/seg`,
+                `Tu imperio no genera suficiente energía.\nCoste: ${helper.cost}/seg`,
                 false
             );
             return;
@@ -738,13 +797,45 @@ window.toggleHelper = function(helperId) {
         
         // ¡Contratado!
         game.helpers.push(helperId);
+        
+        // --- AQUÍ COMPROBAMOS LA MISIÓN DE LA PERLA VERDE ---
+        checkGreenPearlMission(); // <--- IMPORTANTE: Chequear si ya tienes los 4 últimos
+        // ----------------------------------------------------
+
         sfxPrestige(); 
         showNotification("✅ Ayudante Equipado", `${helper.name} se ha unido al equipo.`);
     }
     
+    // --- FINALIZAR ---
     renderHelpers();
     updateUI();
+    
+    // --- IMPORTANTE: RECALCULAR ESTADÍSTICAS ---
+    // Si no pones esto, el CPS no cambiará hasta que compres un edificio o hagas click.
+    recalculateStats(); // <--- IMPRESCINDIBLE
 };
+
+
+
+// Función que se ejecuta al hacer click en la esfera central
+function onObjectClick() {
+    // --- 1. CONTAR EL CLICK ---
+    game.totalClicks++;
+    if (game.totalClicks === 10000 && !game.pearls.includes('blue')) {
+        unlockPearl('blue');
+        showSystemModal("🔵 HITO ALCANZADO", "10,000 Clicks. La persistencia es la clave del tiempo.", false, null);
+    }
+
+    
+    const amount = getClickPower();
+    game.cookies += amount;
+    // ...
+}
+
+
+
+
+
 
 
 
@@ -1105,7 +1196,35 @@ window.saveGame = function() {
     }
 }
 
+
+
+
 function loadGame() {
+
+    if (!game.pearls) game.pearls = [];
+        // ...
+        renderPearls();
+
+    // INICIALIZACIÓN DE SEGURIDAD
+    if (!game.upgrades) game.upgrades = [];
+    if (!game.pearls) game.pearls = [];
+    
+    // --- NUEVO: CONTADOR DE CLICKS TOTALES ---
+    if (typeof game.totalClicks === 'undefined') game.totalClicks = 0;
+
+        // MIGRACIÓN: Si ya compró Omega-Final en una partida anterior, darle la perla roja
+    if (game.upgrades.includes('omega-final') && !game.pearls.includes('red')) {
+        game.pearls.push('red');
+        renderPearls();
+    }
+    // Restaurar estado visual si la roja está equipada
+    if (game.activePearl === 'red') isApocalypse = true;
+
+
+
+
+
+
     const rawSave = localStorage.getItem('quantumClickerUlt');
     
     if (rawSave) {
@@ -1464,82 +1583,180 @@ window.toggleCollection = function() {
     }
 };
 
-function renderCollection() {
-    const upgradesGrid = document.getElementById('collection-upgrades');
+
+
+window.renderCollection = function() {
+    const artifactsGrid = document.getElementById('collection-artifacts');
     const helpersGrid = document.getElementById('collection-helpers');
-    
-    upgradesGrid.innerHTML = '';
-    helpersGrid.innerHTML = '';
+    const upgradesGrid = document.getElementById('collection-upgrades');
 
-    // --- 1. RENDERIZAR MEJORAS (TECNOLOGÍA) ---
-    // A) Generamos la lista de TODAS las mejoras posibles de edificios
-    let allPossibleUpgrades = [];
-    
-    // Mejoras de Edificios (MK-1, MK-2...)
-    buildingsConfig.forEach(b => {
-        milestones.forEach((th, i) => {
-            allPossibleUpgrades.push({
-                id: `${b.id}-${th}`,
-                name: `${b.name} MK-${i+1}`,
-                icon: upgradeIcons[i % upgradeIcons.length]
-            });
-        });
-    });
+    // Limpieza de seguridad para evitar duplicados
+    if(artifactsGrid) artifactsGrid.innerHTML = '';
+    if(helpersGrid) helpersGrid.innerHTML = '';
+    if(upgradesGrid) upgradesGrid.innerHTML = '';
 
-    // B) Añadimos las Mejoras Especiales (Hardcoded)
-    const specials = [
-        { id: 'entropy-antenna', name: 'Antena de Entropía', icon: '📡' },
-        { id: 'quantum-lens', name: 'Lente Cuántica', icon: '🔍' },
-        { id: 'grandma-mine-synergy', name: 'Red Neuronal', icon: '🧠' },
-        { id: 'factory-click-synergy', name: 'Sobrecarga de Pulsos', icon: '🌀' },
-        { id: 'overcharge-plus', name: 'Batería de Helio', icon: '🔋' },
-        { id: 'protocol-omega', name: 'Protocolo Omega', icon: '💀' }
+    // --- 1. RENDERIZAR ARTEFACTOS (PERLAS) ---
+    const pearlsData = [
+        { id: 'red', name: 'Perla de la Entropía', desc: 'Producción Global x10.', color: '#ff0000', req: 'Protocolo Omega' },
+        { id: 'blue', name: 'Perla del Cronos', desc: 'Poder de Click x50.', color: '#00e5ff', req: '10,000 Clicks' },
+        { id: 'green', name: 'Perla de la Vida', desc: 'Costes -50%.', color: '#00ff00', req: 'Elite Squad (Últimos 4)' }
     ];
-    specials.forEach(s => allPossibleUpgrades.push(s));
 
-    // C) Pintamos la rejilla
-    allPossibleUpgrades.forEach(upg => {
-        const hasIt = game.upgrades.includes(upg.id);
+    pearlsData.forEach(p => {
+        const hasIt = game.pearls.includes(p.id);
         const div = document.createElement('div');
         div.className = `collection-item ${hasIt ? 'unlocked' : 'locked'}`;
-        div.innerHTML = upg.icon;
-        div.setAttribute('data-title', hasIt ? upg.name : '??? (Tecnología desconocida)');
-        upgradesGrid.appendChild(div);
+        
+        div.innerHTML = `
+            <div class="icon" style="${hasIt ? 'filter: drop-shadow(0 0 8px '+p.color+')' : ''}">💎</div>
+            <div class="info">
+                <div class="name" style="color: ${hasIt ? p.color : '#666'}">${hasIt ? p.name : '???'}</div>
+                <div class="desc">${hasIt ? p.desc : 'Pista: ' + p.req}</div>
+            </div>
+        `;
+        if(artifactsGrid) artifactsGrid.appendChild(div);
     });
 
-    // --- 2. RENDERIZAR AYUDANTES (ALIENS) ---
-    // Calculamos nivel actual para saber si están desbloqueados
-    const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned));
-
-    helpersConfig.forEach(helper => {
-        // ¿Está desbloqueado por nivel? (Visible en la tienda)
-        const isUnlocked = playerLevel >= helper.reqLevel;
-        // ¿Lo tenemos contratado ahora mismo?
-        const isHired = game.helpers.includes(helper.id);
-        
+    // --- 2. RENDERIZAR AYUDANTES ---
+    helpersConfig.forEach(h => {
+        const hasIt = game.helpers.includes(h.id);
         const div = document.createElement('div');
-        // Si no tienes nivel suficiente, sale gris (locked). Si tienes nivel, sale color.
-        div.className = `collection-item ${isUnlocked ? 'unlocked' : 'locked'}`;
+        div.className = `collection-item ${hasIt ? 'unlocked' : 'locked'}`;
         
-        // Si está contratado, le ponemos un borde dorado o algo extra
-        if (isHired) {
-            div.style.borderColor = 'gold';
-            div.style.boxShadow = '0 0 10px gold';
-        }
+        div.innerHTML = `
+            <div class="icon">${h.icon}</div>
+            <div class="info">
+                <div class="name" style="color: ${hasIt ? '#ff9100' : '#666'}">${hasIt ? h.name : 'Personal Desconocido'}</div>
+                <div class="desc">${hasIt ? h.desc : 'Aún no has contratado a este especialista.'}</div>
+            </div>
+        `;
+        if(helpersGrid) helpersGrid.appendChild(div);
+    });
 
-        // Icono: Si está bloqueado, mostramos candado o interrogación
-        div.innerHTML = isUnlocked ? helper.icon : '🔒';
+    // --- 3. RENDERIZAR MEJORAS (TECNOLOGÍA) ---
+    buildingsConfig.forEach(b => {
+        milestones.forEach((th, i) => {
+            const uid = `${b.id}-${th}`;
+            const isBought = game.upgrades.includes(uid);
+            
+            // Solo mostramos las que ya compramos para no llenar el códice de basura bloqueada
+            if (isBought) {
+                const div = document.createElement('div');
+                div.className = 'collection-item unlocked';
+                div.innerHTML = `
+                    <div class="icon" style="color:var(--accent)">⚡</div>
+                    <div class="info">
+                        <div class="name">${b.name} MK-${i+1}</div>
+                        <div class="desc">Mejora de eficiencia x2.</div>
+                    </div>
+                `;
+                if(upgradesGrid) upgradesGrid.appendChild(div);
+            }
+        });
+    });
+};
+
+
+
+
+/// =========================================================
+/// PERLAS
+
+// Desbloquear una perla (Ej: al comprar Omega)
+function unlockPearl(color) {
+    if (!game.pearls.includes(color)) {
+        game.pearls.push(color);
+        showSystemModal("💎 ARTEFACTO OBTENIDO", `Has encontrado la ${pearlsConfig[color].name}.`, false, null);
+        renderPearls();
+        saveGame();
+    }
+}
+
+// Equipar/Desequipar una perla
+window.togglePearl = function(color) {
+    // Si no la tienes, no haces nada
+    if (!game.pearls.includes(color)) {
+        showNotification("🔒 BLOQUEADO", "Aún no has encontrado esta Perla Angular.");
+        return;
+    }
+
+    // Si ya la tienes puesta, te la quitas
+    if (game.activePearl === color) {
+        game.activePearl = null;
+        isApocalypse = false; // Quitar efecto visual rojo si era la roja
+        showNotification("💍 DESEQUIPADO", "La perla vuelve al relicario.");
+    } else {
+        // Si te pones una nueva
+        game.activePearl = color;
         
-        // Tooltip
-        let tooltipText = "???";
-        if (isUnlocked) tooltipText = helper.name + (isHired ? " (CONTRATADO)" : "");
-        else tooltipText = `Desbloquea al Nivel ${helper.reqLevel}`;
+        // Efectos visuales inmediatos
+        if (color === 'red') {
+            isApocalypse = true; // Activar modo rojo
+            sfxAnomaly(); 
+        } else {
+            isApocalypse = false; // Las otras perlas limpian el apocalipsis
+            sfxClick();
+        }
         
-        div.setAttribute('data-title', tooltipText);
+        showNotification("💎 EQUIPADO", `${pearlsConfig[color].name} activa.`);
+    }
+
+    renderPearls();
+    updateUI(); // Para actualizar precios si es la verde
+    recalculateStats(); // Para actualizar CPS si es la roja
+};
+
+
+
+
+
+
+
+
+
+
+
+// Dibujar el estado visual de las ranuras
+function renderPearls() {
+    ['red', 'blue', 'green'].forEach(color => {
+        const slot = document.getElementById(`slot-${color}`);
+        const tooltip = slot.querySelector('.pearl-tooltip');
         
-        helpersGrid.appendChild(div);
+        // Resetear clases base
+        slot.className = 'pearl-slot locked';
+        
+        if (game.pearls.includes(color)) {
+            // --- CASO: DESBLOQUEADO ---
+            slot.classList.remove('locked');
+            slot.classList.add('unlocked');
+            
+            // Mostrar nombre y descripción real
+            tooltip.innerHTML = `<strong style="color:${pearlsConfig[color].color}">${pearlsConfig[color].name}</strong><br>${pearlsConfig[color].desc}`;
+            
+            if (game.activePearl === color) {
+                slot.classList.add('active');
+                tooltip.innerHTML += "<br><span style='color:#fff'>[EQUIPADA]</span>";
+            } else {
+                tooltip.innerHTML += "<br><span style='color:#aaa'>[Click para equipar]</span>";
+            }
+        } else {
+            // --- CASO: BLOQUEADO (Aquí ponemos las pistas) ---
+            
+            let hint = "???";
+            
+            // Lógica de pistas según el color
+            if (color === 'blue') hint = "Rompe la barrera del sonido (Anomalía durante Combo Máximo x4.5+).";
+            if (color === 'red') hint = "Completa el Protocolo Omega.";
+            if (color === 'blue') hint = "Persistencia: 10,000 Clicks Manuales.";
+            if (color === 'green') hint = "Sincroniza a la Élite (Últimos 4 activos).";
+
+            tooltip.innerHTML = `RANURA VACÍA<br><span style='font-size:0.8em; color:#888; font-style:italic'>Pista: ${hint}</span>`;
+        }
     });
 }
+
+
+
 
 
 
@@ -1766,5 +1983,4 @@ window.importSave = function() {
         showSystemModal("ERROR DE NÚCLEO", "El código introducido no es válido o está corrupto.", false, null);
         console.error(e);
     }
-};
-
+}
