@@ -860,13 +860,8 @@ window.toggleAchievements = function() {
     }
 }
 
-// --- LÓGICA DE ASCENSIÓN MEJORADA ---
-
-// 1. Mostrar la ventana y calcular datos
-
-
 // ==========================================
-// SISTEMA DE ASCENSIÓN (CORREGIDO)
+// SISTEMA DE ASCENSIÓN (CORREGIDO Y LIMPIO)
 // ==========================================
 
 window.doPrestige = function() {
@@ -882,7 +877,6 @@ window.doPrestige = function() {
 
     // Si no hay ganancia, avisar y salir
     if (amountToGain <= 0) {
-        // Cálculo de cuánto falta (Opcional, pero útil)
         const nextPoint = game.antimatter + 1;
         const energyNeed = Math.pow(nextPoint, 3) * PRESTIGE_BASE;
         const remaining = energyNeed - game.totalCookiesEarned;
@@ -891,13 +885,13 @@ window.doPrestige = function() {
         return;
     }
 
-    // 3. Calcular Multiplicadores (Actual vs Futuro)
-    // Aquí usamos la lógica simple: 1 Antimateria = +1 al multiplicador (x2, x3...)
-    // Si prefieres +10%, cambia a: 1 + (game.antimatter * 0.1)
-    const currentMult = 1 + game.antimatter; 
-    const futureMult = 1 + (game.antimatter + amountToGain);
+    // 3. Calcular Multiplicadores
+    // Fórmula: 1 + (Antimateria * 0.1) -> +10% por punto
+    // Si prefieres +100% por punto (x2, x3...), usa: 1 + game.antimatter
+    const currentMult = 1 + (game.antimatter * 0.1); 
+    const futureMult = 1 + ((game.antimatter + amountToGain) * 0.1);
 
-    // 4. Actualizar textos del modal (¡Ahora las variables SÍ existen!)
+    // 4. Actualizar textos del modal
     document.getElementById('asc-total-cookies').innerText = formatNumber(game.totalCookiesEarned);
     document.getElementById('asc-current-mult').innerText = `x${currentMult.toFixed(1)}`;
     document.getElementById('asc-gain-antimatter').innerText = `+${formatNumber(amountToGain)}`;
@@ -905,16 +899,10 @@ window.doPrestige = function() {
 
     // Guardar datos en el botón para confirmar después
     modal.dataset.futureMult = futureMult;
-    modal.dataset.gain = amountToGain; // Guardamos la ganancia exacta
+    modal.dataset.gain = amountToGain;
 
     modal.style.display = 'flex';
 }
-
-
-////ASCENSION CODE
-
-
-
 
 window.closeAscension = function() {
     document.getElementById('modal-ascension').style.display = 'none';
@@ -923,8 +911,8 @@ window.closeAscension = function() {
 window.confirmAscension = function() {
     const modal = document.getElementById('modal-ascension');
     const gain = parseInt(modal.dataset.gain);
-    const newMult = parseFloat(modal.dataset.futureMult);
-
+    // Recalculamos el multiplicador aquí por seguridad
+    
     if (!gain || gain <= 0) return;
 
     sfxPrestige();
@@ -933,13 +921,14 @@ window.confirmAscension = function() {
     game.cookies = 0;
     game.buildings = {};
     game.upgrades = [];
-    game.helpers = []; // ¡Importante! Tu amigo añadió esto, hay que mantenerlo
+    game.helpers = []; // Reseteamos ayudantes también
     
     // 2. APLICAR RECOMPENSAS
-    game.antimatter += gain;     // Sumamos la ganancia
-    game.prestigeMult = newMult; // Aplicamos el nuevo multi
+    game.antimatter += gain;
+    // Aplicamos fórmula de prestigio: 1 + 10% por cada punto
+    game.prestigeMult = 1 + (game.antimatter * 0.1);
 
-    // 3. REINICIAR CONFIGURACIÓN
+    // 3. REINICIAR CONFIGURACIÓN EDIFICIOS
     buildingsConfig.forEach(u => {
         game.buildings[u.id] = 0;
         u.currentPower = u.basePower; 
@@ -948,7 +937,7 @@ window.confirmAscension = function() {
     // 4. GUARDAR Y REINICIAR UI
     saveGame();
     renderStore();
-    renderHelpers(); // ¡Importante! Actualizar la lista de ayudantes vacía
+    renderHelpers();
     updateUI();
     closeAscension();
     
@@ -956,90 +945,76 @@ window.confirmAscension = function() {
     showNotification("🌀 UNIVERSO REINICIADO", `Has obtenido +${gain} Antimateria.`);
 }
 
+// ==========================================
+// ARRANQUE Y UTILIDADES
+// ==========================================
 
-
-
-
-
-
-
-
-window.closeAscension = function() {
-    document.getElementById('modal-ascension').style.display = 'none';
-}
-
-// 2. Ejecutar el reset
-
-
-
-
-
-
-
-// --- BOOT ---
+// Carga inicial
 loadGame();
-// Inicializar contadores a 0 si no existen
+
+// Inicializar contadores a 0 si no existen (Seguridad para partidas antiguas)
 buildingsConfig.forEach(u => {
     if (!game.buildings[u.id]) game.buildings[u.id] = 0;
     u.currentPower = u.basePower; 
 });
+
+// Recalcular mejoras compradas
 recalculateStats();
+
+// Iniciar motor gráfico
 initThree();
+
+// Renderizar UI inicial
 renderStore();
 renderHelpers();
+updateUI();
+
+// Bucle del juego
 gameLoop();
+
+// Auto-guardado cada 60s
 setInterval(saveGame, 60000);
 
 
-// --- IMPORT EXPORT ---
-
-// --- SISTEMA DE IMPORTAR / EXPORTAR ---
+// ==========================================
+// SISTEMA DE IMPORTAR / EXPORTAR
+// ==========================================
 
 window.exportSave = function() {
-    // 1. Guardamos primero para asegurar tener lo último
     saveGame();
-    
-    // 2. Convertimos el objeto game a texto JSON
     const jsonSave = JSON.stringify(game);
-    
-    // 3. Convertimos ese texto a Base64 (El "código raro")
-    // btoa() es una función nativa de JS: "Binary to ASCII"
     const encodedSave = btoa(jsonSave);
     
-    // 4. Lo copiamos al portapapeles automáticamente
     navigator.clipboard.writeText(encodedSave).then(() => {
-        alert("✅ ¡CÓDIGO COPIADO AL PORTAPAPELES!\n\nGuárdalo en un archivo de texto seguro.\nSi borras las cookies, podrás recuperarlo usando el botón de Importar (📥).");
+        alert("✅ ¡CÓDIGO COPIADO!\nGuárdalo en un lugar seguro.");
     }).catch(err => {
-        // Fallback por si falla el copiado automático
         prompt("Copia este código manualmente:", encodedSave);
     });
 };
 
 window.importSave = function() {
-    // 1. Pedimos el código al usuario
-    const userCode = prompt("Pega aquí tu código de guardado (el texto largo):");
-    
-    if (!userCode) return; // Si cancela, no hacemos nada
+    const userCode = prompt("Pega aquí tu código de guardado:");
+    if (!userCode) return;
 
     try {
-        // 2. Intentamos descifrar el código
-        // atob() es lo contrario: "ASCII to Binary"
         const decodedSave = atob(userCode);
-        
-        // 3. Convertimos el texto descifrado a objeto JS
         const loadedGame = JSON.parse(decodedSave);
         
-        // 4. Verificación básica de seguridad (¿Tiene cookies?)
         if (typeof loadedGame.cookies !== 'undefined') {
             game = loadedGame;
-            saveGame(); // Guardamos inmediatamente
-            location.reload(); // Recargamos para aplicar cambios visuales
+            // Recalcular multiplicador de prestigio al importar para evitar errores
+            game.prestigeMult = 1 + (game.antimatter * 0.1);
+            
+            saveGame();
+            location.reload(); 
         } else {
             throw new Error("Formato inválido");
         }
     } catch (e) {
-        alert("❌ ERROR: El código no es válido o está corrupto.");
+        alert("❌ ERROR: Código inválido.");
         console.error(e);
     }
 };
+
+
 
