@@ -445,3 +445,49 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
     }
     #game-area { height: 60vh; }
 }
+
+
+/* --- NOTIFICACIONES DE ANOMALÍAS (ARRIBA) --- */
+#anomaly-notifications {
+    position: absolute;
+    top: 15%; /* Posición: Un poco bajado del borde superior */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 2500;
+    pointer-events: none; /* Para que puedas clickar a través de ellas */
+}
+
+.anomaly-popup {
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid;
+    padding: 15px 30px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    font-size: 1.1rem;
+    text-align: center;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    min-width: 300px;
+    backdrop-filter: blur(4px);
+    
+    /* La animación de 5 segundos */
+    animation: anomalyFade 5s ease-in-out forwards;
+}
+
+/* TIPOS DE MENSAJES (COLORES) */
+.anomaly-popup.good { border-color: #00ff88; color: #00ff88; box-shadow: 0 0 15px rgba(0,255,136,0.3); }
+.anomaly-popup.fire { border-color: #ff5252; color: #ff5252; box-shadow: 0 0 15px rgba(255,82,82,0.3); }
+.anomaly-popup.shock { border-color: #00e5ff; color: #00e5ff; box-shadow: 0 0 15px rgba(0,229,255,0.3); }
+.anomaly-popup.evil { border-color: #ff0000; color: #ff0000; background: rgba(50,0,0,0.9); }
+
+@keyframes anomalyFade {
+    0% { opacity: 0; transform: translateY(-20px) scale(0.9); }
+    10% { opacity: 1; transform: translateY(0) scale(1); } /* Aparece rápido */
+    80% { opacity: 1; transform: translateY(0); } /* Se queda quieto */
+    100% { opacity: 0; transform: translateY(-30px); } /* Desaparece hacia arriba */
+}

@@ -358,6 +358,11 @@ function onResize() {
     renderer.setSize(w, h); composer.setSize(w, h);
 }
 
+
+
+
+
+
 // ==========================================
 // 4. LÓGICA DE JUEGO
 // ==========================================
@@ -375,6 +380,8 @@ function spawnAnomaly() {
     let color = 'gold';
     
     // VISUALES
+
+    
     if (isCorrupt) {
         icon = '🤬'; 
         color = '#ff0000'; // Rojo sangre
@@ -393,35 +400,49 @@ function spawnAnomaly() {
 
     orb.onclick = () => {
         sfxAnomaly();
+        
         if (isCorrupt) {
-            // EFECTOS DE CORRUPCIÓN
+            // --- LÓGICA DE CORRUPCIÓN ---
             const roll = Math.random();
-            if (roll < 0.4) { // 40% Malo: Ruptura
+            if (roll < 0.4) { 
+                // 40% Malo: Ruptura
                 activateBuff('production', 0.5, 30);
-                showNotification("⚠️ RUPTURA", "Producción reducida al 50%.");
-            } else if (roll < 0.8) { // 40% Malo: Pérdida
+                showAnomalyPopup("⚠️ FALLO DE SISTEMA<br><span style='font-size:0.9em; color:#fff'>Producción -50% (30s)</span>", "evil");
+            } else if (roll < 0.8) { 
+                // 40% Malo: Pérdida
                 const loss = game.cookies * 0.05;
                 game.cookies -= loss;
                 createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `-${formatNumber(loss)}`, "#ff0000");
-            } else { // 20% Épico: Elder Frenzy
-                activateBuff('production', 666, 6); // x666 por 6 segundos
-                showSystemModal("👹 PODER ABSOLUTO", "Producción x666 durante 6 segundos.", false, null);
+                showAnomalyPopup(`📉 FUGA DE ENERGÍA<br><span style='font-size:0.9em; color:#fff'>Perdiste ${formatNumber(loss)}</span>`, "evil");
+            } else { 
+                // 20% Épico: Elder Frenzy
+                activateBuff('production', 666, 6); 
+                showAnomalyPopup("👹 ¡PODER ABSOLUTO!<br><span style='font-size:0.9em; color:#fff'>Producción x666 (6s)</span>", "evil");
             }
         } else {
-            // EFECTOS NORMALES
+            // --- EFECTOS NORMALES ---
             if (type === 'money') {
                 const bonus = Math.max(game.cookies * 0.15, getCPS() * 900); 
                 game.cookies += bonus;
                 game.totalCookiesEarned += bonus;
                 createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `+${formatNumber(bonus)}`);
+                // Notificación verde
+                showAnomalyPopup(`⚛️ IMPULSO DE MATERIA<br><span style='font-size:0.9em; color:#fff'>+${formatNumber(bonus)} Energía</span>`, "good");
             } else if (type === 'production') {
                 activateBuff('production', 7, 30);
+                // Notificación fuego
+                showAnomalyPopup("🔥 FRENESÍ<br><span style='font-size:0.9em; color:#fff'>Producción x7 (30s)</span>", "fire");
             } else if (type === 'click') {
                 activateBuff('click', 777, 10);
+                // Notificación eléctrica
+                showAnomalyPopup("⚡ SOBRECARGA MANUAL<br><span style='font-size:0.9em; color:#fff'>Clicks x777 (10s)</span>", "shock");
             }
         }
         orb.remove();
     };
+
+
+    
 
     document.getElementById('game-area').appendChild(orb);
     
@@ -439,6 +460,21 @@ function spawnAnomaly() {
 }
 
 
+function showAnomalyPopup(text, type = 'good') {
+    const container = document.getElementById('anomaly-notifications');
+    if (!container) return;
+
+    const div = document.createElement('div');
+    div.className = `anomaly-popup ${type}`;
+    div.innerHTML = text;
+    
+    container.appendChild(div);
+
+    // Borramos el elemento del DOM después de que termine la animación (5s)
+    setTimeout(() => {
+        if (div.parentNode) div.remove();
+    }, 5000);
+}
 
 
 
