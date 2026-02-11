@@ -151,6 +151,10 @@ function createStarfield() {
 }
 
 function onCanvasClick(e) {
+        // En script.js, dentro de onCanvasClick
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
     const rect = renderer.domElement.getBoundingClientRect();
