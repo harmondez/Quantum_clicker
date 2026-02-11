@@ -1033,62 +1033,59 @@ window.toggleAchievements = function() {
 }
 
 // ==========================================
-// SISTEMA DE ASCENSIÓN (CORREGIDO Y LIMPIO)
+// SISTEMA DE ASCENSIÓN
 // ==========================================
 
 window.doPrestige = function() {
     const modal = document.getElementById('modal-ascension');
     const PRESTIGE_BASE = 1000000;
     
-    // 1. Calcular cuánta antimateria DEBERÍAS tener en total por tu historia
+    // 1. Calcular cuánta antimateria DEBERÍAS tener
     const totalPotentialAntimatter = Math.floor(Math.cbrt(game.totalCookiesEarned / PRESTIGE_BASE));
     
-    // 2. Restar la que YA tienes para saber la GANANCIA REAL
+    // 2. Restar la que YA tienes
     let amountToGain = totalPotentialAntimatter - game.antimatter;
     if (amountToGain < 0) amountToGain = 0;
 
-    // Si no hay ganancia, avisar y salir
+    // Si no hay ganancia, avisar con el nuevo modal
     if (amountToGain <= 0) {
-    const nextPoint = game.antimatter + 1;
-    const energyNeed = Math.pow(nextPoint, 3) * PRESTIGE_BASE;
-    const remaining = energyNeed - game.totalCookiesEarned;
-    
-    showSystemModal(
-        "ENERGÍA INSUFICIENTE", 
-        `Necesitas acumular ${formatNumber(remaining)} de energía más para generar un nuevo punto de antimateria.`, 
-        false, // Solo aviso
-        null
-    );
-    return;
-}
+        const nextPoint = game.antimatter + 1;
+        const energyNeed = Math.pow(nextPoint, 3) * PRESTIGE_BASE;
+        const remaining = energyNeed - game.totalCookiesEarned;
+        
+        showSystemModal(
+            "ENERGÍA INSUFICIENTE", 
+            `Necesitas acumular ${formatNumber(remaining)} de energía más para generar un nuevo punto de antimateria.`, 
+            false, 
+            null
+        );
+        return;
+    }
 
     // 3. Calcular Multiplicadores
-    // Fórmula: 1 + (Antimateria * 0.1) -> +10% por punto
-    // Si prefieres +100% por punto (x2, x3...), usa: 1 + game.antimatter
     const currentMult = 1 + (game.antimatter * 0.1); 
     const futureMult = 1 + ((game.antimatter + amountToGain) * 0.1);
 
-    // 4. Actualizar textos del modal
+    // 4. Actualizar textos
     document.getElementById('asc-total-cookies').innerText = formatNumber(game.totalCookiesEarned);
     document.getElementById('asc-current-mult').innerText = `x${currentMult.toFixed(1)}`;
     document.getElementById('asc-gain-antimatter').innerText = `+${formatNumber(amountToGain)}`;
     document.getElementById('asc-new-mult').innerText = `x${futureMult.toFixed(1)}`;
 
-    // Guardar datos en el botón para confirmar después
+    // Guardar datos en el botón
     modal.dataset.futureMult = futureMult;
     modal.dataset.gain = amountToGain;
 
     modal.style.display = 'flex';
-}
+};
 
 window.closeAscension = function() {
     document.getElementById('modal-ascension').style.display = 'none';
-}
+};
 
 window.confirmAscension = function() {
     const modal = document.getElementById('modal-ascension');
     const gain = parseInt(modal.dataset.gain);
-    // Recalculamos el multiplicador aquí por seguridad
     
     if (!gain || gain <= 0) return;
 
@@ -1098,11 +1095,10 @@ window.confirmAscension = function() {
     game.cookies = 0;
     game.buildings = {};
     game.upgrades = [];
-    game.helpers = []; // Reseteamos ayudantes también
+    game.helpers = []; 
     
     // 2. APLICAR RECOMPENSAS
     game.antimatter += gain;
-    // Aplicamos fórmula de prestigio: 1 + 10% por cada punto
     game.prestigeMult = 1 + (game.antimatter * 0.1);
 
     // 3. REINICIAR CONFIGURACIÓN EDIFICIOS
@@ -1111,9 +1107,19 @@ window.confirmAscension = function() {
         u.currentPower = u.basePower; 
     });
 
+    // 4. GUARDAR Y REINICIAR UI
+    saveGame();
+    renderStore();
+    renderHelpers();
+    updateUI();
+    closeAscension();
+    
+    showNotification("🌀 UNIVERSO REINICIADO", `Has obtenido +${gain} Antimateria.`);
+};
 
-
-// --- SISTEMA DE DIÁLOGOS PERSONALIZADOS ---
+// ==========================================
+// SISTEMA DE DIÁLOGOS PERSONALIZADOS (MODALES)
+// ==========================================
 let pendingAction = null;
 
 window.showSystemModal = function(title, message, isConfirm, actionCallback) {
@@ -1126,7 +1132,6 @@ window.showSystemModal = function(title, message, isConfirm, actionCallback) {
     titleEl.innerText = title;
     msgEl.innerHTML = message.replace(/\n/g, '<br>');
 
-    // Configuración visual según tipo
     if (isConfirm) {
         cancelBtn.style.display = 'block';
         titleEl.style.color = '#ff5252'; 
@@ -1151,28 +1156,6 @@ window.closeSystemModal = function() {
     pendingAction = null;
 };
 
-
-
-
-
-
-
-
-
-
-
-
-    // 4. GUARDAR Y REINICIAR UI
-    saveGame();
-    renderStore();
-    renderHelpers();
-    updateUI();
-    closeAscension();
-    
-    // Notificación
-    showNotification("🌀 UNIVERSO REINICIADO", `Has obtenido +${gain} Antimateria.`);
-}
-
 // ==========================================
 // ARRANQUE Y UTILIDADES
 // ==========================================
@@ -1180,7 +1163,7 @@ window.closeSystemModal = function() {
 // Carga inicial
 loadGame();
 
-// Inicializar contadores a 0 si no existen (Seguridad para partidas antiguas)
+// Inicializar contadores a 0 si no existen
 buildingsConfig.forEach(u => {
     if (!game.buildings[u.id]) game.buildings[u.id] = 0;
     u.currentPower = u.basePower; 
@@ -1203,6 +1186,8 @@ gameLoop();
 // Auto-guardado cada 60s
 setInterval(saveGame, 60000);
 
+// INICIAR CICLO DE ANOMALÍAS (¡ESTO FALTABA!)
+setTimeout(spawnAnomaly, 5000); // Primera anomalía a los 5 segundos
 
 // ==========================================
 // SISTEMA DE IMPORTAR / EXPORTAR
@@ -1214,13 +1199,14 @@ window.exportSave = function() {
     const encodedSave = btoa(jsonSave);
     
     navigator.clipboard.writeText(encodedSave).then(() => {
-        alert("✅ ¡CÓDIGO COPIADO!\nGuárdalo en un lugar seguro.");
+        showSystemModal("✅ CÓDIGO COPIADO", "Tu código de guardado está en el portapapeles.\nGuárdalo en un lugar seguro.", false, null);
     }).catch(err => {
         prompt("Copia este código manualmente:", encodedSave);
     });
 };
 
 window.importSave = function() {
+    // Usamos prompt nativo aquí porque necesitamos input de texto (más complejo de hacer custom)
     const userCode = prompt("Pega aquí tu código de guardado:");
     if (!userCode) return;
 
@@ -1230,21 +1216,15 @@ window.importSave = function() {
         
         if (typeof loadedGame.cookies !== 'undefined') {
             game = loadedGame;
-            // Recalcular multiplicador de prestigio al importar para evitar errores
             game.prestigeMult = 1 + (game.antimatter * 0.1);
-            
             saveGame();
             location.reload(); 
         } else {
             throw new Error("Formato inválido");
         }
     } catch (e) {
-    showSystemModal("ERROR DE NÚCLEO", "El código de guardado está corrupto o es incompatible.", false, null);
-    console.error(e);
+        showSystemModal("ERROR DE NÚCLEO", "El código introducido no es válido o está corrupto.", false, null);
+        console.error(e);
     }
 };
-
-
-
-
 
