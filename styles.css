@@ -32,7 +32,7 @@ body {
     height: 100%;
     display: block;
     outline: none;
-    position: absolute;
+    position: absolute; /* Asegura que ocupe todo el fondo */
     top: 0;
     left: 0;
     z-index: 1;
@@ -152,11 +152,125 @@ h2 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0; font-si
 /* LISTA EDIFICIOS */
 #buildings-list {
     overflow-y: auto;
-    flex: 1;
+    max-height: 350px;
     padding-right: 5px;
+    margin-bottom: 15px;
 }
 #buildings-list::-webkit-scrollbar { width: 6px; }
 #buildings-list::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+/* LISTA AYUDANTES */
+#helpers-list {
+    overflow-y: auto;
+    max-height: 280px;
+    padding-right: 5px;
+    margin-bottom: 15px;
+}
+#helpers-list::-webkit-scrollbar { width: 6px; }
+#helpers-list::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+.helper-item {
+    background: linear-gradient(90deg, rgba(124, 77, 255, 0.1) 0%, rgba(0,0,0,0) 100%);
+    margin-bottom: 8px;
+    padding: 10px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+    border: 1px solid #333;
+}
+
+.helper-item.active {
+    background: linear-gradient(90deg, rgba(0, 255, 136, 0.15) 0%, rgba(0,0,0,0) 100%);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+    animation: helperPulse 2s ease-in-out infinite;
+}
+
+@keyframes helperPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(0, 255, 136, 0.2); }
+    50% { box-shadow: 0 0 20px rgba(0, 255, 136, 0.4); }
+}
+
+.helper-item.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.helper-item:hover:not(.disabled) {
+    background: linear-gradient(90deg, rgba(124, 77, 255, 0.2) 0%, rgba(0,0,0,0) 100%);
+    border-color: var(--upgrade-bg);
+}
+
+.helper-icon {
+    font-size: 2rem;
+    min-width: 40px;
+    text-align: center;
+    filter: drop-shadow(0 0 5px rgba(124, 77, 255, 0.5));
+}
+
+.helper-info {
+    flex: 1;
+}
+
+.helper-info h4 {
+    margin: 0 0 3px 0;
+    font-size: 0.9rem;
+    color: #b388ff;
+    font-weight: 600;
+}
+
+.helper-info p {
+    margin: 0 0 5px 0;
+    font-size: 0.75rem;
+    color: #999;
+}
+
+.helper-cost {
+    font-size: 0.8rem;
+    color: #ff9100;
+    font-weight: bold;
+}
+
+.helper-active {
+    font-size: 0.8rem;
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.helper-toggle {
+    min-width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    border: 2px solid #555;
+    background: #222;
+    color: #aaa;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.helper-toggle:hover {
+    background: #333;
+    border-color: var(--upgrade-bg);
+    color: white;
+    transform: scale(1.1);
+}
+
+.helper-toggle.active {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+}
+
+.helper-toggle.active:hover {
+    background: #ff1744;
+    border-color: #ff1744;
+}
 
 .building-item {
     background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
@@ -187,7 +301,7 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
 #btn-prestige { background: #311b92; color: #b388ff; border-color: #651fff; display: none; }
 #btn-prestige:hover { background: #651fff; color: white; box-shadow: 0 0 15px #651fff; }
 
-/* --- NEWS TICKER --- */
+/* --- NEWS TICKER (Barra de noticias) --- */
 #news-ticker {
     position: absolute; top: 0; left: 0; width: 100%; height: 25px;
     background: rgba(0,0,0,0.8); border-bottom: 1px solid #333;
@@ -219,6 +333,7 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
 
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
 
 /* --- VENTANAS MODALES (General) --- */
 .modal-overlay {

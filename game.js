@@ -69,8 +69,65 @@ let game = {
     antimatter: 0,
     buildings: {},
     achievements: [], 
-    upgrades: [] 
+    upgrades: [],
+    helpers: [] // IDs de ayudantes activos
 };
+
+// ==========================================
+// 2.5. SISTEMA DE AYUDANTES
+// ==========================================
+const helpersConfig = [
+    { 
+        id: 'helper-click', 
+        name: '👽 Graxion el Potenciador', 
+        desc: 'Triplica el poder de tus clicks', 
+        cost: 5, 
+        icon: '👽',
+        unlockAt: 10, // CPS mínimo para desbloquear
+        effect: 'clickPower',
+        value: 3
+    },
+    { 
+        id: 'helper-prod', 
+        name: '🛸 Zyx Multiplicador', 
+        desc: 'Aumenta producción x1.5', 
+        cost: 20, 
+        icon: '🛸',
+        unlockAt: 50,
+        effect: 'cpsMultiplier',
+        value: 1.5
+    },
+    { 
+        id: 'helper-combo', 
+        name: '⭐ Nebula Mantenedora', 
+        desc: 'El combo dura el doble de tiempo', 
+        cost: 15, 
+        icon: '⭐',
+        unlockAt: 100,
+        effect: 'comboTime',
+        value: 2
+    },
+    { 
+        id: 'helper-overcharge', 
+        name: '🌠 Quantum Acelerador', 
+        desc: 'Sobrecarga se enfría 50% más rápido', 
+        cost: 50, 
+        icon: '🌠',
+        unlockAt: 500,
+        effect: 'overchargeCooldown',
+        value: 0.5
+    },
+    { 
+        id: 'helper-anomaly', 
+        name: '🔮 Vidente Cósmico', 
+        desc: 'Anomalías aparecen 2x más seguido', 
+        cost: 30, 
+        icon: '🔮',
+        unlockAt: 200,
+        effect: 'anomalyRate',
+        value: 2
+    }
+];
 
 // ==========================================
 // 3. MOTOR GRÁFICO (THREE.JS)
@@ -151,10 +208,6 @@ function createStarfield() {
 }
 
 function onCanvasClick(e) {
-        // En script.js, dentro de onCanvasClick
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
     const rect = renderer.domElement.getBoundingClientRect();
@@ -253,7 +306,15 @@ function spawnAnomaly() {
     };
     document.getElementById('game-area').appendChild(orb);
     setTimeout(() => orb.remove(), 8000); 
-    setTimeout(spawnAnomaly, 30000 + Math.random() * 60000);
+    
+    // Tasa de anomalías modificada por ayudante
+    const anomalyHelper = helpersConfig.find(h => h.effect === 'anomalyRate');
+    const baseTime = 30000 + Math.random() * 60000;
+    const nextTime = (anomalyHelper && game.helpers.includes(anomalyHelper.id)) 
+        ? baseTime / anomalyHelper.value 
+        : baseTime;
+    
+    setTimeout(spawnAnomaly, nextTime);
 }
 setTimeout(spawnAnomaly, 60000); 
 
@@ -261,6 +322,13 @@ function getClickPower() {
     const cursorData = buildingsConfig.find(u => u.type === 'click');
     const count = game.buildings[cursorData.id] || 0;
     let power = (1 + (count * cursorData.currentPower)) * game.prestigeMult;
+    
+    // Aplicar efecto de ayudante de clicks
+    const clickHelper = helpersConfig.find(h => h.effect === 'clickPower');
+    if (clickHelper && game.helpers.includes(clickHelper.id)) {
+        power *= clickHelper.value;
+    }
+    
     return Math.floor(power * comboMultiplier); 
 }
 
@@ -270,8 +338,30 @@ function getCPS() {
         if (u.type === 'auto') cps += (game.buildings[u.id] || 0) * u.currentPower;
     });
     let total = cps * game.prestigeMult;
+    
+    // Aplicar multiplicador de ayudante de producción
+    const prodHelper = helpersConfig.find(h => h.effect === 'cpsMultiplier');
+    if (prodHelper && game.helpers.includes(prodHelper.id)) {
+        total *= prodHelper.value;
+    }
+    
     if (isOvercharged) total *= 5;
     return total;
+}
+
+function getNetCPS() {
+    const grossCPS = getCPS();
+    const helperCost = getHelpersCost();
+    return Math.max(0, grossCPS - helperCost);
+}
+
+function getHelpersCost() {
+    let totalCost = 0;
+    game.helpers.forEach(helperId => {
+        const helper = helpersConfig.find(h => h.id === helperId);
+        if (helper) totalCost += helper.cost;
+    });
+    return totalCost;
 }
 
 function getCost(id) {
@@ -296,6 +386,7 @@ window.buyBuilding = function(id) {
         game.cookies -= cost;
         game.buildings[id]++;
         renderStore(); 
+        renderHelpers(); // Actualizar helpers disponibles
         updateUI();
     }
 };
@@ -311,6 +402,77 @@ window.buyUpgrade = function(upgradeId, cost) {
     }
 };
 
+window.toggleHelper = function(helperId) {
+    const helper = helpersConfig.find(h => h.id === helperId);
+    if (!helper) return;
+    
+    const isActive = game.helpers.includes(helperId);
+    
+    if (isActive) {
+        // Desactivar ayudante
+        game.helpers = game.helpers.filter(id => id !== helperId);
+        showNotification("❌ Ayudante Despedido", `${helper.name} ha dejado el equipo`);
+    } else {
+        // Verificar si puede permitirse el costo
+        const currentCPS = getCPS();
+        const currentHelperCost = getHelpersCost();
+        
+        if (currentCPS - currentHelperCost < helper.cost) {
+            alert(`No tienes suficiente CPS para contratar a ${helper.name}.\nNecesitas al menos ${helper.cost}/seg disponible.`);
+            return;
+        }
+        
+        // Activar ayudante
+        game.helpers.push(helperId);
+        sfxPrestige();
+        showNotification("✅ Ayudante Contratado", `${helper.name} se ha unido al equipo`);
+    }
+    
+    renderHelpers();
+    updateUI();
+};
+
+function renderHelpers() {
+    const container = document.getElementById('helpers-list');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    const currentCPS = getCPS();
+    const currentHelperCost = getHelpersCost();
+    
+    helpersConfig.forEach(helper => {
+        const isActive = game.helpers.includes(helper.id);
+        const isUnlocked = currentCPS >= helper.unlockAt;
+        const canAfford = (currentCPS - currentHelperCost) >= helper.cost;
+        
+        if (!isUnlocked) return; // No mostrar ayudantes bloqueados
+        
+        const div = document.createElement('div');
+        div.className = `helper-item ${isActive ? 'active' : ''} ${!canAfford && !isActive ? 'disabled' : ''}`;
+        
+        const statusText = isActive ? '✓ ACTIVO' : `${helper.cost}/seg`;
+        const statusClass = isActive ? 'helper-active' : 'helper-cost';
+        
+        div.innerHTML = `
+            <div class="helper-icon">${helper.icon}</div>
+            <div class="helper-info">
+                <h4>${helper.name}</h4>
+                <p>${helper.desc}</p>
+                <div class="${statusClass}">${statusText}</div>
+            </div>
+            <button class="helper-toggle ${isActive ? 'active' : ''}" onclick="toggleHelper('${helper.id}')">
+                ${isActive ? '❌' : '✓'}
+            </button>
+        `;
+        
+        container.appendChild(div);
+    });
+    
+    if (container.children.length === 0) {
+        container.innerHTML = '<div style="color:#666; padding:20px; text-align:center;">Genera más energía/seg para desbloquear ayudantes...</div>';
+    }
+}
+
 // --- BUCLE PRINCIPAL ---
 let lastTime = Date.now();
 
@@ -323,9 +485,12 @@ function gameLoop() {
     const dt = (now - lastTime) / 1000;
     lastTime = now;
 
-    // Combo Decay
+    // Combo Decay (modificado por ayudante)
+    const comboHelper = helpersConfig.find(h => h.effect === 'comboTime');
+    const comboDecayModifier = (comboHelper && game.helpers.includes(comboHelper.id)) ? comboHelper.value : 1;
+    
     if (comboTimer > 0) {
-        comboTimer -= dt;
+        comboTimer -= (dt / comboDecayModifier);
     } else {
         if (comboMultiplier > 1.0) {
             comboMultiplier -= dt * 2; 
@@ -336,15 +501,20 @@ function gameLoop() {
         }
     }
 
-    const cps = getCPS();
-    if (cps > 0) {
-        const gained = cps * dt;
+    const netCPS = getNetCPS();
+    if (netCPS > 0) {
+        const gained = netCPS * dt;
         game.cookies += gained;
         game.totalCookiesEarned += gained;
     }
 
     updateUI();
     checkAvailability();
+    
+    // Actualizar helpers disponibles cuando cambia el CPS
+    if (Math.random() < 0.1) { // ~10% del tiempo para no sobrecargar
+        renderHelpers();
+    }
 }
 
 // --- UI ---
@@ -355,7 +525,15 @@ const buildingsEl = document.getElementById('buildings-list');
 
 function updateUI() {
     scoreEl.innerText = formatNumber(Math.floor(game.cookies));
-    cpsEl.innerText = `${formatNumber(getCPS().toFixed(1))} / seg`;
+    const grossCPS = getCPS();
+    const helperCost = getHelpersCost();
+    const netCPS = getNetCPS();
+    
+    if (helperCost > 0) {
+        cpsEl.innerText = `${formatNumber(netCPS.toFixed(1))} / seg (bruto: ${formatNumber(grossCPS.toFixed(1))} - ${formatNumber(helperCost)} ayudantes)`;
+    } else {
+        cpsEl.innerText = `${formatNumber(grossCPS.toFixed(1))} / seg`;
+    }
     document.title = `${formatNumber(Math.floor(game.cookies))} Energía`;
     
     const pBtn = document.getElementById('btn-prestige');
@@ -499,8 +677,9 @@ function loadGame() {
         game = { ...game, ...d };
         if(!game.upgrades) game.upgrades = [];
         if(!game.prestigeMult) game.prestigeMult = 1;
-        if(!game.antimatter) game.antimatter = 0; 
+        if(!game.antimatter) game.antimatter = 0;
         if(!game.achievements) game.achievements = [];
+        if(!game.helpers) game.helpers = [];
 
         // Offline progress
         if (game.lastSaveTime) {
@@ -525,17 +704,27 @@ window.resetGame = function() {
     }
 }
 
+
 // --- CONFIG LOGROS ---
 const achievementsConfig = [
+    // Clicks Manuales
     { id: 'click100', name: 'Dedo Caliente', desc: '100 clicks manuales.', req: g => g.clickCount >= 100 },
     { id: 'click1k', name: 'Dedo Biónico', desc: '1,000 clicks manuales.', req: g => g.clickCount >= 1000 },
     { id: 'click10k', name: 'Dedo Cuántico', desc: '10,000 clicks manuales.', req: g => g.clickCount >= 10000 },
+    
+    // Mejoras Compradas
     { id: 'upg5', name: 'Innovador', desc: 'Compra 5 mejoras de tecnología.', req: g => g.upgrades.length >= 5 },
     { id: 'upg20', name: 'Científico Loco', desc: 'Compra 20 mejoras de tecnología.', req: g => g.upgrades.length >= 20 },
+    
+    // Progreso General
     { id: 'build10', name: 'Arquitecto', desc: 'Ten 10 edificios en total.', req: g => Object.values(g.buildings).reduce((a,b)=>a+b,0) >= 10 },
     { id: 'cps100', name: 'Generador', desc: 'Alcanza 100 energía/seg.', req: () => getCPS() >= 100 },
     { id: 'million', name: 'Millonario', desc: 'Acumula 1 Millón de energía total.', req: g => g.totalCookiesEarned >= 1000000 },
-    { id: 'hacker', name: 'Hacker', desc: 'Haz un combo x3.0.', req: () => comboMultiplier >= 3.0 }
+    { id: 'hacker', name: 'Hacker', desc: 'Haz un combo x3.0.', req: () => comboMultiplier >= 3.0 },
+    
+    // Ayudantes
+    { id: 'helper1', name: 'Primer Contacto', desc: 'Contrata tu primer ayudante alienígena.', req: g => g.helpers && g.helpers.length >= 1 },
+    { id: 'helper3', name: 'Equipo Galáctico', desc: 'Ten 3 ayudantes activos simultáneamente.', req: g => g.helpers && g.helpers.length >= 3 }
 ];
 
 // --- FRASES NOTICIAS ---
@@ -549,6 +738,7 @@ const newsHeadlines = [
 ];
 
 // --- SISTEMA DE NOTICIAS Y LOGROS ---
+
 function checkAchievements() {
     achievementsConfig.forEach(ach => {
         if (!game.achievements.includes(ach.id)) {
@@ -562,7 +752,7 @@ function checkAchievements() {
 function unlockAchievement(ach) {
     game.achievements.push(ach.id);
     showNotification("🏆 LOGRO DESBLOQUEADO", `${ach.name}: ${ach.desc}`);
-    sfxPrestige(); 
+    sfxPrestige(); // Usamos sonido de victoria
 }
 
 function showNotification(title, text) {
@@ -574,18 +764,20 @@ function showNotification(title, text) {
     setTimeout(() => el.remove(), 4000);
 }
 
+// Ciclo de noticias
 function updateNews() {
     const el = document.getElementById('news-content');
     const headline = newsHeadlines[Math.floor(Math.random() * newsHeadlines.length)];
+    // Truco para reiniciar la animación CSS
     el.style.animation = 'none';
-    el.offsetHeight; 
+    el.offsetHeight; /* trigger reflow */
     el.style.animation = 'tickerMove 20s linear infinite';
-    el.innerText = headline + "   |   " + headline; 
+    el.innerText = headline + "   |   " + headline; // Duplicar para efecto loop visual
 }
-setInterval(updateNews, 20000); 
-updateNews(); 
+setInterval(updateNews, 20000); // Cambiar noticia cada 20s
+updateNews(); // Primera noticia
 
-// --- LÓGICA DE INTERFAZ DE LOGROS ---
+        // --- LÓGICA DE INTERFAZ DE LOGROS ---
 window.toggleAchievements = function() {
     const modal = document.getElementById('modal-achievements');
     const grid = document.getElementById('achievements-grid');
@@ -593,6 +785,7 @@ window.toggleAchievements = function() {
     if (modal.style.display === 'flex') {
         modal.style.display = 'none';
     } else {
+        // Renderizar lista al abrir
         grid.innerHTML = '';
         achievementsConfig.forEach(ach => {
             const unlocked = game.achievements.includes(ach.id);
@@ -608,57 +801,61 @@ window.toggleAchievements = function() {
     }
 }
 
+// --- LÓGICA DE ASCENSIÓN MEJORADA ---
 
+// 1. Mostrar la ventana y calcular datos
 
 
 // ==========================================
-// SISTEMA DE ASCENSIÓN (PRESTIGE)
+// SISTEMA DE ASCENSIÓN (CORREGIDO)
 // ==========================================
-
-const PRESTIGE_BASE = 1000000; // 1 Millón de energía para el primer punto
 
 window.doPrestige = function() {
     const modal = document.getElementById('modal-ascension');
+    const PRESTIGE_BASE = 1000000;
     
-    // 1. FÓRMULA ESTILO COOKIE CLICKER
-    // Calculamos cuánta antimateria DEBERÍAS tener en total según tu energía histórica
-    let totalPotentialAntimatter = Math.floor(Math.cbrt(game.totalCookiesEarned / PRESTIGE_BASE));
+    // 1. Calcular cuánta antimateria DEBERÍAS tener en total por tu historia
+    const totalPotentialAntimatter = Math.floor(Math.cbrt(game.totalCookiesEarned / PRESTIGE_BASE));
     
-    // 2. Restamos la que YA tienes para saber cuánta ganas AHORA
+    // 2. Restar la que YA tienes para saber la GANANCIA REAL
     let amountToGain = totalPotentialAntimatter - game.antimatter;
-    
-    // Seguridad para no restar si gastaste puntos (futuro)
     if (amountToGain < 0) amountToGain = 0;
 
+    // Si no hay ganancia, avisar y salir
     if (amountToGain <= 0) {
-        // Cálculo de cuánto falta para el siguiente punto
+        // Cálculo de cuánto falta (Opcional, pero útil)
         const nextPoint = game.antimatter + 1;
         const energyNeed = Math.pow(nextPoint, 3) * PRESTIGE_BASE;
         const remaining = energyNeed - game.totalCookiesEarned;
         
-        alert(`Aún no has generado suficiente energía para una partícula de Antimateria.\n\nNecesitas acumular: ${formatNumber(remaining)} de energía más.`);
+        alert(`Aún no has generado suficiente entropía.\nNecesitas acumular: ${formatNumber(remaining)} energía más.`);
         return;
     }
 
-    // 3. Predicción del futuro (Simulamos qué pasará)
-    // bonus actual (ej: 10% por punto -> 0.1)
-    const currentMult = 1 + (game.antimatter * 0.1);
-    // bonus futuro
-    const futureMult = 1 + ((game.antimatter + amountToGain) * 0.1);
+    // 3. Calcular Multiplicadores (Actual vs Futuro)
+    // Aquí usamos la lógica simple: 1 Antimateria = +1 al multiplicador (x2, x3...)
+    // Si prefieres +10%, cambia a: 1 + (game.antimatter * 0.1)
+    const currentMult = 1 + game.antimatter; 
+    const futureMult = 1 + (game.antimatter + amountToGain);
 
-    // 4. Actualizar la Interfaz del Modal
+    // 4. Actualizar textos del modal (¡Ahora las variables SÍ existen!)
     document.getElementById('asc-total-cookies').innerText = formatNumber(game.totalCookiesEarned);
     document.getElementById('asc-current-mult').innerText = `x${currentMult.toFixed(1)}`;
-    
-    // Mostramos estadísticas en el modal
     document.getElementById('asc-gain-antimatter').innerText = `+${formatNumber(amountToGain)}`;
     document.getElementById('asc-new-mult').innerText = `x${futureMult.toFixed(1)}`;
 
-    // Guardamos el dato de ganancia en el botón para usarlo al confirmar
-    modal.dataset.gain = amountToGain;
-    
+    // Guardar datos en el botón para confirmar después
+    modal.dataset.futureMult = futureMult;
+    modal.dataset.gain = amountToGain; // Guardamos la ganancia exacta
+
     modal.style.display = 'flex';
 }
+
+
+////ASCENSION CODE
+
+
+
 
 window.closeAscension = function() {
     document.getElementById('modal-ascension').style.display = 'none';
@@ -667,38 +864,53 @@ window.closeAscension = function() {
 window.confirmAscension = function() {
     const modal = document.getElementById('modal-ascension');
     const gain = parseInt(modal.dataset.gain);
+    const newMult = parseFloat(modal.dataset.futureMult);
 
     if (!gain || gain <= 0) return;
 
-    sfxPrestige(); // Sonido de ascensión
+    sfxPrestige();
 
-    // 1. APLICAR RECOMPENSAS
-    game.antimatter += gain;
-    
-    // El multiplicador se recalcula basado en tu nueva antimateria total
-    // Fórmula: Base 1 + (10% por cada punto de antimateria)
-    game.prestigeMult = 1 + (game.antimatter * 0.1);
-
-    // 2. HARD RESET (Borramos progreso temporal)
+    // 1. HARD RESET
     game.cookies = 0;
-    game.buildings = {}; 
-    game.upgrades = []; 
+    game.buildings = {};
+    game.upgrades = [];
+    game.helpers = []; // ¡Importante! Tu amigo añadió esto, hay que mantenerlo
     
-    // Reiniciar contadores de edificios a 0
+    // 2. APLICAR RECOMPENSAS
+    game.antimatter += gain;     // Sumamos la ganancia
+    game.prestigeMult = newMult; // Aplicamos el nuevo multi
+
+    // 3. REINICIAR CONFIGURACIÓN
     buildingsConfig.forEach(u => {
         game.buildings[u.id] = 0;
-        u.currentPower = u.basePower; // Volvemos a potencia base (sin mejoras)
+        u.currentPower = u.basePower; 
     });
 
-    // 3. GUARDAR Y REINICIAR UI
+    // 4. GUARDAR Y REINICIAR UI
     saveGame();
     renderStore();
+    renderHelpers(); // ¡Importante! Actualizar la lista de ayudantes vacía
     updateUI();
     closeAscension();
     
-    // Notificación épica
-    showNotification("🌀 UNIVERSO REINICIADO", `Has obtenido ${gain} Antimateria. Bonus actual: ${game.prestigeMult.toFixed(1)}`);
+    // Notificación
+    showNotification("🌀 UNIVERSO REINICIADO", `Has obtenido +${gain} Antimateria.`);
 }
+
+
+
+
+
+
+
+
+
+window.closeAscension = function() {
+    document.getElementById('modal-ascension').style.display = 'none';
+}
+
+// 2. Ejecutar el reset
+
 
 
 
@@ -707,6 +919,7 @@ window.confirmAscension = function() {
 
 // --- BOOT ---
 loadGame();
+// Inicializar contadores a 0 si no existen
 buildingsConfig.forEach(u => {
     if (!game.buildings[u.id]) game.buildings[u.id] = 0;
     u.currentPower = u.basePower; 
@@ -714,6 +927,7 @@ buildingsConfig.forEach(u => {
 recalculateStats();
 initThree();
 renderStore();
+renderHelpers();
 gameLoop();
 setInterval(saveGame, 60000);
 
@@ -769,3 +983,4 @@ window.importSave = function() {
         console.error(e);
     }
 };
+
