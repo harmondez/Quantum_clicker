@@ -1156,6 +1156,111 @@ window.closeSystemModal = function() {
     pendingAction = null;
 };
 
+
+
+// ==========================================
+// SISTEMA DE CÓDICE (COLECCIÓN)
+// ==========================================
+
+window.toggleCollection = function() {
+    const modal = document.getElementById('modal-collection');
+    
+    if (modal.style.display === 'flex') {
+        modal.style.display = 'none';
+    } else {
+        renderCollection();
+        modal.style.display = 'flex';
+    }
+};
+
+function renderCollection() {
+    const upgradesGrid = document.getElementById('collection-upgrades');
+    const helpersGrid = document.getElementById('collection-helpers');
+    
+    upgradesGrid.innerHTML = '';
+    helpersGrid.innerHTML = '';
+
+    // --- 1. RENDERIZAR MEJORAS (TECNOLOGÍA) ---
+    // A) Generamos la lista de TODAS las mejoras posibles de edificios
+    let allPossibleUpgrades = [];
+    
+    // Mejoras de Edificios (MK-1, MK-2...)
+    buildingsConfig.forEach(b => {
+        milestones.forEach((th, i) => {
+            allPossibleUpgrades.push({
+                id: `${b.id}-${th}`,
+                name: `${b.name} MK-${i+1}`,
+                icon: upgradeIcons[i % upgradeIcons.length]
+            });
+        });
+    });
+
+    // B) Añadimos las Mejoras Especiales (Hardcoded)
+    const specials = [
+        { id: 'entropy-antenna', name: 'Antena de Entropía', icon: '📡' },
+        { id: 'quantum-lens', name: 'Lente Cuántica', icon: '🔍' },
+        { id: 'grandma-mine-synergy', name: 'Red Neuronal', icon: '🧠' },
+        { id: 'factory-click-synergy', name: 'Sobrecarga de Pulsos', icon: '🌀' },
+        { id: 'overcharge-plus', name: 'Batería de Helio', icon: '🔋' },
+        { id: 'protocol-omega', name: 'Protocolo Omega', icon: '💀' }
+    ];
+    specials.forEach(s => allPossibleUpgrades.push(s));
+
+    // C) Pintamos la rejilla
+    allPossibleUpgrades.forEach(upg => {
+        const hasIt = game.upgrades.includes(upg.id);
+        const div = document.createElement('div');
+        div.className = `collection-item ${hasIt ? 'unlocked' : 'locked'}`;
+        div.innerHTML = upg.icon;
+        div.setAttribute('data-title', hasIt ? upg.name : '??? (Tecnología desconocida)');
+        upgradesGrid.appendChild(div);
+    });
+
+    // --- 2. RENDERIZAR AYUDANTES (ALIENS) ---
+    // Calculamos nivel actual para saber si están desbloqueados
+    const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned));
+
+    helpersConfig.forEach(helper => {
+        // ¿Está desbloqueado por nivel? (Visible en la tienda)
+        const isUnlocked = playerLevel >= helper.reqLevel;
+        // ¿Lo tenemos contratado ahora mismo?
+        const isHired = game.helpers.includes(helper.id);
+        
+        const div = document.createElement('div');
+        // Si no tienes nivel suficiente, sale gris (locked). Si tienes nivel, sale color.
+        div.className = `collection-item ${isUnlocked ? 'unlocked' : 'locked'}`;
+        
+        // Si está contratado, le ponemos un borde dorado o algo extra
+        if (isHired) {
+            div.style.borderColor = 'gold';
+            div.style.boxShadow = '0 0 10px gold';
+        }
+
+        // Icono: Si está bloqueado, mostramos candado o interrogación
+        div.innerHTML = isUnlocked ? helper.icon : '🔒';
+        
+        // Tooltip
+        let tooltipText = "???";
+        if (isUnlocked) tooltipText = helper.name + (isHired ? " (CONTRATADO)" : "");
+        else tooltipText = `Desbloquea al Nivel ${helper.reqLevel}`;
+        
+        div.setAttribute('data-title', tooltipText);
+        
+        helpersGrid.appendChild(div);
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
 // ==========================================
 // ARRANQUE Y UTILIDADES
 // ==========================================
@@ -1188,6 +1293,16 @@ setInterval(saveGame, 60000);
 
 // INICIAR CICLO DE ANOMALÍAS (¡ESTO FALTABA!)
 setTimeout(spawnAnomaly, 5000); // Primera anomalía a los 5 segundos
+
+
+
+
+
+
+
+
+
+
 
 // ==========================================
 // SISTEMA DE IMPORTAR / EXPORTAR

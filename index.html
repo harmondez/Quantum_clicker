@@ -124,26 +124,49 @@
         <div id="buildings-list"></div>
 
         <h2>👽 Ayudantes Alienígenas</h2>
+        
         <div id="helpers-list"></div>
 
+
         <div id="save-controls" style="display: flex; gap: 5px;">
+            <button class="sys-btn" onclick="toggleCollection()" title="Códice (Colección)" style="
+                flex: 0.4; 
+                background: #3e2723; 
+                border-color: #5d4037; 
+                padding: 0;
+                font-size: 1.2rem;
+            ">📖</button>
     
-    <button class="sys-btn" onclick="toggleAchievements()" title="Logros" style="
-        flex: 0.4; 
-        background: #004d40; 
-        border-color: #00695c; 
-        padding: 0;
-        font-size: 1.2rem;
-    ">🏆</button>
+            <button class="sys-btn" onclick="toggleAchievements()" title="Logros" style="
+                flex: 0.4; 
+                background: #004d40; 
+                border-color: #00695c; 
+                padding: 0;
+                font-size: 1.2rem;
+            ">🏆</button>
 
-    <button class="sys-btn" onclick="exportSave()" title="Exportar Partida (Copiar código)">📤</button>
-    <button class="sys-btn" onclick="importSave()" title="Importar Partida (Pegar código)">📥</button>
-
-    <button class="sys-btn" id="btn-prestige" onclick="doPrestige()" style="display:none;">Ascender</button>
-    <button class="sys-btn" onclick="saveGame()">Guardar</button>
-    <button class="sys-btn" onclick="resetGame()" style="color: var(--danger);">Reset</button>
-</div>
+            <button class="sys-btn" onclick="exportSave()" title="Exportar Partida (Copiar código)">📤</button>
+            <button class="sys-btn" onclick="importSave()" title="Importar Partida (Pegar código)">📥</button>
+            <button class="sys-btn" id="btn-prestige" onclick="doPrestige()" style="display:none;">Ascender</button>
+            <button class="sys-btn" onclick="saveGame()">Guardar</button>
+            <button class="sys-btn" onclick="resetGame()" style="color: var(--danger);">Reset</button>
+        </div>
 
     <script type="module" src="game.js"></script>
+    
+
+    <div id="modal-collection" class="modal-overlay" style="z-index: 2500;">
+        <div class="modal-box" style="width: 700px; max-width: 95%; max-height: 80vh; overflow-y: auto;">
+            <div class="close-btn" onclick="toggleCollection()">×</div>
+            <h2 style="color: #ffd700; border-bottom: 1px solid #555;">📖 Códice Cuántico</h2>
+
+            <h3 style="text-align: left; color: #aaa; font-size: 0.9rem; margin-top: 20px;">TECNOLOGÍA DESCUBIERTA</h3>
+            <div id="collection-upgrades" class="collection-grid"></div>
+
+            <h3 style="text-align: left; color: #aaa; font-size: 0.9rem; margin-top: 30px;">BASE DE DATOS ALIENÍGENA</h3>
+            <div id="collection-helpers" class="collection-grid"></div>
+        </div>
+    </div>
+
 </body>
 </html>
