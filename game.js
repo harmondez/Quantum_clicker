@@ -47,14 +47,14 @@ function sfxPrestige() {
 // 2. DATOS DEL JUEGO
 // ==========================================
 const buildingsConfig = [
-    { id: 'cursor', name: 'Nanobot', type: 'click', baseCost: 15, basePower: 1, desc: '+1 click base' },
-    { id: 'grandma', name: 'Servidor', type: 'auto', baseCost: 100, basePower: 1, desc: '+1/s base' },
-    { id: 'farm', name: 'Panel Solar', type: 'auto', baseCost: 1100, basePower: 8, desc: '+8/s base' },
-    { id: 'mine', name: 'Mina Cuántica', type: 'auto', baseCost: 12000, basePower: 47, desc: '+47/s base' },
-    { id: 'factory', name: 'Sincrotrón', type: 'auto', baseCost: 130000, basePower: 260, desc: '+260/s base' },
-    { id: 'bank', name: 'Materia Oscura', type: 'auto', baseCost: 1400000, basePower: 1400, desc: '+1.4k/s base' },
-    { id: 'temple', name: 'Esfera Dyson', type: 'auto', baseCost: 20000000, basePower: 7800, desc: '+7.8k/s base' },
-    { id: 'portal', name: 'Portal Dimensional', type: 'auto', baseCost: 330000000, basePower: 44000, desc: '+44k/s base' }
+    { id: 'cursor', name: 'Micro-Terminal de Red', type: 'click', baseCost: 15, basePower: 1, desc: '+1 click base' },
+    { id: 'grandma', name: 'Unidad de Procesado', type: 'auto', baseCost: 100, basePower: 1, desc: '+1/s base' },
+    { id: 'farm', name: 'Nanobots', type: 'auto', baseCost: 1100, basePower: 8, desc: '+8/s base' },
+    { id: 'mine', name: 'Robots', type: 'auto', baseCost: 12000, basePower: 47, desc: '+47/s base' },
+    { id: 'factory', name: 'Androides', type: 'auto', baseCost: 130000, basePower: 260, desc: '+260/s base' },
+    { id: 'bank', name: 'Fábrica de Androides', type: 'auto', baseCost: 1400000, basePower: 1400, desc: '+1.4k/s base' },
+    { id: 'temple', name: 'Colisionador Hadrónico', type: 'auto', baseCost: 20000000, basePower: 7800, desc: '+7.8k/s base' },
+    { id: 'portal', name: 'Condesador de Singularidad', type: 'auto', baseCost: 330000000, basePower: 44000, desc: '+44k/s base' }
 ];
 
 const milestones = [10, 25, 50, 100, 200];
@@ -149,12 +149,14 @@ const helpersConfig = [
 
     // TIER 4 (EXPERTO)
     { 
-        id: 'h_overcharge', 
-        name: '⚡ Ingeniero de Plasma', 
-        desc: 'Sobrecarga se enfría en la mitad de tiempo.', 
-        cost: 1200, icon: '⚡', 
-        reqLevel: 50, // ~125,000 Energía
-        effect: 'overchargeCooldown', value: 0.5 
+        id: 'h_efficiency', 
+        name: '📉 Arquitecto de Red', 
+        desc: 'Optimiza el flujo de Watts. El mantenimiento de los ayudantes cuesta un 40% menos.', 
+        cost: 1500, 
+        icon: '📉', 
+        reqLevel: 60, // ~216,000 Watts totales acumulados
+        effect: 'helperMaintenance', 
+        value: 0.6 
     },
     { 
         id: 'h_banker', 
@@ -169,7 +171,7 @@ const helpersConfig = [
     { 
         id: 'h_synergy', 
         name: '🔗 Mente Colmena', 
-        desc: 'Ganas +1% CPS por cada edificio que poseas.', 
+        desc: 'Ganas +1% WPS por cada edificio que poseas.', 
         cost: 5000, icon: '🔗', 
         reqLevel: 80, // ~512,000 Energía
         effect: 'buildingSynergy', value: 0.01 
@@ -196,7 +198,7 @@ let mouse = new THREE.Vector2();
 let comboMultiplier = 1.0;
 let comboTimer = 0;
 let isOvercharged = false;
-let overchargeCooldown = false;
+
 
 const particleGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
 const particleMat = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
@@ -599,6 +601,13 @@ function getHelpersCost() {
         const helper = helpersConfig.find(h => h.id === helperId);
         if (helper) totalCost += helper.cost;
     });
+
+    // --- NUEVA LÓGICA DE DESCUENTO ---
+    const efficiencyHelper = helpersConfig.find(h => h.effect === 'helperMaintenance');
+    if (efficiencyHelper && game.helpers.includes(efficiencyHelper.id)) {
+        totalCost *= efficiencyHelper.value; // Multiplica por 0.6 (descuento del 40%)
+    }
+    
     return totalCost;
 }
 
@@ -1502,7 +1511,7 @@ setTimeout(spawnAnomaly, 5000); // Primera anomalía a los 5 segundos
 // COORDENADAS COMPACTAS: Centro X = 350
 const heavenlyConfig = [
     // RAÍZ (Arriba centro)
-    { id: 'genesis', name: 'Génesis', icon: '👶', cost: 1, x: 350, y: 30, desc: 'Comienza con 100 galletas tras ascender.', parents: [] },
+    { id: 'genesis', name: 'Génesis', icon: '👶', cost: 1, x: 350, y: 30, desc: 'Comienza con 100 Watts ', parents: [] },
     
     // RAMA IZQUIERDA (Producción Pasiva)
     { id: 'starter_kit', name: 'Kit Inicial', icon: '📦', cost: 2, x: 200, y: 120, desc: 'Empiezas con 10 Nanobots gratis.', parents: ['genesis'] },
@@ -1510,8 +1519,8 @@ const heavenlyConfig = [
     { id: 'offline_god', name: 'Cronos', icon: '💤', cost: 50, x: 200, y: 320, desc: 'Gana el 100% de producción offline (antes 50%).', parents: ['perm_prod'] },
 
     // RAMA DERECHA (Activa / Clicks)
-    { id: 'lucky_strike', name: 'Suerte Cósmica', icon: '🍀', cost: 3, x: 500, y: 120, desc: 'Las anomalías doradas aparecen un 10% más.', parents: ['genesis'] },
-    { id: 'click_god', name: 'Dedo Divino', icon: '👆', cost: 15, x: 580, y: 220, desc: '+1% de tu CPS se añade a tu click base.', parents: ['lucky_strike'] },
+    { id: 'lucky_strike', name: 'Suerte Cósmica', icon: '🍀', cost: 3, x: 500, y: 120, desc: 'Las anomalías aparecen un 10% más.', parents: ['genesis'] },
+    { id: 'click_god', name: 'Dedo Divino', icon: '👆', cost: 15, x: 580, y: 220, desc: '+1% de tu WPS se añade a tu click base.', parents: ['lucky_strike'] },
     { id: 'wrath_control', name: 'Diplomacia', icon: '🤝', cost: 100, x: 500, y: 320, desc: 'Las anomalías rojas tienen 50% menos chance de efecto negativo.', parents: ['click_god'] },
 
     // RAMA CENTRAL (Poder Puro - Abajo del todo)
