@@ -73,6 +73,10 @@ let game = {
     helpers: [] // IDs de ayudantes activos
 };
 
+// Variables temporales (no se guardan)
+let buffMultiplier = 1; // Multiplicador global de producción
+let clickBuffMultiplier = 1; // Multiplicador de clicks
+
 // ==========================================
 // 2.5. SISTEMA DE AYUDANTES
 // ==========================================
@@ -288,35 +292,90 @@ function onResize() {
 // 4. LÓGICA DE JUEGO
 // ==========================================
 
+
 function spawnAnomaly() {
+    const types = ['money', 'money', 'production', 'click']; // 50% dinero, 25% prod, 25% click
+    const type = types[Math.floor(Math.random() * types.length)];
+    
     const orb = document.createElement('div');
-    orb.innerHTML = '⚛️';
+    // Cambiamos el color según el tipo
+    let icon = '⚛️';
+    let color = 'gold';
+    
+    if (type === 'production') { icon = '🔥'; color = '#ff5252'; } // Rojo fuego
+    if (type === 'click') { icon = '⚡'; color = '#00e5ff'; }      // Azul eléctrico
+
+    orb.innerHTML = icon;
     orb.style.cssText = `
         position: absolute; font-size: 4rem; cursor: pointer; z-index: 999;
-        filter: drop-shadow(0 0 15px gold); animation: floatAnomaly 3s infinite ease-in-out;
+        filter: drop-shadow(0 0 15px ${color}); animation: floatAnomaly 3s infinite ease-in-out;
         left: ${Math.random() * 80 + 10}%; top: ${Math.random() * 80 + 10}%;
+        transition: transform 0.1s;
     `;
+    
     orb.onclick = () => {
         sfxAnomaly();
-        const bonus = Math.max(game.cookies * 0.25, getCPS() * 120); 
-        game.cookies += bonus;
-        game.totalCookiesEarned += bonus;
-        createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `¡ANOMALÍA! +${formatNumber(bonus)}`);
+        
+        if (type === 'money') {
+            // Premio clásico: 15% de lo que tienes o 15 mins de producción
+            const bonus = Math.max(game.cookies * 0.15, getCPS() * 900); 
+            game.cookies += bonus;
+            game.totalCookiesEarned += bonus;
+            createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `+${formatNumber(bonus)} Energía`);
+        } 
+        else if (type === 'production') {
+            // FRENESÍ: x7 producción durante 30s
+            activateBuff('production', 7, 30);
+            createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `¡FRENESÍ! x7 Prod (30s)`);
+        } 
+        else if (type === 'click') {
+            // CLICK STORM: x777 click power durante 10s
+            activateBuff('click', 777, 10);
+            createFloatingText(parseInt(orb.style.left), parseInt(orb.style.top), `¡SOBRECARGA! x777 Clicks (10s)`);
+        }
+
         orb.remove();
     };
+
     document.getElementById('game-area').appendChild(orb);
-    setTimeout(() => orb.remove(), 8000); 
     
-    // Tasa de anomalías modificada por ayudante
+    // Desaparece más rápido si no lo clickas (hace que estés atento)
+    setTimeout(() => { if(orb.parentNode) orb.remove(); }, 6000); 
+
+    // Calculamos el siguiente spawn (Lógica de tu amigo + Aleatoriedad)
     const anomalyHelper = helpersConfig.find(h => h.effect === 'anomalyRate');
-    const baseTime = 30000 + Math.random() * 60000;
-    const nextTime = (anomalyHelper && game.helpers.includes(anomalyHelper.id)) 
-        ? baseTime / anomalyHelper.value 
-        : baseTime;
+    let baseTime = 30000 + Math.random() * 60000; // Entre 30s y 90s
+    if (anomalyHelper && game.helpers.includes(anomalyHelper.id)) baseTime /= anomalyHelper.value;
     
-    setTimeout(spawnAnomaly, nextTime);
+    setTimeout(spawnAnomaly, baseTime);
 }
-setTimeout(spawnAnomaly, 60000); 
+
+// Función auxiliar para gestionar los tiempos de los buffs
+function activateBuff(type, amount, seconds) {
+    if (type === 'production') {
+        buffMultiplier = amount;
+        document.getElementById('game-area').style.border = "2px solid #ff5252"; // Efecto visual
+    } else {
+        clickBuffMultiplier = amount;
+        document.getElementById('game-area').style.border = "2px solid #00e5ff"; // Efecto visual
+    }
+    
+    updateUI(); // Para reflejar el cambio en CPS inmediatamente
+
+    setTimeout(() => {
+        // Resetear buff
+        if (type === 'production') buffMultiplier = 1;
+        else clickBuffMultiplier = 1;
+        
+        document.getElementById('game-area').style.border = "none";
+        updateUI();
+        showNotification("SISTEMA", "Los niveles de energía se han normalizado.");
+    }, seconds * 1000);
+}
+
+
+
+
 
 function getClickPower() {
     const cursorData = buildingsConfig.find(u => u.type === 'click');
@@ -329,7 +388,7 @@ function getClickPower() {
         power *= clickHelper.value;
     }
     
-    return Math.floor(power * comboMultiplier); 
+    return Math.floor(power * comboMultiplier * clickBuffMultiplier);
 }
 
 function getCPS() {
@@ -346,7 +405,7 @@ function getCPS() {
     }
     
     if (isOvercharged) total *= 5;
-    return total;
+    return total * buffMultiplier;
 }
 
 function getNetCPS() {
