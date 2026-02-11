@@ -516,15 +516,8 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
 
 @keyframes pulseNode { 0% { box-shadow: 0 0 5px #ffd700; } 50% { box-shadow: 0 0 20px #ffd700; } 100% { box-shadow: 0 0 5px #ffd700; } }
 
-/* Tooltip especial para el árbol */
-.heaven-node:hover::after {
-    content: attr(data-desc);
-    position: absolute;
-    bottom: 60px; left: 50%; transform: translateX(-50%);
-    width: 200px; background: rgba(0,0,0,0.9); border: 1px solid #b388ff;
-    color: #fff; padding: 10px; font-size: 0.8rem; border-radius: 4px;
-    pointer-events: none; z-index: 20; text-align: center;
-}
+
+
 
 
 /* --- ÁRBOL CELESTIAL V2 --- */
