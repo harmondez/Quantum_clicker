@@ -376,7 +376,7 @@ function spawnAnomaly() {
     
     // VISUALES
     if (isCorrupt) {
-        icon = '👹'; 
+        icon = '🤬'; 
         color = '#ff0000'; // Rojo sangre
     } else {
         if (type === 'production') { icon = '🔥'; color = '#ff5252'; } 
@@ -500,27 +500,37 @@ function getCPS() {
         if (u.type === 'auto') {
             let bPower = (game.buildings[u.id] || 0) * u.currentPower;
             
-            // MEJORA ESPECIAL: Red Neuronal (Servidores potencian Minas un 1% cada uno)
+            // Sinergia: Red Neuronal
             if (u.id === 'mine' && game.upgrades.includes('grandma-mine-synergy')) {
                 const grandmaCount = game.buildings['grandma'] || 0;
                 bPower *= (1 + (grandmaCount * 0.01));
             }
-            
             cps += bPower;
         }
     });
 
     let total = cps * game.prestigeMult;
     
-    // Multiplicador de ayudante de producción
+    // Ayudante de producción
     const prodHelper = helpersConfig.find(h => h.effect === 'cpsMultiplier');
     if (prodHelper && game.helpers.includes(prodHelper.id)) {
         total *= prodHelper.value;
     }
-    
-    if (isOvercharged) total *= 5;
 
-    // Frenesí de Anomalía (buffMultiplier)
+    // --- CADENA OMEGA (MULTIPLICADORES DE LORE) ---
+    // Fase 1: Protocolo Omega (x1.2)
+    if (game.upgrades.includes('protocol-omega')) total *= 1.2;
+    // Fase 2: Resonancia (x1.5)
+    if (game.upgrades.includes('omega-phase-2')) total *= 1.5;
+    // Fase 3: Fisura (x2.0)
+    if (game.upgrades.includes('omega-phase-3')) total *= 2.0;
+    // Fase 4: Contención Fallida (x3.0)
+    if (game.upgrades.includes('omega-phase-4')) total *= 3.0;
+    // Fase 5: EL DESPERTAR (x5.0 + Apocalipsis visual)
+    if (game.upgrades.includes('omega-final')) total *= 5.0;
+
+    // Sobrecarga y Frenesí
+    if (isOvercharged) total *= 5;
     return total * buffMultiplier;
 }
 
@@ -575,11 +585,20 @@ window.buyUpgrade = function(upgradeId, cost) {
         game.cookies -= cost;
         game.upgrades.push(upgradeId);
         
-        // ACTIVAR APOCALIPSIS (NUEVO)
-        if (upgradeId === 'protocol-omega') {
+        // --- LÓGICA DE ACTIVACIÓN DEL APOCALIPSIS ---
+        // Solo se activa cuando compras LA ÚLTIMA mejora de la cadena
+        if (upgradeId === 'omega-final') {
             isApocalypse = true;
-            sfxAnomaly(); 
-            showSystemModal("⚠️ ALERTA CRÍTICA", "Protocolo Omega activo.\nLa realidad se está colapsando.", false, null);
+            
+            // Sonido dramático (Doble tono grave)
+            playTone(100, 'sawtooth', 1.0, 0.5);
+            setTimeout(() => playTone(80, 'sawtooth', 2.0, 0.5), 500);
+            
+            showSystemModal(
+                "👁️ LA REALIDAD HA CAÍDO", 
+                "Has roto los sellos de contención.\nEl Vacío te observa.\n\n(Las anomalías ahora pueden ser peligrosas... o inmensamente poderosas)", 
+                false, null
+            );
         }
 
         recalculateStats();
@@ -828,16 +847,47 @@ function renderStore() {
     });
 
     // ===============================================
-    // 2. MEJORAS ESPECIALES (UTILIDAD, SINERGIA Y APOCALIPSIS)
+    // 2. MEJORAS ESPECIALES (UTILIDAD Y CADENA OMEGA)
     // ===============================================
     const specials = [
+        // --- UTILIDAD BÁSICA ---
         { id: 'entropy-antenna', name: 'Antena de Entropía', icon: '📡', cost: 50000, desc: 'Anomalías aparecen un 20% más rápido.', req: () => game.totalCookiesEarned > 100000 },
         { id: 'quantum-lens', name: 'Lente Cuántica', icon: '🔍', cost: 150000, desc: 'Las anomalías duran +2s en pantalla.', req: () => game.clickCount > 500 },
         { id: 'grandma-mine-synergy', name: 'Red Neuronal', icon: '🧠', cost: 500000, desc: 'Servidores potencian Minas (+1%/cad uno).', req: () => game.buildings['grandma'] >= 50 && game.buildings['mine'] >= 10 },
         { id: 'factory-click-synergy', name: 'Sobrecarga de Pulsos', icon: '🌀', cost: 1000000, desc: 'Cada Sincrotrón da +5 de poder de click base.', req: () => game.buildings['factory'] >= 15 },
         { id: 'overcharge-plus', name: 'Batería de Helio', icon: '🔋', cost: 250000, desc: 'Sobrecarga dura 5 segundos más.', req: () => game.totalCookiesEarned > 750000 },
-        // AÑADIDO: PROTOCOLO OMEGA (Apocalipsis)
-        { id: 'protocol-omega', name: 'Protocolo Omega', icon: '💀', cost: 5000000, desc: 'ADVERTENCIA: Inicia el Colapso Cuántico.', req: () => game.totalCookiesEarned > 2000000 && !isApocalypse }
+
+        // --- LA CADENA OMEGA (CRESCENDO DE TERROR) ---
+        // 1. INICIO
+        { 
+            id: 'protocol-omega', name: 'Protocolo Omega', icon: '⚠️', cost: 5000000, 
+            desc: 'Inicia el experimento prohibido.\nProducción Global x1.2', 
+            req: () => game.totalCookiesEarned > 2000000 
+        },
+        // 2. ADVERTENCIA
+        { 
+            id: 'omega-phase-2', name: 'Resonancia Oscura', icon: '🔉', cost: 25000000, 
+            desc: 'Se oyen susurros en los servidores.\nProducción Global x1.5', 
+            req: () => game.upgrades.includes('protocol-omega') 
+        },
+        // 3. PELIGRO
+        { 
+            id: 'omega-phase-3', name: 'Fisura Dimensional', icon: '🌀', cost: 150000000, 
+            desc: 'La realidad comienza a agrietarse.\nProducción Global x2.0', 
+            req: () => game.upgrades.includes('omega-phase-2') 
+        },
+        // 4. PUNTO DE NO RETORNO
+        { 
+            id: 'omega-phase-4', name: 'Fallo de Contención', icon: '🚨', cost: 1000000000, // 1 Billón
+            desc: '¡LOS NIVELES DE ENTROPÍA SON CRÍTICOS!\nProducción Global x3.0', 
+            req: () => game.upgrades.includes('omega-phase-3') 
+        },
+        // 5. EL FINAL (ACTIVADOR DEL APOCALIPSIS)
+        { 
+            id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, // 5 Billones
+            desc: 'LIBERA AL VACÍO.\nProducción x5.0 + ???', 
+            req: () => game.upgrades.includes('omega-phase-4') && !isApocalypse
+        }
     ];
 
     specials.forEach(s => {
@@ -846,7 +896,10 @@ function renderStore() {
             anyUp = true;
             
             const btn = document.createElement('div');
-            btn.className = 'upgrade-crate special'; // Clase extra por si quieres estilo morado
+            // Detectar si es Omega para darle estilo especial si quieres
+            const isOmega = s.id.startsWith('omega') || s.id === 'protocol-omega';
+            
+            btn.className = isOmega ? 'upgrade-crate omega' : 'upgrade-crate special';
             btn.innerHTML = s.icon;
             btn.dataset.cost = s.cost;
             btn.setAttribute('data-tooltip', `${s.name}\n${s.desc}\nCoste: ${formatNumber(s.cost)}`);
@@ -887,6 +940,7 @@ function renderStore() {
         buildingsEl.appendChild(div);
     });
 }
+
 
 
 
