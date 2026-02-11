@@ -1164,7 +1164,7 @@ function updateNews() {
     el.style.animation = 'none';
     el.offsetHeight; /* trigger reflow */
     el.style.animation = 'tickerMove 20s linear infinite';
-    el.innerText = headline + "   |   " + headline; // Duplicar para efecto loop visual
+    el.innerText = "   |   " + headline + "   |   "; // Duplicar para efecto loop visual
 }
 setInterval(updateNews, 20000); // Cambiar noticia cada 20s
 updateNews(); // Primera noticia
