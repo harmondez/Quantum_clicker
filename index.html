@@ -92,6 +92,10 @@
 
         <div id="save-controls" style="display: flex; gap: 5px;">
             <button class="sys-btn" onclick="toggleAchievements()" title="Logros" style="flex: 0.4; background: #004d40; border-color: #00695c; padding: 0; font-size: 1.2rem;">🏆</button>
+            
+            <button class="sys-btn" onclick="exportSave()" title="Exportar Partida (Copiar código)">📤</button>
+            <button class="sys-btn" onclick="importSave()" title="Importar Partida (Pegar código)">📥</button>
+            
             <button class="sys-btn" id="btn-prestige" onclick="doPrestige()" style="display:none;">Ascender</button>
             <button class="sys-btn" onclick="saveGame()">Guardar</button>
             <button class="sys-btn" onclick="resetGame()" style="color: var(--danger);">Reset</button>

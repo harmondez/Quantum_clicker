@@ -697,3 +697,56 @@ initThree();
 renderStore();
 gameLoop();
 setInterval(saveGame, 60000);
+
+
+// --- IMPORT EXPORT ---
+
+// --- SISTEMA DE IMPORTAR / EXPORTAR ---
+
+window.exportSave = function() {
+    // 1. Guardamos primero para asegurar tener lo último
+    saveGame();
+    
+    // 2. Convertimos el objeto game a texto JSON
+    const jsonSave = JSON.stringify(game);
+    
+    // 3. Convertimos ese texto a Base64 (El "código raro")
+    // btoa() es una función nativa de JS: "Binary to ASCII"
+    const encodedSave = btoa(jsonSave);
+    
+    // 4. Lo copiamos al portapapeles automáticamente
+    navigator.clipboard.writeText(encodedSave).then(() => {
+        alert("✅ ¡CÓDIGO COPIADO AL PORTAPAPELES!\n\nGuárdalo en un archivo de texto seguro.\nSi borras las cookies, podrás recuperarlo usando el botón de Importar (📥).");
+    }).catch(err => {
+        // Fallback por si falla el copiado automático
+        prompt("Copia este código manualmente:", encodedSave);
+    });
+};
+
+window.importSave = function() {
+    // 1. Pedimos el código al usuario
+    const userCode = prompt("Pega aquí tu código de guardado (el texto largo):");
+    
+    if (!userCode) return; // Si cancela, no hacemos nada
+
+    try {
+        // 2. Intentamos descifrar el código
+        // atob() es lo contrario: "ASCII to Binary"
+        const decodedSave = atob(userCode);
+        
+        // 3. Convertimos el texto descifrado a objeto JS
+        const loadedGame = JSON.parse(decodedSave);
+        
+        // 4. Verificación básica de seguridad (¿Tiene cookies?)
+        if (typeof loadedGame.cookies !== 'undefined') {
+            game = loadedGame;
+            saveGame(); // Guardamos inmediatamente
+            location.reload(); // Recargamos para aplicar cambios visuales
+        } else {
+            throw new Error("Formato inválido");
+        }
+    } catch (e) {
+        alert("❌ ERROR: El código no es válido o está corrupto.");
+        console.error(e);
+    }
+};
