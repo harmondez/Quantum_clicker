@@ -291,8 +291,7 @@ function onResize() {
 // ==========================================
 // 4. LÓGICA DE JUEGO
 // ==========================================
-
-
+// ANOMALIAS RANDOM (FRENZY GOLDEN COOKIES)
 function spawnAnomaly() {
     const types = ['money', 'money', 'production', 'click']; // 50% dinero, 25% prod, 25% click
     const type = types[Math.floor(Math.random() * types.length)];
@@ -312,6 +311,10 @@ function spawnAnomaly() {
         left: ${Math.random() * 80 + 10}%; top: ${Math.random() * 80 + 10}%;
         transition: transform 0.1s;
     `;
+window.spawnAnomaly = spawnAnomaly;
+
+
+
     
     orb.onclick = () => {
         sfxAnomaly();
@@ -1015,6 +1018,8 @@ window.importSave = function() {
         console.error(e);
     }
 };
+
+
 
 
 
