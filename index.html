@@ -63,6 +63,33 @@
         </div>
     </div>
 
+    
+    <div id="modal-system" class="modal-overlay" style="z-index: 3000;">
+        <div class="modal-box" style="border-color: #ff5252; min-width: 320px;">
+            <h3 id="sys-title" style="margin-top: 0; color: #ff5252; text-transform: uppercase; letter-spacing: 2px;">⚠️ ALERTA DEL SISTEMA</h3>
+            <p id="sys-msg" style="color: #ddd; font-size: 1rem; margin: 20px 0; line-height: 1.5;">Mensaje...</p>
+            
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button id="sys-btn-cancel" onclick="closeSystemModal()" style="
+                    background: transparent; border: 1px solid #444; color: #888; 
+                    padding: 10px 20px; border-radius: 4px; cursor: pointer; display: none;">
+                    CANCELAR
+                </button>
+                <button id="sys-btn-ok" style="
+                    background: var(--accent); border: none; color: #000; font-weight: bold;
+                    padding: 10px 20px; border-radius: 4px; cursor: pointer; box-shadow: 0 0 10px var(--accent);">
+                    ACEPTAR
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+
+    
+
+
+
     <div id="news-ticker"><div id="news-content">Cargando noticias del multiverso...</div></div>
     <div id="notification-area"></div>
 

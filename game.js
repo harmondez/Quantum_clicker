@@ -924,11 +924,16 @@ function loadGame() {
 }
 
 window.resetGame = function() {
-    if(confirm("¿BORRAR TODO EL PROGRESO?")) {
-        localStorage.removeItem('quantumClickerUlt');
-        location.reload();
-    }
-}
+    showSystemModal(
+        "BORRADO DE DATOS", 
+        "¿Estás seguro de que quieres formatear el multiverso?\nTodo el progreso se perderá para siempre.", 
+        true, // Es una confirmación
+        function() {
+            localStorage.removeItem('quantumClickerUlt');
+            location.reload();
+        }
+    );
+};
 
 
 // --- CONFIG LOGROS ---
@@ -1044,13 +1049,18 @@ window.doPrestige = function() {
 
     // Si no hay ganancia, avisar y salir
     if (amountToGain <= 0) {
-        const nextPoint = game.antimatter + 1;
-        const energyNeed = Math.pow(nextPoint, 3) * PRESTIGE_BASE;
-        const remaining = energyNeed - game.totalCookiesEarned;
-        
-        alert(`Aún no has generado suficiente entropía.\nNecesitas acumular: ${formatNumber(remaining)} energía más.`);
-        return;
-    }
+    const nextPoint = game.antimatter + 1;
+    const energyNeed = Math.pow(nextPoint, 3) * PRESTIGE_BASE;
+    const remaining = energyNeed - game.totalCookiesEarned;
+    
+    showSystemModal(
+        "ENERGÍA INSUFICIENTE", 
+        `Necesitas acumular ${formatNumber(remaining)} de energía más para generar un nuevo punto de antimateria.`, 
+        false, // Solo aviso
+        null
+    );
+    return;
+}
 
     // 3. Calcular Multiplicadores
     // Fórmula: 1 + (Antimateria * 0.1) -> +10% por punto
@@ -1100,6 +1110,57 @@ window.confirmAscension = function() {
         game.buildings[u.id] = 0;
         u.currentPower = u.basePower; 
     });
+
+
+
+// --- SISTEMA DE DIÁLOGOS PERSONALIZADOS ---
+let pendingAction = null;
+
+window.showSystemModal = function(title, message, isConfirm, actionCallback) {
+    const modal = document.getElementById('modal-system');
+    const titleEl = document.getElementById('sys-title');
+    const msgEl = document.getElementById('sys-msg');
+    const cancelBtn = document.getElementById('sys-btn-cancel');
+    const okBtn = document.getElementById('sys-btn-ok');
+
+    titleEl.innerText = title;
+    msgEl.innerHTML = message.replace(/\n/g, '<br>');
+
+    // Configuración visual según tipo
+    if (isConfirm) {
+        cancelBtn.style.display = 'block';
+        titleEl.style.color = '#ff5252'; 
+    } else {
+        cancelBtn.style.display = 'none';
+        titleEl.style.color = '#00ff88';
+    }
+
+    pendingAction = actionCallback;
+    
+    okBtn.onclick = function() {
+        if (pendingAction) pendingAction();
+        closeSystemModal();
+        sfxClick(); 
+    };
+
+    modal.style.display = 'flex';
+};
+
+window.closeSystemModal = function() {
+    document.getElementById('modal-system').style.display = 'none';
+    pendingAction = null;
+};
+
+
+
+
+
+
+
+
+
+
+
 
     // 4. GUARDAR Y REINICIAR UI
     saveGame();
@@ -1178,8 +1239,8 @@ window.importSave = function() {
             throw new Error("Formato inválido");
         }
     } catch (e) {
-        alert("❌ ERROR: Código inválido.");
-        console.error(e);
+    showSystemModal("ERROR DE NÚCLEO", "El código de guardado está corrupto o es incompatible.", false, null);
+    console.error(e);
     }
 };
 
