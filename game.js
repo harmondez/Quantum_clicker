@@ -47,14 +47,21 @@ function sfxPrestige() {
 // 2. DATOS DEL JUEGO
 // ==========================================
 const buildingsConfig = [
-    { id: 'cursor', name: 'Micro-Terminal de Red', type: 'click', baseCost: 15, basePower: 1, desc: '+1 click base' },
-    { id: 'grandma', name: 'Unidad de Procesado', type: 'auto', baseCost: 100, basePower: 1, desc: '+1/s base' },
-    { id: 'farm', name: 'Nanobots', type: 'auto', baseCost: 1100, basePower: 8, desc: '+8/s base' },
-    { id: 'mine', name: 'Robots', type: 'auto', baseCost: 12000, basePower: 47, desc: '+47/s base' },
-    { id: 'factory', name: 'Androides', type: 'auto', baseCost: 130000, basePower: 260, desc: '+260/s base' },
-    { id: 'bank', name: 'Fábrica de Androides', type: 'auto', baseCost: 1400000, basePower: 1400, desc: '+1.4k/s base' },
-    { id: 'temple', name: 'Colisionador Hadrónico', type: 'auto', baseCost: 20000000, basePower: 7800, desc: '+7.8k/s base' },
-    { id: 'portal', name: 'Condesador de Singularidad', type: 'auto', baseCost: 330000000, basePower: 44000, desc: '+44k/s base' }
+    // TIER 1: MECÁNICO
+    { id: 'cursor', name: 'Generador de Manivela', type: 'click', baseCost: 15, basePower: 1, desc: '+1 W por click (Manual)' },
+    { id: 'grandma', name: 'Hámster en Rueda', type: 'auto', baseCost: 100, basePower: 1, desc: '+1 W/s (Bio-energía básica)' },
+    
+    // TIER 2: ELÉCTRICO
+    { id: 'farm', name: 'Panel Solar', type: 'auto', baseCost: 1100, basePower: 8, desc: '+8 W/s (Fotovoltaica)' },
+    { id: 'mine', name: 'Turbina Eólica', type: 'auto', baseCost: 12000, basePower: 47, desc: '+47 W/s (Eólica)' },
+    
+    // TIER 3: INDUSTRIAL
+    { id: 'factory', name: 'Central Hidroeléctrica', type: 'auto', baseCost: 130000, basePower: 260, desc: '+260 W/s (Hidráulica)' },
+    { id: 'bank', name: 'Reactor Nuclear', type: 'auto', baseCost: 1400000, basePower: 1400, desc: '+1.4 kW/s (Fisión)' },
+    
+    // TIER 4: CUÁNTICO
+    { id: 'temple', name: 'Reactor de Fusión', type: 'auto', baseCost: 20000000, basePower: 7800, desc: '+7.8 kW/s (Fusión)' },
+    { id: 'portal', name: 'Matriz de Dyson', type: 'auto', baseCost: 330000000, basePower: 44000, desc: '+44 kW/s (Estelar)' }
 ];
 
 const pearlsConfig = {
@@ -330,34 +337,60 @@ function spawnParticles(pos) {
 
 function update3D() {
     const cps = getCPS();
+    const time = Date.now() * 0.002;
     
-    // Vibración: más fuerte si hay apocalipsis
-    const shakeBase = isApocalypse ? 0.005 : 0.001; 
-    
+    // 1. ROTACIÓN DINÁMICA
+    // La velocidad aumenta ligeramente con la producción
     const rotSpeed = 0.005 + Math.min(0.1, cps * 0.00001);
     mainObject.rotation.y += rotSpeed;
     mainObject.rotation.x += rotSpeed * 0.5;
     glowMesh.rotation.y -= rotSpeed;
     
-    // --- LÓGICA DE COLORES (NUEVO) ---
-    const time = Date.now() * 0.002;
+    // 2. LÓGICA DE COLORES Y EVOLUCIÓN (SISTEMA DE WATTS)
     if (isApocalypse) {
-        // MODO APOCALIPSIS (ROJO)
+        // MODO APOCALIPSIS (ROJO ENTROPÍA)
         mainObject.material.color.setHex(0xff0000); 
         mainObject.material.emissive.setHex(0x550000);
         glowMesh.material.color.setHex(0xff3300);   
         scene.fog.color.setHex(0x220000);           
-        mainObject.scale.setScalar(1 + Math.sin(time * 5) * 0.05); // Latido rápido
+        mainObject.scale.setScalar(1 + Math.sin(time * 5) * 0.05); 
     } else {
-        // MODO NORMAL (VERDE/AZUL)
-        mainObject.material.color.setHex(0x00ff88);
-        mainObject.material.emissive.setHex(0x004422);
-        glowMesh.material.color.setHex(0x7c4dff);
-        scene.fog.color.setHex(0x000000);
-        mainObject.scale.setScalar(1); 
+        // MODO NORMAL: EVOLUCIÓN POR ENERGÍA TOTAL ACUMULADA
+        let targetColor = new THREE.Color(0x00ff88); // Base: Verde (Watts)
+        let targetEmissive = new THREE.Color(0x004422);
+        let targetGlow = new THREE.Color(0x7c4dff);
+
+        // FASE KILOWATT (1,000 W): Núcleo Térmico (Naranja)
+        if (game.totalCookiesEarned >= 1000) {
+            targetColor.setHex(0xffaa00);
+            targetEmissive.setHex(0xff4400);
+            targetGlow.setHex(0xffcc00);
+        }
+        // FASE MEGAWATT (1,000,000 W): Núcleo de Plasma (Azul)
+        if (game.totalCookiesEarned >= 1000000) {
+            targetColor.setHex(0x00e5ff);
+            targetEmissive.setHex(0x0044aa);
+            targetGlow.setHex(0x00ffff);
+        }
+        // FASE GIGAWATT (1,000,000,000 W): Núcleo de Singularidad (Violeta)
+        if (game.totalCookiesEarned >= 1000000000) {
+            targetColor.setHex(0x9900ff);
+            targetEmissive.setHex(0x220044);
+            targetGlow.setHex(0xff00ff);
+        }
+
+        // Transición suave de colores
+        mainObject.material.color.lerp(targetColor, 0.05);
+        mainObject.material.emissive.lerp(targetEmissive, 0.05);
+        glowMesh.material.color.lerp(targetGlow, 0.05);
+        scene.fog.color.lerp(new THREE.Color(0x000000), 0.1);
+
+        // Latido suave basado en la energía
+        const pulse = 1 + Math.sin(time * 2) * 0.02;
+        mainObject.scale.setScalar(pulse);
     }
-    // ---------------------------------
     
+    // 3. FONDO DE ESTRELLAS (VELOCIDAD LUZ)
     const positions = starMesh.geometry.attributes.position.array;
     const starSpeed = 0.05 + Math.min(2.0, cps * 0.0005); 
     
@@ -367,21 +400,21 @@ function update3D() {
     }
     starMesh.geometry.attributes.position.needsUpdate = true;
 
+    // 4. PARTÍCULAS (LIMPIEZA DE MEMORIA)
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.position.add(p.userData.vel);
-        p.scale.multiplyScalar(0.92); // Se hacen pequeñas
+        p.scale.multiplyScalar(0.92); 
         
-        // Si son muy pequeñas, las eliminamos LIMPIANDO MEMORIA
         if(p.scale.x < 0.01) { 
-            dispose3D(p); // <--- ¡ESTO ES LO IMPORTANTE! (Antes tenías scene.remove(p))
+            dispose3D(p); 
             particles.splice(i, 1); 
         }
     }
 
+    // 5. RENDERIZADO FINAL
     camera.position.lerp(new THREE.Vector3(0,0,8), 0.1);
     mainObject.material.emissiveIntensity = 0.5 + Math.sin(time) * 0.2;
-
     composer.render();
 }
 
@@ -977,30 +1010,29 @@ const buildingsEl = document.getElementById('buildings-list');
 
 
 function updateUI() {
-    // Actualizar puntuación central
-    scoreEl.innerText = formatNumber(Math.floor(game.cookies));
+    scoreEl.innerText = formatNumber(Math.floor(game.cookies)); // Ahora saldrá "150 W"
     
-    // Cálculos de producción
-    const grossCPS = getCPS();       // Producción Bruta
-    const helperCost = getHelpersCost(); // Coste de mantenimiento
-    const netCPS = getNetCPS();      // Lo que realmente ganas
+    const grossCPS = getCPS();
+    const helperCost = getHelpersCost();
+    const netCPS = getNetCPS();
     
     if (helperCost > 0) {
-        // --- CAMBIO AQUÍ: Formato más limpio y claro ---
-        // Usamos innerHTML para poner la explicación en pequeño y gris
+        // Cambiamos "/seg" por "Watts/s" para que quede más técnico
         cpsEl.innerHTML = `
-            ${formatNumber(netCPS)} / seg 
+            ${formatNumber(netCPS)} / s 
             <span style="font-size: 0.75rem; color: #999; margin-left: 5px;">
-                (Prod: ${formatNumber(grossCPS)} - Coste: ${formatNumber(helperCost)})
+                (Gen: ${formatNumber(grossCPS)} - Uso: ${formatNumber(helperCost)})
             </span>
         `;
     } else {
-        // Si no tienes ayudantes, solo muestra la producción normal
-        cpsEl.innerText = `${formatNumber(grossCPS)} / seg`;
+        cpsEl.innerText = `${formatNumber(grossCPS)} / s`;
     }
 
-    // Actualizar Título de la pestaña
-    document.title = `${formatNumber(Math.floor(game.cookies))} Energía`;
+    // Título de la pestaña
+    document.title = `${formatNumber(Math.floor(game.cookies))} - Quantum Grid`;
+    
+    // ... resto del código del botón de ascensión ...
+    
     
     // Botón de Ascensión
     const pBtn = document.getElementById('btn-prestige');
@@ -1188,11 +1220,21 @@ function createFloatingText(x, y, txt) {
 }
 
 function formatNumber(n) {
-    if (n >= 1e12) return (n / 1e12).toFixed(2) + 'T';
-    if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
-    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
-    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
-    return Math.floor(n);
+    // Si es menor a 1000, son Watts simples
+    if (n < 1000) return Math.floor(n) + ' W';
+    
+    // Prefijos del Sistema Internacional
+    // k=kilo, M=Mega, G=Giga, T=Tera, P=Peta, E=Exa, Z=Zetta, Y=Yotta
+    if (n >= 1e24) return (n / 1e24).toFixed(2) + ' YW'; // YottaWatt (Dios)
+    if (n >= 1e21) return (n / 1e21).toFixed(2) + ' ZW'; // ZettaWatt
+    if (n >= 1e18) return (n / 1e18).toFixed(2) + ' EW'; // ExaWatt
+    if (n >= 1e15) return (n / 1e15).toFixed(2) + ' PW'; // PetaWatt
+    if (n >= 1e12) return (n / 1e12).toFixed(2) + ' TW'; // TeraWatt
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + ' GW';  // GigaWatt
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + ' MW';  // MegaWatt
+    if (n >= 1e3) return (n / 1e3).toFixed(2) + ' kW';  // KiloWatt
+    
+    return Math.floor(n) + ' W';
 }
 
 // --- SISTEMA DE GUARDADO PRO ---
@@ -1335,24 +1377,79 @@ window.resetGame = function() {
 
 // --- CONFIG LOGROS ---
 const achievementsConfig = [
-    // Clicks Manuales
-    { id: 'click100', name: 'Dedo Caliente', desc: '100 clicks manuales.', req: g => g.clickCount >= 100 },
-    { id: 'click1k', name: 'Dedo Biónico', desc: '1,000 clicks manuales.', req: g => g.clickCount >= 1000 },
-    { id: 'click10k', name: 'Dedo Cuántico', desc: '10,000 clicks manuales.', req: g => g.clickCount >= 10000 },
+    // --- PULSOS MANUALES (CLICKS) ---
+    { 
+        id: 'click100', 
+        name: '⚙️ Operador de Manivela', 
+        desc: 'Registra 100 pulsos cinéticos manuales en el núcleo.', 
+        req: g => g.clickCount >= 100 
+    },
+    { 
+        id: 'click1k', 
+        name: '🧠 Interfaz Neuronal', 
+        desc: 'Sincroniza 1,000 pulsos directos con la red.', 
+        req: g => g.clickCount >= 1000 
+    },
+    { 
+        id: 'click10k', 
+        name: '⚡ Maestro de la Cinética', 
+        desc: 'Alcanza el límite físico de 10,000 pulsos manuales.', 
+        req: g => g.clickCount >= 10000 
+    },
     
-    // Mejoras Compradas
-    { id: 'upg5', name: 'Innovador', desc: 'Compra 5 mejoras de tecnología.', req: g => g.upgrades.length >= 5 },
-    { id: 'upg20', name: 'Científico Loco', desc: 'Compra 20 mejoras de tecnología.', req: g => g.upgrades.length >= 20 },
+    // --- MÓDULOS TECNOLÓGICOS (MEJORAS) ---
+    { 
+        id: 'upg5', 
+        name: '🔧 Ingeniero Junior', 
+        desc: 'Instala 5 módulos tecnológicos de optimización de red.', 
+        req: g => g.upgrades.length >= 5 
+    },
+    { 
+        id: 'upg20', 
+        name: '🏛️ Arquitecto de Sistemas', 
+        desc: 'Implementa 20 protocolos de tecnología avanzada.', 
+        req: g => g.upgrades.length >= 20 
+    },
     
-    // Progreso General
-    { id: 'build10', name: 'Arquitecto', desc: 'Ten 10 edificios en total.', req: g => Object.values(g.buildings).reduce((a,b)=>a+b,0) >= 10 },
-    { id: 'cps100', name: 'Generador', desc: 'Alcanza 100 energía/seg.', req: () => getCPS() >= 100 },
-    { id: 'million', name: 'Millonario', desc: 'Acumula 1 Millón de energía total.', req: g => g.totalCookiesEarned >= 1000000 },
-    { id: 'hacker', name: 'Hacker', desc: 'Haz un combo x3.0.', req: () => comboMultiplier >= 3.0 },
+    // --- INFRAESTRUCTURA Y POTENCIA ---
+    { 
+        id: 'build10', 
+        name: '🏗️ Capataz Energético', 
+        desc: 'Despliega 10 estructuras de generación en el sector.', 
+        req: g => Object.values(g.buildings).reduce((a,b)=>a+b,0) >= 10 
+    },
+    { 
+        id: 'cps100', 
+        name: '📈 Pico de Tensión', 
+        desc: 'Logra una salida estable de 100 W/s.', 
+        req: () => getCPS() >= 100 
+    },
+    { 
+        id: 'million', 
+        name: '🔋 Reserva de Megavatios', 
+        desc: 'Genera un acumulado histórico de 1 MW (MegaWatt).', 
+        req: g => g.totalCookiesEarned >= 1000000 
+    },
+    { 
+        id: 'hacker', 
+        name: '🌀 Sincronía Crítica', 
+        desc: 'Estabiliza el flujo cuántico en un combo x3.0.', 
+        req: () => comboMultiplier >= 3.0 
+    },
     
-    // Ayudantes
-    { id: 'helper1', name: 'Primer Contacto', desc: 'Contrata tu primer ayudante alienígena.', req: g => g.helpers && g.helpers.length >= 1 },
-    { id: 'helper3', name: 'Equipo Galáctico', desc: 'Ten 3 ayudantes activos simultáneamente.', req: g => g.helpers && g.helpers.length >= 3 }
+    // --- DIVISIÓN ALIENÍGENA (AYUDANTES) ---
+    { 
+        id: 'helper1', 
+        name: '🤝 Asesoría Extraterrestre', 
+        desc: 'Firma tu primer contrato con un especialista alienígena.', 
+        req: g => g.helpers && g.helpers.length >= 1 
+    },
+    { 
+        id: 'helper3', 
+        name: '🌌 Consejo de Sabios', 
+        desc: 'Coordina a 3 especialistas de élite simultáneamente.', 
+        req: g => g.helpers && g.helpers.length >= 3 
+    }
 ];
 
 // --- FRASES NOTICIAS ---
@@ -1622,64 +1719,67 @@ window.renderCollection = function() {
     if(helpersGrid) helpersGrid.innerHTML = '';
     if(upgradesGrid) upgradesGrid.innerHTML = '';
 
-    // Función interna para crear el cuadradito
+    // Función interna para crear el cuadradito (Tile)
     const createTile = (container, type, unlocked, icon, title, desc, req) => {
         const div = document.createElement('div');
         div.className = `collection-item ${type} ${unlocked ? 'unlocked' : 'locked'}`;
-        div.innerHTML = unlocked ? icon : '🔒'; // Icono o candado
+        div.innerHTML = unlocked ? icon : '🔒'; 
 
-        // EVENTOS DEL RATÓN (Aquí conectamos con el tooltip global)
+        // Conexión con el Tooltip Global
         div.onmouseenter = (e) => showTooltip(e, title, desc, req, unlocked);
         div.onmouseleave = () => hideTooltip();
-        div.onmousemove = (e) => moveTooltip(e); // Para que siga al ratón
+        div.onmousemove = (e) => moveTooltip(e); 
 
         container.appendChild(div);
     };
 
-    // 1. ARTEFACTOS
+    // --- 1. ARTEFACTOS (RELIQUIAS CUÁNTICAS) ---
     const pearlsData = [
-        { id: 'red', name: 'Perla de la Entropía', desc: 'Producción Global x10.', icon: '🔴', req: 'Protocolo Omega' },
-        { id: 'blue', name: 'Perla del Cronos', desc: 'Poder de Click x50.', icon: '🔵', req: '10,000 Clicks' },
-        { id: 'green', name: 'Perla de la Vida', desc: 'Costes -50%.', icon: '🟢', req: 'Sincronizar Élite' }
+        { id: 'red', name: '💎 Perla de la Entropía', desc: 'Sincronización total con el vacío. Multiplica la generación global x10.', icon: '🔴', req: 'Completar Protocolo: Singularidad Total' },
+        { id: 'blue', name: '💎 Perla del Cronos', desc: 'Manipulación del tiempo local. Aumenta la potencia de los pulsos cinéticos x50.', icon: '🔵', req: 'Registrar 10,000 pulsos manuales' },
+        { id: 'green', name: '💎 Perla de la Vida', desc: 'Optimización biológica extrema. Reduce el coste de todas las estructuras en un 50%.', icon: '🟢', req: 'Sincronizar Consejo de Sabios (4 activos)' }
     ];
     pearlsData.forEach(p => {
         const has = game.pearls.includes(p.id);
-        createTile(artifactsGrid, 'artifact', has, p.icon, p.name, p.desc, "Pista: " + p.req);
+        createTile(artifactsGrid, 'artifact', has, p.icon, p.name, p.desc, "Protocolo de obtención: " + p.req);
     });
 
-    // 2. AYUDANTES
+    // --- 2. ESPECIALISTAS (AYUDANTES ALIENÍGENAS) ---
     helpersConfig.forEach(h => {
         const has = game.helpers.includes(h.id);
-        createTile(helpersGrid, 'helper', has, h.icon, h.name, h.desc, "Contrata a este alienígena.");
+        createTile(helpersGrid, 'helper', has, h.icon, h.name, h.desc, "Estado: Pendiente de contrato.");
     });
 
-    // 3. MEJORAS (TECNOLOGÍA)
-    // A) Edificios
+    // --- 3. MÓDULOS TECNOLÓGICOS (MEJORAS) ---
+    // A) Optimizaciones de Estructura (Niveles MK)
     buildingsConfig.forEach(b => {
         milestones.forEach((th, i) => {
             const uid = `${b.id}-${th}`;
             const has = game.upgrades.includes(uid);
-            // Usamos icono del upgrade array si existe, sino un rayo
             const icon = upgradeIcons[i % upgradeIcons.length] || '⚡';
             
+            // Nombres Sci-Fi según nivel
+            const mkNames = ["Optimización de Bobinas", "Refuerzo de Grafeno", "Núcleo de Superconducción", "Entrelazamiento Cuántico"];
+            const currentMkName = mkNames[i] || "Protocolo de Hiper-Eficiencia";
+
             createTile(upgradesGrid, 'upgrade', has, icon, 
-                `${b.name} MK-${i+1}`, 
-                "Eficiencia x2.", 
-                `Requiere: ${th} ${b.name}s`
+                `${b.name}: ${currentMkName} (MK-${i+1})`, 
+                "Aumenta la salida de Watts al doble (x2).", 
+                `Requisito: Desplegar ${th} unidades de ${b.name}.`
             );
         });
     });
 
-    // B) Especiales (Manuales para visualización)
+    // B) Proyectos Especiales de la Corporación
     const specials = [
-        { id: 'entropy-antenna', icon: '📡', name: 'Antena de Entropía', desc: 'Anomalías +20% rápidas.' },
-        { id: 'quantum-lens', icon: '🔍', name: 'Lente Cuántica', desc: 'Anomalías +2s duración.' },
-        { id: 'protocol-omega', icon: '⚠️', name: 'Protocolo Omega', desc: 'Inicio del fin (Prod x1.2)' },
-        { id: 'omega-final', icon: '👁️', name: 'EL DESPERTAR', desc: 'Apocalipsis (Prod x5.0)' }
+        { id: 'entropy-antenna', icon: '📡', name: 'Sincronizador de Micro-Pulsos', desc: 'Sintoniza la frecuencia de las anomalías para que aparezcan un 20% más rápido.' },
+        { id: 'quantum-lens', icon: '🔍', name: 'Obturador de Persistencia', desc: 'Mantiene las anomalías estables en nuestra dimensión por 2 segundos extra.' },
+        { id: 'protocol-omega', icon: '⚠️', name: 'Horizonte de Sucesos', desc: 'Fase 1: Inicio de la inestabilidad cuántica. Producción global x1.2.' },
+        { id: 'omega-final', icon: '👁️', name: 'SINGULARIDAD TOTAL', desc: 'Fase Final: Rotura de las leyes físicas. Producción global x5.0.' }
     ];
     specials.forEach(s => {
         const has = game.upgrades.includes(s.id);
-        createTile(upgradesGrid, 'special', has, s.icon, s.name, s.desc, "Proyecto Secreto");
+        createTile(upgradesGrid, 'special', has, s.icon, s.name, s.desc, "Estado: Datos encriptados (Proyecto Secreto)");
     });
 };
 
