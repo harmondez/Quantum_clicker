@@ -86,16 +86,19 @@ let game = {
     cookies: 0,
     totalCookiesEarned: 0,
     clickCount: 0,
+    totalClicks: 0, 
+    anomaliesClicked: 0, 
+    totalTimePlayed: 0, 
     prestigeMult: 1,
     antimatter: 0,
+    prestigeLevel: 0,
     buildings: {},
     achievements: [], 
     upgrades: [],
     heavenlyUpgrades: [],
     pearls: [],
     activePearl: null,
-    prestigeLevel: 0,   // Nivel TOTAL (Determina el multiplicador) <-- NUEVO
-    helpers: [] // IDs de ayudantes activos
+    helpers: [] 
 };
 
 // Variables temporales (no se guardan)
@@ -552,12 +555,13 @@ function getClickPower() {
     const cursorData = buildingsConfig.find(u => u.id === 'cursor');
     const count = game.buildings[cursorData.id] || 0;
 
-    if (game.activePearl === 'blue') power *= 50; // Bonus click masivo
-    
-    // Poder base + mejoras MK
+    // 1. PRIMERO DEFINIMOS EL PODER BASE
     let power = (1 + (count * cursorData.currentPower)) * game.prestigeMult;
+
+    // 2. AHORA APLICAMOS LA PERLA AZUL (Si la tienes activa)
+    if (game.activePearl === 'blue') power *= 50; 
     
-    // MEJORA ESPECIAL: Sinergia Sincrotrón (Cada uno da +5 poder base al click)
+    // MEJORA ESPECIAL: Sinergia Sincrotrón
     if (game.upgrades.includes('factory-click-synergy')) {
         const factoryCount = game.buildings['factory'] || 0;
         power += (factoryCount * 5);
@@ -568,10 +572,12 @@ function getClickPower() {
     if (clickHelper && game.helpers.includes(clickHelper.id)) {
         power *= clickHelper.value;
     }
-        // Lógica de "Dedo Divino" (1% CPS añadido al click)
+    
+    // Lógica de "Dedo Divino"
     if (game.heavenlyUpgrades.includes('click_god')) {
         power += (getCPS() * 0.01);
     }
+
     return Math.floor(power * comboMultiplier * clickBuffMultiplier);
 }
 
@@ -1175,7 +1181,18 @@ function formatNumber(n) {
 // --- SISTEMA DE GUARDADO PRO ---
 const CURRENT_VERSION = 1.0; // Cambiaremos esto si añadimos mecánicas nuevas en el futuro
 
+
 window.saveGame = function() {
+    // Seguridad: inicializa campos críticos antes de guardar
+    if (!game.upgrades) game.upgrades = [];
+    if (!game.achievements) game.achievements = [];
+    if (!game.helpers) game.helpers = [];
+    if (!game.heavenlyUpgrades) game.heavenlyUpgrades = [];
+    if (!game.buildings) game.buildings = {};
+    if (!game.pearls) game.pearls = [];
+    if (typeof game.totalClicks === 'undefined') game.totalClicks = 0;
+    if (typeof game.prestigeLevel === 'undefined') game.prestigeLevel = game.antimatter || 0;
+
     game.lastSaveTime = Date.now();
     game.isApocalypse = isApocalypse; // Guardar estado visual
 
@@ -1192,39 +1209,16 @@ window.saveGame = function() {
     if(btn) {
         const old = btn.innerText; 
         btn.innerText = "💾 OK!"; 
-        setTimeout(()=>btn.innerText=old, 1000);
+        setTimeout(() => btn.innerText = old, 1000);
     }
 }
 
 
 
 
+
 function loadGame() {
-
-    if (!game.pearls) game.pearls = [];
-        // ...
-        renderPearls();
-
-    // INICIALIZACIÓN DE SEGURIDAD
-    if (!game.upgrades) game.upgrades = [];
-    if (!game.pearls) game.pearls = [];
-    
-    // --- NUEVO: CONTADOR DE CLICKS TOTALES ---
-    if (typeof game.totalClicks === 'undefined') game.totalClicks = 0;
-
-        // MIGRACIÓN: Si ya compró Omega-Final en una partida anterior, darle la perla roja
-    if (game.upgrades.includes('omega-final') && !game.pearls.includes('red')) {
-        game.pearls.push('red');
-        renderPearls();
-    }
-    // Restaurar estado visual si la roja está equipada
-    if (game.activePearl === 'red') isApocalypse = true;
-
-
-
-
-
-
+    // 1. Cargar el string del almacenamiento
     const rawSave = localStorage.getItem('quantumClickerUlt');
     
     if (rawSave) {
@@ -1236,57 +1230,70 @@ function loadGame() {
             return;
         }
 
-        // DETECTAR SI ES UN GUARDADO ANTIGUO (Sin versión) O NUEVO
+        // 2. DETECTAR VERSIÓN Y EXTRAER DATOS
         let loadedGame = {};
-        
         if (parsedSave.version) {
-            // Es un guardado moderno
             console.log(`Cargando versión ${parsedSave.version}...`);
             loadedGame = parsedSave.data;
-            
-            // AQUÍ IRÍAN LAS MIGRACIONES FUTURAS
-            // if (parsedSave.version < 1.1) { ...hacer cambios... }
-            
         } else {
-            // Es un guardado antiguo (Legacy)
             console.log("Cargando versión Legacy...");
-            loadedGame = parsedSave; // Antes guardábamos el objeto game directo
+            loadedGame = parsedSave;
         }
 
-        // FUSIONAR CON VALORES POR DEFECTO (Esto rellena huecos vacíos)
+        // 3. FUSIONAR (Merge): Datos cargados sobre los datos por defecto
         game = { ...game, ...loadedGame };
 
-        // RESTAURAR ESTADOS
-        if (typeof loadedGame.isApocalypse !== 'undefined') isApocalypse = loadedGame.isApocalypse;
-        
-        // INICIALIZACIÓN DE SEGURIDAD (Arrays vacíos si no existen)
+        // 4. LIMPIEZA Y SEGURIDAD (Inicializar arrays si son null/undefined)
         if (!game.upgrades) game.upgrades = [];
         if (!game.achievements) game.achievements = [];
         if (!game.helpers) game.helpers = [];
         if (!game.heavenlyUpgrades) game.heavenlyUpgrades = [];
         if (!game.buildings) game.buildings = {};
+        if (!game.pearls) game.pearls = [];
         
-        // Parche de Prestigio
+        // Valores numéricos seguros
+        if (typeof game.totalClicks === 'undefined') game.totalClicks = 0;
         if (typeof game.prestigeLevel === 'undefined') game.prestigeLevel = game.antimatter || 0;
+        if (typeof game.anomaliesClicked === 'undefined') game.anomaliesClicked = 0;
+        if (typeof game.totalTimePlayed === 'undefined') game.totalTimePlayed = 0;
 
-        // Recalcular estadísticas tras la carga
+        // 5. RESTAURAR ESTADO GLOBAL
+        if (typeof game.isApocalypse !== 'undefined') isApocalypse = game.isApocalypse;
+        else isApocalypse = false;
+
+        // 6. MIGRACIONES DE LÓGICA (Ahora sí, porque ya tenemos los datos cargados)
+        // Si tiene Omega Final comprado pero no tiene la perla roja, se la damos
+        if (game.upgrades.includes('omega-final') && !game.pearls.includes('red')) {
+            game.pearls.push('red');
+        }
+
+        // 7. ACTUALIZAR ESTADÍSTICAS Y VISUALES
         recalculateStats();
+        renderPearls(); // Importante refrescar la UI de perlas aquí
 
-        // CÁLCULO OFFLINE
+        // 8. CÁLCULO DE PROGRESO OFFLINE
         if (game.lastSaveTime) {
             const now = Date.now();
             const secondsOffline = (now - game.lastSaveTime) / 1000;
+            
             if (secondsOffline > 60) {
-                // Chequear mejora celestial de tiempo offline
-                let efficiency = 0.5;
-                if (game.heavenlyUpgrades.includes && game.heavenlyUpgrades.includes('offline_god')) efficiency = 1.0;
+                let efficiency = 0.5; // 50% por defecto
+                // Mejora celestial 'Cronos' (offline_god)
+                if (game.heavenlyUpgrades.includes('offline_god')) efficiency = 1.0;
                 
                 const offlineProduction = (getCPS() * secondsOffline) * efficiency;
+                
                 if (offlineProduction > 0) {
                     game.cookies += offlineProduction;
                     game.totalCookiesEarned += offlineProduction;
+                    
+                    // Mostrar modal después de un segundo para que la UI cargue primero
                     setTimeout(() => {
-                        showSystemModal("REGRESO AL UNIVERSO", `Producción Offline (+${efficiency*100}%):\n+${formatNumber(offlineProduction)} Energía.`, false, null);
+                        showSystemModal(
+                            "REGRESO AL UNIVERSO", 
+                            `Has estado fuera ${formatTime(secondsOffline)}.\nProducción Offline (${efficiency*100}%):\n+${formatNumber(offlineProduction)} Energía.`, 
+                            false, null
+                        );
                     }, 1000);
                 }
             }
@@ -1585,76 +1592,116 @@ window.toggleCollection = function() {
 
 
 
+// ==========================================
+// SISTEMA DE CÓDICE + TOOLTIP GLOBAL
+// ==========================================
+
 window.renderCollection = function() {
     const artifactsGrid = document.getElementById('collection-artifacts');
     const helpersGrid = document.getElementById('collection-helpers');
     const upgradesGrid = document.getElementById('collection-upgrades');
 
-    // Limpieza de seguridad para evitar duplicados
     if(artifactsGrid) artifactsGrid.innerHTML = '';
     if(helpersGrid) helpersGrid.innerHTML = '';
     if(upgradesGrid) upgradesGrid.innerHTML = '';
 
-    // --- 1. RENDERIZAR ARTEFACTOS (PERLAS) ---
+    // Función interna para crear el cuadradito
+    const createTile = (container, type, unlocked, icon, title, desc, req) => {
+        const div = document.createElement('div');
+        div.className = `collection-item ${type} ${unlocked ? 'unlocked' : 'locked'}`;
+        div.innerHTML = unlocked ? icon : '🔒'; // Icono o candado
+
+        // EVENTOS DEL RATÓN (Aquí conectamos con el tooltip global)
+        div.onmouseenter = (e) => showTooltip(e, title, desc, req, unlocked);
+        div.onmouseleave = () => hideTooltip();
+        div.onmousemove = (e) => moveTooltip(e); // Para que siga al ratón
+
+        container.appendChild(div);
+    };
+
+    // 1. ARTEFACTOS
     const pearlsData = [
-        { id: 'red', name: 'Perla de la Entropía', desc: 'Producción Global x10.', color: '#ff0000', req: 'Protocolo Omega' },
-        { id: 'blue', name: 'Perla del Cronos', desc: 'Poder de Click x50.', color: '#00e5ff', req: '10,000 Clicks' },
-        { id: 'green', name: 'Perla de la Vida', desc: 'Costes -50%.', color: '#00ff00', req: 'Elite Squad (Últimos 4)' }
+        { id: 'red', name: 'Perla de la Entropía', desc: 'Producción Global x10.', icon: '🔴', req: 'Protocolo Omega' },
+        { id: 'blue', name: 'Perla del Cronos', desc: 'Poder de Click x50.', icon: '🔵', req: '10,000 Clicks' },
+        { id: 'green', name: 'Perla de la Vida', desc: 'Costes -50%.', icon: '🟢', req: 'Sincronizar Élite' }
     ];
-
     pearlsData.forEach(p => {
-        const hasIt = game.pearls.includes(p.id);
-        const div = document.createElement('div');
-        div.className = `collection-item ${hasIt ? 'unlocked' : 'locked'}`;
-        
-        div.innerHTML = `
-            <div class="icon" style="${hasIt ? 'filter: drop-shadow(0 0 8px '+p.color+')' : ''}">💎</div>
-            <div class="info">
-                <div class="name" style="color: ${hasIt ? p.color : '#666'}">${hasIt ? p.name : '???'}</div>
-                <div class="desc">${hasIt ? p.desc : 'Pista: ' + p.req}</div>
-            </div>
-        `;
-        if(artifactsGrid) artifactsGrid.appendChild(div);
+        const has = game.pearls.includes(p.id);
+        createTile(artifactsGrid, 'artifact', has, p.icon, p.name, p.desc, "Pista: " + p.req);
     });
 
-    // --- 2. RENDERIZAR AYUDANTES ---
+    // 2. AYUDANTES
     helpersConfig.forEach(h => {
-        const hasIt = game.helpers.includes(h.id);
-        const div = document.createElement('div');
-        div.className = `collection-item ${hasIt ? 'unlocked' : 'locked'}`;
-        
-        div.innerHTML = `
-            <div class="icon">${h.icon}</div>
-            <div class="info">
-                <div class="name" style="color: ${hasIt ? '#ff9100' : '#666'}">${hasIt ? h.name : 'Personal Desconocido'}</div>
-                <div class="desc">${hasIt ? h.desc : 'Aún no has contratado a este especialista.'}</div>
-            </div>
-        `;
-        if(helpersGrid) helpersGrid.appendChild(div);
+        const has = game.helpers.includes(h.id);
+        createTile(helpersGrid, 'helper', has, h.icon, h.name, h.desc, "Contrata a este alienígena.");
     });
 
-    // --- 3. RENDERIZAR MEJORAS (TECNOLOGÍA) ---
+    // 3. MEJORAS (TECNOLOGÍA)
+    // A) Edificios
     buildingsConfig.forEach(b => {
         milestones.forEach((th, i) => {
             const uid = `${b.id}-${th}`;
-            const isBought = game.upgrades.includes(uid);
+            const has = game.upgrades.includes(uid);
+            // Usamos icono del upgrade array si existe, sino un rayo
+            const icon = upgradeIcons[i % upgradeIcons.length] || '⚡';
             
-            // Solo mostramos las que ya compramos para no llenar el códice de basura bloqueada
-            if (isBought) {
-                const div = document.createElement('div');
-                div.className = 'collection-item unlocked';
-                div.innerHTML = `
-                    <div class="icon" style="color:var(--accent)">⚡</div>
-                    <div class="info">
-                        <div class="name">${b.name} MK-${i+1}</div>
-                        <div class="desc">Mejora de eficiencia x2.</div>
-                    </div>
-                `;
-                if(upgradesGrid) upgradesGrid.appendChild(div);
-            }
+            createTile(upgradesGrid, 'upgrade', has, icon, 
+                `${b.name} MK-${i+1}`, 
+                "Eficiencia x2.", 
+                `Requiere: ${th} ${b.name}s`
+            );
         });
     });
+
+    // B) Especiales (Manuales para visualización)
+    const specials = [
+        { id: 'entropy-antenna', icon: '📡', name: 'Antena de Entropía', desc: 'Anomalías +20% rápidas.' },
+        { id: 'quantum-lens', icon: '🔍', name: 'Lente Cuántica', desc: 'Anomalías +2s duración.' },
+        { id: 'protocol-omega', icon: '⚠️', name: 'Protocolo Omega', desc: 'Inicio del fin (Prod x1.2)' },
+        { id: 'omega-final', icon: '👁️', name: 'EL DESPERTAR', desc: 'Apocalipsis (Prod x5.0)' }
+    ];
+    specials.forEach(s => {
+        const has = game.upgrades.includes(s.id);
+        createTile(upgradesGrid, 'special', has, s.icon, s.name, s.desc, "Proyecto Secreto");
+    });
 };
+
+// --- LÓGICA DEL TOOLTIP FLOTANTE (GLOBAL) ---
+const globalTooltip = document.getElementById('global-tooltip');
+
+function showTooltip(e, title, desc, req, unlocked) {
+    if(!globalTooltip) return;
+
+    // Construir HTML del tooltip
+    let html = '';
+    if (unlocked) {
+        html = `<strong style="color:#fff">${title}</strong>${desc}`;
+    } else {
+        html = `<strong style="color:#888">???</strong>Tecnología Bloqueada<em>${req}</em>`;
+    }
+
+    globalTooltip.innerHTML = html;
+    globalTooltip.style.display = 'block';
+    moveTooltip(e); // Posicionar inmediatamente
+}
+
+function moveTooltip(e) {
+    if(!globalTooltip) return;
+    
+    // Posición relativa al ratón (+15px para que no tape el cursor)
+    const x = e.clientX + 15;
+    const y = e.clientY + 15;
+    
+    // Evitar que se salga de la pantalla (Lógica básica)
+    // Si quieres algo más pro, habría que calcular window.innerWidth
+    
+    globalTooltip.style.left = x + 'px';
+    globalTooltip.style.top = y + 'px';
+}
+
+function hideTooltip() {
+    if(globalTooltip) globalTooltip.style.display = 'none';
+}
 
 
 
@@ -1721,18 +1768,11 @@ function renderPearls() {
     ['red', 'blue', 'green'].forEach(color => {
         const slot = document.getElementById(`slot-${color}`);
         const tooltip = slot.querySelector('.pearl-tooltip');
-        
-        // Resetear clases base
         slot.className = 'pearl-slot locked';
-        
         if (game.pearls.includes(color)) {
-            // --- CASO: DESBLOQUEADO ---
             slot.classList.remove('locked');
             slot.classList.add('unlocked');
-            
-            // Mostrar nombre y descripción real
             tooltip.innerHTML = `<strong style="color:${pearlsConfig[color].color}">${pearlsConfig[color].name}</strong><br>${pearlsConfig[color].desc}`;
-            
             if (game.activePearl === color) {
                 slot.classList.add('active');
                 tooltip.innerHTML += "<br><span style='color:#fff'>[EQUIPADA]</span>";
@@ -1740,20 +1780,16 @@ function renderPearls() {
                 tooltip.innerHTML += "<br><span style='color:#aaa'>[Click para equipar]</span>";
             }
         } else {
-            // --- CASO: BLOQUEADO (Aquí ponemos las pistas) ---
-            
+            // Lógica de pistas mejorada
             let hint = "???";
-            
-            // Lógica de pistas según el color
-            if (color === 'blue') hint = "Rompe la barrera del sonido (Anomalía durante Combo Máximo x4.5+).";
-            if (color === 'red') hint = "Completa el Protocolo Omega.";
             if (color === 'blue') hint = "Persistencia: 10,000 Clicks Manuales.";
-            if (color === 'green') hint = "Sincroniza a la Élite (Últimos 4 activos).";
-
+            else if (color === 'red') hint = "Completa el Protocolo Omega.";
+            else if (color === 'green') hint = "Sincroniza a la Élite (Últimos 4 activos).";
             tooltip.innerHTML = `RANURA VACÍA<br><span style='font-size:0.8em; color:#888; font-style:italic'>Pista: ${hint}</span>`;
         }
     });
 }
+
 
 
 
@@ -1962,20 +1998,41 @@ window.exportSave = function() {
     });
 };
 
+
 window.importSave = function() {
-    // Usamos prompt nativo aquí porque necesitamos input de texto (más complejo de hacer custom)
     const userCode = prompt("Pega aquí tu código de guardado:");
     if (!userCode) return;
 
     try {
         const decodedSave = atob(userCode);
         const loadedGame = JSON.parse(decodedSave);
-        
+
         if (typeof loadedGame.cookies !== 'undefined') {
-            game = loadedGame;
-            game.prestigeMult = 1 + (game.antimatter * 0.1);
+            // Fusionar con valores por defecto para evitar campos undefined
+            let mergedGame = { ...game, ...loadedGame };
+
+            // Inicialización de arrays/objetos críticos
+            if (!mergedGame.upgrades) mergedGame.upgrades = [];
+            if (!mergedGame.achievements) mergedGame.achievements = [];
+            if (!mergedGame.helpers) mergedGame.helpers = [];
+            if (!mergedGame.heavenlyUpgrades) mergedGame.heavenlyUpgrades = [];
+            if (!mergedGame.buildings) mergedGame.buildings = {};
+            if (!mergedGame.pearls) mergedGame.pearls = [];
+            if (typeof mergedGame.totalClicks === 'undefined') mergedGame.totalClicks = 0;
+            if (typeof mergedGame.prestigeLevel === 'undefined') mergedGame.prestigeLevel = mergedGame.antimatter || 0;
+
+            // Migraciones futuras (ejemplo)
+            // if (loadedGame.version && loadedGame.version < 1.1) { ... }
+
+            game = mergedGame;
+            game.prestigeMult = 1 + (game.prestigeLevel * 0.1);
+
+            // Restaurar estado visual
+            if (typeof game.isApocalypse !== 'undefined') isApocalypse = game.isApocalypse;
+            else isApocalypse = false;
+
             saveGame();
-            location.reload(); 
+            location.reload();
         } else {
             throw new Error("Formato inválido");
         }
@@ -1984,5 +2041,6 @@ window.importSave = function() {
         console.error(e);
     }
 }
+
 
 window.game = game;
