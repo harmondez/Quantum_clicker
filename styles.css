@@ -84,19 +84,202 @@ body {
     100% { opacity: 0; transform: translateY(-80px) scale(1.2); }
 }
 
-/* --- DERECHA: TIENDA --- */
+
+
+/* =========================================
+   ZONA DERECHA: ESTILO HOLOGRÁFICO SCI-FI
+   ========================================= */
+
 #store-area {
     width: 400px;
-    background-color: var(--panel);
+    height: 95vh;
+    /* Fondo oscuro con un toque azulado transparente (Glassmorphism) */
+    background: linear-gradient(180deg, rgba(10, 10, 16, 0.95) 0%, rgba(5, 5, 10, 0.98) 100%);
+    border-left: 1px solid rgba(0, 255, 136, 0.3); /* Borde sutil neón */
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.8), inset 1px 0 0 rgba(0, 255, 136, 0.2);
+    
     display: flex;
     flex-direction: column;
-    padding: 20px;
-    border-left: 2px solid #222;
-    box-shadow: -10px 0 30px rgba(0,0,0,0.5);
-    z-index: 30;
+    padding: 15px;
+    
+    /* Mantenemos el fix del parpadeo 3D */
+    z-index: 100;
+    overflow: visible;
+    backdrop-filter: blur(5px); /* Desenfoque detrás del panel */
 }
 
-h2 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0; font-size: 1rem; text-transform: uppercase; color: #666; letter-spacing: 2px; font-weight: 800; }
+/* TÍTULOS DE SECCIÓN */
+h2 {
+    font-family: 'Segoe UI', monospace; /* Fuente técnica */
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #00e5ff; /* Cyan brillante */
+    border-bottom: 1px solid rgba(0, 229, 255, 0.3);
+    padding-bottom: 8px;
+    margin: 10px 0;
+    text-shadow: 0 0 5px rgba(0, 229, 255, 0.5);
+    display: flex;
+    align-items: center;
+}
+
+h2::before {
+    content: "►"; /* Pequeño marcador */
+    margin-right: 8px;
+    font-size: 0.6rem;
+    color: var(--accent);
+}
+
+/* --- LISTAS (EDIFICIOS Y AYUDANTES) --- */
+#buildings-list, #helpers-list {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 5px;
+    margin-bottom: 10px;
+    
+    /* Fix 3D para evitar parpadeos */
+    position: relative;
+    z-index: 500;
+    transform: translate3d(0, 0, 10px);
+    transform-style: preserve-3d;
+}
+
+/* Scrollbar Sci-Fi (Fina y Neón) */
+#buildings-list::-webkit-scrollbar, #helpers-list::-webkit-scrollbar { width: 4px; }
+#buildings-list::-webkit-scrollbar-track, #helpers-list::-webkit-scrollbar-track { background: #111; }
+#buildings-list::-webkit-scrollbar-thumb, #helpers-list::-webkit-scrollbar-thumb { 
+    background: #333; 
+    border-radius: 2px;
+}
+#buildings-list:hover::-webkit-scrollbar-thumb { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+
+
+/* --- ÍTEMS (TARJETAS) --- */
+.building-item, .helper-item {
+    position: relative;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    border-radius: 2px; /* Bordes más rectos, más técnicos */
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-left: 2px solid #444; /* Indicador estado inactivo */
+    
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    
+    /* Transición suave "mecánica" */
+    transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    overflow: hidden; /* Para el efecto de brillo */
+}
+
+/* --- EFECTO HOVER ARTÍSTICO (DATA SCAN) --- */
+.building-item:hover:not(.disabled), 
+.helper-item:hover:not(.disabled):not(.locked) {
+    background: linear-gradient(90deg, rgba(0, 255, 136, 0.05) 0%, rgba(0,0,0,0) 100%);
+    border-color: rgba(0, 255, 136, 0.5);
+    border-left: 4px solid var(--accent); /* La barra izquierda se ilumina */
+    transform: translateX(5px); /* Se desliza a la derecha */
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.1); /* Resplandor suave */
+}
+
+/* Ítem Deshabilitado / Bloqueado */
+.building-item.disabled, .helper-item.locked {
+    opacity: 0.5;
+    filter: grayscale(1);
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(0,0,0,0),
+        rgba(0,0,0,0) 10px,
+        rgba(255,255,255,0.02) 10px,
+        rgba(255,255,255,0.02) 20px
+    ); /* Patrón de rayas de "zona restringida" */
+}
+
+/* Textos */
+.item-info h4, .helper-info h4 {
+    font-size: 0.85rem;
+    margin: 0;
+    color: #e0e0e0;
+    font-weight: 600;
+}
+.building-item:hover h4 { color: #fff; text-shadow: 0 0 5px var(--accent); }
+
+.item-cost { color: #aaa; font-family: monospace; font-size: 0.8rem; }
+.building-item:hover .item-cost { color: var(--accent); }
+
+.item-count {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #333; /* Oscuro por defecto */
+    text-shadow: -1px -1px 0 #555; /* Efecto grabado */
+}
+.building-item:hover .item-count {
+    color: rgba(255,255,255,0.1);
+    text-shadow: none;
+}
+
+/* --- PANEL DE CONTROLES (BOTONES ABAJO) --- */
+#save-controls {
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+/* Botones estilo "Teclado Mecánico" */
+button.sys-btn {
+    background: #1a1a24;
+    border: 1px solid #333;
+    color: #888;
+    height: 36px;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Efecto Hover Botones */
+button.sys-btn:hover {
+    background: #222;
+    color: #fff;
+    border-color: #00e5ff;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Botón Ascender (Especial) */
+#btn-prestige {
+    background: #2a0a3d !important;
+    border-color: #7c4dff !important;
+    color: #b388ff !important;
+}
+#btn-prestige:hover {
+    box-shadow: 0 0 15px #7c4dff !important;
+    color: white !important;
+}
+
+/* Botón Reset (Peligro) */
+button.sys-btn[onclick="resetGame()"]:hover {
+    border-color: #ff5252;
+    box-shadow: 0 0 8px rgba(255, 82, 82, 0.4);
+    color: #ff5252;
+}
+
+
+
+
+
+
+
+
+
+h2 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0; font-size: 1rem; text-transform: uppercase; color: #16c8a7; letter-spacing: 2px; font-weight: 800; }
 
 /* MEJORAS */
 #upgrades-panel {
@@ -285,9 +468,30 @@ h2 { border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0; font-si
 .item-count { font-size: 1.5rem; color: #444; font-weight: 800; margin-left: 15px; }
 .building-item:hover .item-count { color: #666; }
 
+
+
+
 /* BOTONES DE SISTEMA */
-#save-controls { margin-top: auto; padding-top: 20px; border-top: 1px solid #333; display: flex; gap: 10px;}
-button.sys-btn { flex: 1; padding: 12px; background: #222; border: 1px solid #333; color: #aaa; cursor: pointer; border-radius: 6px; font-weight: bold; transition: 0.2s; font-size: 0.8rem; text-transform: uppercase;}
+
+
+
+
+#save-controls {
+    margin-top: auto; /* Empuja los botones al fondo siempre */
+    padding-top: 10px;
+    border-top: 1px solid #333;
+    
+    /* MAGIA: Cuadrícula de 4 columnas */
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 5px; /* Espacio pequeño entre botones */
+}
+button.sys-btn {
+    font-size: 0.8rem;
+    padding: 8px 0; /* Menos relleno lateral */
+    white-space: nowrap; /* Evita que el texto se parta en dos líneas */
+    width: 100%;
+}
 button.sys-btn:hover { background: #333; color: white; border-color: #555; }
 #btn-prestige { background: #311b92; color: #b388ff; border-color: #651fff; display: none; }
 #btn-prestige:hover { background: #651fff; color: white; box-shadow: 0 0 15px #651fff; }
