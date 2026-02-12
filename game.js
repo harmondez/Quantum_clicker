@@ -851,7 +851,7 @@ function renderHelpers() {
     
     container.innerHTML = '';
 
-    // CABECERA (Igual que antes)
+    // CABECERA
     const header = document.createElement('div');
     const slotsColor = game.helpers.length >= MAX_HELPERS ? '#ff5252' : '#00ff88';
     header.style.cssText = "padding: 10px; margin-bottom: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;";
@@ -863,12 +863,10 @@ function renderHelpers() {
     `;
     container.appendChild(header);
     
-    // CÁLCULOS
     const currentCPS = getCPS();
     const currentHelperCost = getHelpersCost();
     const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned)); 
     
-    // LISTA
     helpersConfig.forEach(helper => {
         const isActive = game.helpers.includes(helper.id);
         const isLocked = playerLevel < helper.reqLevel;
@@ -883,12 +881,15 @@ function renderHelpers() {
         
         div.className = classes;
 
-        // --- CAMBIO CLAVE: AHORA EL CLICK VA EN TODA LA CAJA ---
+        // --- CORRECCIÓN DEL CLICK ---
         if (!isLocked) {
-            div.onclick = function() { toggleHelper(helper.id); };
+            // Usamos onmousedown para que la respuesta sea INMEDIATA al pulsar, no al soltar
+            div.onmousedown = function(e) { 
+                e.preventDefault(); // Evita selecciones de texto raras
+                toggleHelper(helper.id); 
+            };
         }
 
-        // Textos y Contenido
         let btnContent = '';
         let statusText = '';
         let statusClass = '';
@@ -907,6 +908,7 @@ function renderHelpers() {
             btnContent = game.helpers.length >= MAX_HELPERS ? '⛔' : '➕';
         }
 
+        // --- CAMBIO IMPORTANTE: Usamos DIV en vez de BUTTON para evitar doble click ---
         div.innerHTML = `
             <div class="helper-icon" style="${isLocked ? 'filter:grayscale(1); opacity:0.5' : ''}">${helper.icon}</div>
             <div class="helper-info">
@@ -914,9 +916,9 @@ function renderHelpers() {
                 <p>${isLocked ? 'Sigue acumulando energía.' : helper.desc}</p>
                 <div class="${statusClass}">${statusText}</div>
             </div>
-            <button class="helper-toggle ${isActive ? 'active' : ''}" style="pointer-events: none;">
+            <div class="helper-toggle ${isActive ? 'active' : ''}">
                 ${btnContent}
-            </button>
+            </div>
         `;
         
         container.appendChild(div);
@@ -973,19 +975,34 @@ const cpsEl = document.getElementById('cps-display');
 const upgradesEl = document.getElementById('upgrades-panel');
 const buildingsEl = document.getElementById('buildings-list');
 
+
 function updateUI() {
+    // Actualizar puntuación central
     scoreEl.innerText = formatNumber(Math.floor(game.cookies));
-    const grossCPS = getCPS();
-    const helperCost = getHelpersCost();
-    const netCPS = getNetCPS();
+    
+    // Cálculos de producción
+    const grossCPS = getCPS();       // Producción Bruta
+    const helperCost = getHelpersCost(); // Coste de mantenimiento
+    const netCPS = getNetCPS();      // Lo que realmente ganas
     
     if (helperCost > 0) {
-        cpsEl.innerText = `${formatNumber(netCPS.toFixed(1))} / seg (bruto: ${formatNumber(grossCPS.toFixed(1))} - ${formatNumber(helperCost)} ayudantes)`;
+        // --- CAMBIO AQUÍ: Formato más limpio y claro ---
+        // Usamos innerHTML para poner la explicación en pequeño y gris
+        cpsEl.innerHTML = `
+            ${formatNumber(netCPS)} / seg 
+            <span style="font-size: 0.75rem; color: #999; margin-left: 5px;">
+                (Prod: ${formatNumber(grossCPS)} - Coste: ${formatNumber(helperCost)})
+            </span>
+        `;
     } else {
-        cpsEl.innerText = `${formatNumber(grossCPS.toFixed(1))} / seg`;
+        // Si no tienes ayudantes, solo muestra la producción normal
+        cpsEl.innerText = `${formatNumber(grossCPS)} / seg`;
     }
+
+    // Actualizar Título de la pestaña
     document.title = `${formatNumber(Math.floor(game.cookies))} Energía`;
     
+    // Botón de Ascensión
     const pBtn = document.getElementById('btn-prestige');
     if(game.totalCookiesEarned > 1000000) {
         pBtn.style.display = 'block';
@@ -993,12 +1010,12 @@ function updateUI() {
         pBtn.innerText = `ASCENDER (x${potentialMult})`;
     }
     
+    // HUD de Multiplicador
     if(game.prestigeMult > 1) {
         document.getElementById('prestige-hud').style.display = 'block';
-        document.getElementById('prestige-display').innerText = `x${game.prestigeMult}`;
+        document.getElementById('prestige-display').innerText = `x${game.prestigeMult.toFixed(1)}`;
     }
 }
-
 
 
 function renderStore() {
@@ -2041,6 +2058,5 @@ window.importSave = function() {
         console.error(e);
     }
 }
-
 
 window.game = game;
