@@ -126,95 +126,104 @@ let isApocalypse = false;
 const MAX_HELPERS = 4; // Solo 4 huecos
 
 const helpersConfig = [
-    // TIER 1 (PRINCIPIANTE)
+    // TIER 1 (PRINCIPIANTE - INFRAESTRUCTURA)
     { 
-        id: 'h_clicker', 
-        name: '👽 Graxion el Potenciador', 
-        desc: 'Tus clicks son un +300% más potentes.', 
-        cost: 15, icon: '👽', 
-        reqLevel: 5, // ~125 Energía total
+        id: 'h_clicker',
+        quotes: ["La transferencia cinética es estable. Sigue pulsando, cada Watt cuenta.", "He ajustado los condensadores manuales. ¡Siento el flujo!"],
+        name: '👩‍🔬 Dra. Aris Thorne', 
+        desc: 'Teórica de Campos. Optimiza la transferencia cinética: Pulsos manuales +300%.', 
+        cost: 15, icon: '👩‍🔬', 
+        reqLevel: 5, 
         effect: 'clickPower', value: 3 
     },
     { 
-        id: 'h_miner', 
-        name: '🤖 Unit-734', 
-        desc: 'Producción automática +50%.', 
-        cost: 50, icon: '🤖', 
-        reqLevel: 10, // ~1,000 Energía
+        id: 'h_miner',
+        quotes: ["He parcheado una fuga en el sector 4. La producción automática ha subido.", "¿Ves ese zumbido? Es el sonido de la eficiencia pura."], 
+        name: '👨‍💻 Ing. Marcus Voltz', 
+        desc: 'Arquitecto de Red. Maximiza el flujo constante de los generadores automáticos (+50% W/s).', 
+        cost: 50, icon: '👨‍💻', 
+        reqLevel: 10, 
         effect: 'cpsMultiplier', value: 1.5 
     },
     
-    // TIER 2 (INTERMEDIO)
+    // TIER 2 (INTERMEDIO - LOGÍSTICA)
     { 
-        id: 'h_discount', 
-        name: '🛒 Mercader Ferengi', 
-        desc: 'Los edificios cuestan un 10% menos.', 
-        cost: 100, icon: '🛒', 
-        reqLevel: 15, // ~3,375 Energía
+        id: 'h_discount',
+        quotes: ["He conseguido materiales de grafeno a mitad de precio. Es hora de construir.", "La logística galáctica es un arte. Hoy los reactores salen baratos."],
+        name: '👔 Silas Vane', 
+        desc: 'Logista Cuántico. Negocia contratos de suministros: Estructuras -10% de coste.', 
+        cost: 100, icon: '👔', 
+        reqLevel: 15, 
         effect: 'costReduction', value: 0.9 
     },
     { 
-        id: 'h_combo', 
-        name: '⭐ Nebula Táctica', 
-        desc: 'El combo dura el doble (x2 tiempo).', 
-        cost: 200, icon: '⭐', 
-        reqLevel: 20, // ~8,000 Energía
+        id: 'h_combo',
+        quotes: ["He estabilizado el campo temporal. El combo no se irá a ninguna parte.", "Mantén el ritmo, estoy desviando el exceso de calor para alargar el pico."],
+        name: '👩‍⚡ Dra. Elena Flux', 
+        desc: 'Especialista en Transitorios. Estabiliza picos de energía: Combos duran x2 tiempo.', 
+        cost: 200, icon: '👩‍⚡', 
+        reqLevel: 20, 
         effect: 'comboTime', value: 2 
     },
 
-    // TIER 3 (AVANZADO)
+    // TIER 3 (AVANZADO - INVESTIGACIÓN)
     { 
-        id: 'h_anomaly', 
-        name: '🔮 Oráculo del Vacío', 
-        desc: 'Las anomalías aparecen el doble de rápido.', 
-        cost: 500, icon: '🔮', 
-        reqLevel: 30, // ~27,000 Energía
+        id: 'h_anomaly',
+        quotes: ["Mis escáneres detectan una fluctuación cuántica inminente... ¡atento!", "El vacío nos está susurrando. Una anomalía está a punto de cruzar."],
+        name: '🕵️‍♂️ Dorian Nox', 
+        desc: 'Analista de Vacío. Sensores de largo alcance: Anomalías aparecen x2 rápido.', 
+        cost: 500, icon: '🕵️‍♂️', 
+        reqLevel: 30, 
         effect: 'anomalyRate', value: 2 
     },
     { 
-        id: 'h_crit', 
-        name: '🎯 Francotirador Cuántico', 
-        desc: '10% de probabilidad de Click Crítico (x10 daño).', 
-        cost: 800, icon: '🎯', 
-        reqLevel: 40, // ~64,000 Energía
+        id: 'h_crit',
+        quotes: ["¡Fuego a discreción! He cargado el núcleo con munición de alto impacto.", "Si golpeas en el ángulo de 45 grados, la energía se multiplica por diez."],
+        name: '👮‍♂️ Sargento Kael', 
+        desc: 'Seguridad de Red. Protocolos de choque: 10% probabilidad de Pulso Crítico (x10).', 
+        cost: 800, icon: '👮‍♂️', 
+        reqLevel: 40, 
         effect: 'critChance', value: 0.1 
     },
 
-    // TIER 4 (EXPERTO)
+    // TIER 4 (EXPERTO - GESTIÓN)
     { 
-        id: 'h_efficiency', 
-        name: '📉 Arquitecto de Red', 
-        desc: 'Optimiza el flujo de Watts. El mantenimiento de los ayudantes cuesta un 40% menos.', 
+        id: 'h_efficiency',
+        quotes: ["He optimizado los disipadores. El equipo puede trabajar más por menos.", "La entropía es nuestra enemiga, pero mis cálculos la mantienen a raya."],
+        name: '🔬 Dra. Sarah Joule', 
+        desc: 'Termodinámica Sénior. Disipación de calor: Mantenimiento del Staff -40% Watts.', 
         cost: 1500, 
-        icon: '📉', 
-        reqLevel: 60, // ~216,000 Watts totales acumulados
+        icon: '🔬', 
+        reqLevel: 60, 
         effect: 'helperMaintenance', 
         value: 0.6 
     },
     { 
-        id: 'h_banker', 
-        name: '💰 Inversor Galáctico', 
-        desc: 'Las anomalías de dinero dan +50% extra.', 
-        cost: 2000, icon: '💰', 
-        reqLevel: 65, // ~274,000 Energía
+        id: 'h_banker',
+        quotes: ["El mercado energético está al alza. Es el momento de captar anomalías.", "He vendido el excedente de Watts en el mercado negro. ¡Más capital para ti!"],
+        name: '📉 Victor "Broker" Ray', 
+        desc: 'Especulador Energético. Arbitraje de mercado: Anomalías de capital dan +50%.', 
+        cost: 2000, icon: '📉', 
+        reqLevel: 65, 
         effect: 'goldenCookieBuff', value: 1.5 
     },
 
-    // TIER 5 (MAESTRO)
+    // TIER 5 (MAESTRO - INTELIGENCIA ARTIFICIAL)
     { 
-        id: 'h_synergy', 
-        name: '🔗 Mente Colmena', 
-        desc: 'Ganas +1% WPS por cada edificio que poseas.', 
-        cost: 5000, icon: '🔗', 
-        reqLevel: 80, // ~512,000 Energía
+        id: 'h_synergy',
+        quotes: ["Análisis completado: Cada estructura añadida mejora mi capacidad de cálculo.", "Unidad detectada. Integrando eficiencia estructural en el sistema central."], 
+        name: '🤖 IA "Mente Enlazada"', 
+        desc: 'Integración Sintética. Gestión total: +1% W/s por cada estructura desplegada.', 
+        cost: 5000, icon: '🤖', 
+        reqLevel: 80, 
         effect: 'buildingSynergy', value: 0.01 
     },
     { 
         id: 'h_master', 
-        name: '👑 Emperador del Tiempo', 
-        desc: 'Aumenta TODO (Click y Prod) un x2.0.', 
-        cost: 10000, icon: '👑', 
-        reqLevel: 100, // 1,000,000 Energía
+        name: '👨‍💼 Director Cipher', 
+        desc: 'Administrador General. Ejecuta el Protocolo Dios: Potencia Global x2.0.', 
+        cost: 10000, icon: '👨‍💼', 
+        reqLevel: 100, 
         effect: 'globalMultiplier', value: 2.0 
     }
 ];
@@ -873,7 +882,35 @@ function onObjectClick() {
 
 
 
+// Sistema de mensajes aleatorios del Staff
+function startStaffMessages() {
+    setInterval(() => {
+        // 1. Filtrar solo los ayudantes que el jugador ya ha comprado
+        const activeHelpers = helpersConfig.filter(h => game.helpers.includes(h.id));
+        
+        if (activeHelpers.length > 0) {
+            // 2. Elegir uno al azar
+            const randomHelper = activeHelpers[Math.floor(Math.random() * activeHelpers.length)];
+            
+            // 3. Elegir una de sus dos frases al azar
+            const randomQuote = randomHelper.quotes[Math.floor(Math.random() * randomHelper.quotes.length)];
+            
+            // 4. Mostrarlo en la interfaz con un efecto de escritura o fade
+            const feedEl = document.getElementById('staff-feed');
+            if (feedEl) {
+                feedEl.style.opacity = 0; // Efecto fade out
+                
+                setTimeout(() => {
+                    feedEl.innerHTML = `<strong>${randomHelper.name}:</strong> "${randomQuote}"`;
+                    feedEl.style.opacity = 1; // Efecto fade in
+                }, 500);
+            }
+        }
+    }, 15000); // Aparece un mensaje cada 15 segundos (puedes ajustarlo)
+}
 
+// No olvides llamar a esta función cuando inicies el juego
+startStaffMessages();
 
 
 
