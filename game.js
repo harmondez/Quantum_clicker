@@ -467,64 +467,142 @@ function dispose3D(object) {
 function spawnAnomaly() {
     // 1. Probabilidad de Corrupción (Apocalipsis)
     const isCorrupt = isApocalypse && Math.random() < 0.3;
-    // - 30% de probabilidad de aparición (para que no salga siempre).
+    
+    // 2. Evento de Perla Azul (Solo si tienes +10k clicks y NO tienes la perla)
     const isTemporalEvent = !game.pearls.includes('blue') && (game.totalClicks >= 10000) && Math.random() < 0.3;
     
-    // 2. DETECCIÓN DE EVENTO ÉPICO: PERLA AZUL (SINGULARIDAD)
-    // CONDICIÓN: 
-    // - No tener la perla.
-    // - El Combo debe estar ARDIENDO (mayor a 4.5, el máximo es 5.0).
-    // - 30% de probabilidad de que ocurra si cumples lo anterior.
-    
-
+    // 3. Elegir tipo de recompensa
     const types = ['money', 'money', 'production', 'click']; 
     const type = types[Math.floor(Math.random() * types.length)];
     
     const orb = document.createElement('div');
+    
+    // Configuración visual por defecto
     let icon = '⚛️';
     let color = 'gold';
+    let size = '3.5rem'; // <--- ESTO FALTABA (Variable size definida)
     
-    // --- VISUALES ---
+    // --- VISUALES SEGÚN TIPO ---
     if (isTemporalEvent) {
-        // VISUALES DE LA PERLA AZUL
-        icon = '⏳'; // Icono de Reloj de Arena
-        color = '#00e5ff'; // Azul Cyan
+        icon = '⏳'; 
+        color = '#00e5ff'; // Cyan
         orb.style.animation = 'pulseBlue 0.5s infinite alternate';
+    } else if (isCorrupt) {
+        icon = '👁️';
+        color = '#ff0000'; // Rojo Sangre
+        size = '4.5rem';
+    } else if (type === 'production') {
+        icon = '⚡'; // Frenesí de Producción
+        color = '#ffaa00';
+    } else if (type === 'click') {
+        icon = '🖱️'; // Frenesí de Clicks
+        color = '#00ff88';
     }
 
-   
     orb.innerHTML = icon;
-    // Si es el evento de velocidad, la bola es un poco más grande
     
-    
+    // Posicionamiento aleatorio
     orb.style.cssText = `
-        position: absolute; font-size: ${size}; cursor: pointer; z-index: 999;
+        position: absolute; 
+        font-size: ${size}; 
+        cursor: pointer; 
+        z-index: 999;
         filter: drop-shadow(0 0 15px ${color}); 
-        left: ${Math.random() * 80 + 10}%; top: ${Math.random() * 80 + 10}%;
+        left: ${Math.random() * 80 + 10}%; 
+        top: ${Math.random() * 80 + 10}%;
+        user-select: none;
+        transition: transform 0.1s;
     `;
-
-    // Animación de movimiento (La azul se mueve diferente si quieres, o igual)
     
+    // Efecto al pasar el ratón
+    orb.onmouseover = () => orb.style.transform = "scale(1.2)";
+    orb.onmouseout = () => orb.style.transform = "scale(1.0)";
 
-    
+    // --- LÓGICA DEL CLICK (ESTO FALTABA) ---
+    orb.onclick = function(e) {
+        sfxAnomaly();
+        game.anomaliesClicked++;
+        
+        // Efecto visual de partículas o texto al clickar
+        createFloatingText(e.clientX, e.clientY, "ANOMALÍA CAPTURADA");
+
+        if (isTemporalEvent) {
+            // -- EVENTO ÉPICO: PERLA AZUL --
+            unlockPearl('blue');
+        } 
+        else if (isCorrupt) {
+            // -- APOCALIPSIS (Riesgo/Recompensa) --
+            if (Math.random() < 0.5) {
+                let loss = game.cookies * 0.05; // Pierdes 5%
+                game.cookies -= loss;
+                showAnomalyPopup(`📉 ENTROPÍA: -${formatNumber(loss)} Watts`, 'bad');
+            } else {
+                let gain = getCPS() * 666; // Ganas 666 segundos de producción
+                game.cookies += gain;
+                game.totalCookiesEarned += gain;
+                showAnomalyPopup(`😈 CAOS: +${formatNumber(gain)} Watts`, 'good');
+            }
+        } 
+        else if (type === 'money') {
+            // -- DINERO DE GOLPE --
+            // Ganas entre 10 minutos y 1 hora de producción de golpe
+            // Bonus por Perla Verde o Inversor Galáctico
+            let bonusMult = 1;
+            if (game.helpers.includes('h_banker')) bonusMult = 1.5;
+
+            let seconds = 600 + Math.random() * 3000;
+            let gain = (getCPS() * seconds) * bonusMult;
+            
+            // Mínimo garantizado para que no de 0 al principio
+            if (gain < game.cookies * 0.1) gain = game.cookies * 0.15; 
+            if (gain === 0) gain = 15;
+
+            game.cookies += gain;
+            game.totalCookiesEarned += gain;
+            showAnomalyPopup(`💰 SURGE: +${formatNumber(gain)} Watts`);
+        } 
+        else if (type === 'production') {
+            // -- FRENESÍ DE PRODUCCIÓN --
+            activateBuff('production', 7, 77); // x7 durante 77 segundos
+            showAnomalyPopup(`⚡ SOBRECARGA: x7 Prod (77s)`);
+        } 
+        else if (type === 'click') {
+            // -- FRENESÍ DE CLICKS --
+            activateBuff('click', 777, 13); // x777 durante 13 segundos
+            showAnomalyPopup(`🖱️ CLICKSTORM: x777 Power (13s)`);
+        }
+
+        // Eliminar bola y actualizar UI
+        this.remove();
+        updateUI();
+    };
 
     document.getElementById('game-area').appendChild(orb);
     
-    // TIEMPOS
-    // Si es la perla azul, ¡dura POCO! Tienes que ser rápido
-    let lifeTime = isCorrupt ? 10000 : 6000;
+    // --- GESTIÓN DE TIEMPO DE VIDA ---
+    let lifeTime = isCorrupt ? 5000 : 12000; // Corruptas duran menos (5s)
     
+    // Mejoras que aumentan duración
+    if (game.upgrades.includes('quantum-lens')) lifeTime += 4000;
 
-    if (game.upgrades.includes('quantum-lens')) lifeTime += 2000;
-    setTimeout(() => { if(orb.parentNode) orb.remove(); }, lifeTime); 
+    // Animación de desaparición
+    setTimeout(() => { 
+        if(orb.parentNode) {
+            orb.style.opacity = 0;
+            orb.style.transition = "opacity 1s";
+            setTimeout(() => { if(orb.parentNode) orb.remove(); }, 1000);
+        } 
+    }, lifeTime); 
 
-    // REINICIAR TIMER
+    // --- RECURSIVIDAD (PROGRAMAR LA SIGUIENTE) ---
     const anomalyHelper = helpersConfig.find(h => h.effect === 'anomalyRate');
-    let baseTime = 30000 + Math.random() * 60000; 
+    let baseTime = 30000 + Math.random() * 60000; // Entre 30 y 90 segundos
+    
+    // Reducir tiempo si tienes mejoras
     if (anomalyHelper && game.helpers.includes(anomalyHelper.id)) baseTime /= anomalyHelper.value;
     if (game.upgrades.includes('entropy-antenna')) baseTime *= 0.8; 
     
-    // Si el combo es alto, las anomalías aparecen un poco más rápido para ayudar
+    // Si el combo es alto, aparecen más rápido
     if (comboMultiplier > 3.0) baseTime *= 0.7;
 
     setTimeout(spawnAnomaly, baseTime);
@@ -534,48 +612,79 @@ function spawnAnomaly() {
 
 
 
+// --- SISTEMA DE NOTIFICACIONES VISUALES (POP-UPS) ---
 function showAnomalyPopup(text, type = 'good') {
-    const container = document.getElementById('anomaly-notifications');
-    if (!container) return;
+    // 1. Crear el contenedor si no existe (Seguridad)
+    let container = document.getElementById('anomaly-notifications');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'anomaly-notifications';
+        document.body.appendChild(container);
+    }
 
+    // 2. Crear el elemento visual
     const div = document.createElement('div');
+    // Añadimos clases para diferenciar si es bueno (dorado/azul) o malo (rojo)
     div.className = `anomaly-popup ${type}`;
-    div.innerHTML = text;
+    div.innerHTML = text; // Permite HTML (iconos)
     
     container.appendChild(div);
 
-    // Borramos el elemento del DOM después de que termine la animación (5s)
+    // 3. Limpieza de memoria
+    // Borramos el elemento del DOM después de la animación (4s)
     setTimeout(() => {
         if (div.parentNode) div.remove();
-    }, 5000);
+    }, 4000);
 }
 
-
-
+// Exponer para depuración
 window.spawnAnomaly = spawnAnomaly;
 
-// Función auxiliar para gestionar los tiempos de los buffs
+
+// --- SISTEMA DE BUFFS (POTENCIADORES TEMPORALES) ---
+let buffTimeout = null; // Para controlar si ya hay uno activo
+
 function activateBuff(type, amount, seconds) {
+    // 1. Limpiar temporizador anterior si existía (para que no se corten entre sí)
+    if (buffTimeout) clearTimeout(buffTimeout);
+
+    const gameArea = document.getElementById('game-area');
+    
+    // 2. Aplicar la lógica y el efecto visual Sci-Fi
     if (type === 'production') {
-        buffMultiplier = amount;
-        document.getElementById('game-area').style.border = "2px solid #ff5252"; // Efecto visual
+        buffMultiplier = amount; // Multiplica x7 la producción
+        // Efecto: Resplandor Naranja/Rojo de Sobrecarga (Inset Glow)
+        gameArea.style.boxShadow = "inset 0 0 100px rgba(255, 82, 82, 0.5)";
+        gameArea.style.border = "1px solid rgba(255, 82, 82, 0.8)";
     } else {
-        clickBuffMultiplier = amount;
-        document.getElementById('game-area').style.border = "2px solid #00e5ff"; // Efecto visual
+        clickBuffMultiplier = amount; // Multiplica x777 los clicks
+        // Efecto: Resplandor Cyan Eléctrico
+        gameArea.style.boxShadow = "inset 0 0 100px rgba(0, 229, 255, 0.5)";
+        gameArea.style.border = "1px solid rgba(0, 229, 255, 0.8)";
     }
     
-    updateUI(); // Para reflejar el cambio en CPS inmediatamente
+    // 3. Actualizar números inmediatamente
+    updateUI(); 
 
-    setTimeout(() => {
-        // Resetear buff
+    // 4. Programar el fin del efecto
+    buffTimeout = setTimeout(() => {
+        // Resetear multiplicadores a 1 (Normal)
         if (type === 'production') buffMultiplier = 1;
         else clickBuffMultiplier = 1;
         
-        document.getElementById('game-area').style.border = "none";
+        // Quitar efectos visuales
+        gameArea.style.boxShadow = "none";
+        gameArea.style.border = "none";
+        
         updateUI();
-        showNotification("SISTEMA", "Los niveles de energía se han normalizado.");
+        
+        // Mensaje técnico de finalización
+        showNotification("SISTEMA", "Niveles de energía estabilizados.");
+        
+        buffTimeout = null;
     }, seconds * 1000);
 }
+
 
 function updateStats() {
     const statsHTML = `

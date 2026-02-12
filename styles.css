@@ -80,8 +80,8 @@ body {
     text-shadow: 0 0 5px black;
 }
 @keyframes floatUp {
-    0% { opacity: 1; transform: translateY(0) scale(1); }
-    100% { opacity: 0; transform: translateY(-80px) scale(1.2); }
+    0% { opacity: 1; top: 20%; }
+    100% { opacity: 0; top: 10%; }
 }
 
 
@@ -91,7 +91,7 @@ body {
    ========================================= */
 
 #store-area {
-    width: 400px;
+    width: 425px;
     height: 95vh;
     /* Fondo oscuro con un toque azulado transparente (Glassmorphism) */
     background: linear-gradient(180deg, rgba(10, 10, 16, 0.95) 0%, rgba(5, 5, 10, 0.98) 100%);
@@ -738,25 +738,59 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
     pointer-events: none; /* Para que puedas clickar a través de ellas */
 }
 
+/* Contenedor flotante para los popups de anomalías */
+#anomaly-notifications {
+    position: absolute;
+    top: 15%; /* Zona superior central */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    pointer-events: none; /* Dejar pasar clicks a través */
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+/* El estilo de la notificación individual */
 .anomaly-popup {
-    background: rgba(0, 0, 0, 0.85);
-    border: 1px solid;
-    padding: 15px 30px;
-    border-radius: 8px;
-    color: white;
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid #00e5ff; /* Borde Cyan por defecto */
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 1.2rem;
     font-weight: bold;
-    font-size: 1.1rem;
-    text-align: center;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
-    min-width: 300px;
-    backdrop-filter: blur(4px);
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
     
-    /* La animación de 5 segundos */
-    animation: anomalyFade 5s ease-in-out forwards;
+    /* Animación de flotar y desvanecerse */
+    animation: floatFade 4s forwards;
+}
+
+/* Variación para efectos negativos (rojo) */
+.anomaly-popup.bad {
+    border-color: #ff5252;
+    color: #ff5252;
+    text-shadow: 0 0 10px rgba(255, 82, 82, 0.5);
+}
+
+/* Variación para dinero/neutro (dorado) */
+.anomaly-popup.good {
+    border-color: #ffd700;
+    color: #ffd700;
+}
+
+@keyframes floatFade {
+    0% { opacity: 0; transform: translateY(20px); }
+    10% { opacity: 1; transform: translateY(0); }
+    80% { opacity: 1; transform: translateY(-20px); }
+    100% { opacity: 0; transform: translateY(-40px); }
 }
 
 /* TIPOS DE MENSAJES (COLORES) */
-.anomaly-popup.good { border-color: #00ff88; color: #00ff88; box-shadow: 0 0 15px rgba(0,255,136,0.3); }
+
 .anomaly-popup.fire { border-color: #ff5252; color: #ff5252; box-shadow: 0 0 15px rgba(255,82,82,0.3); }
 .anomaly-popup.shock { border-color: #00e5ff; color: #00e5ff; box-shadow: 0 0 15px rgba(0,229,255,0.3); }
 .anomaly-popup.evil { border-color: #ff0000; color: #ff0000; background: rgba(50,0,0,0.9); }
@@ -774,8 +808,8 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
 
 
 @keyframes pulseBlue {
-    0% { transform: scale(1); box-shadow: 0 0 10px #00e5ff; }
-    100% { transform: scale(1.2); box-shadow: 0 0 30px #00e5ff, 0 0 50px white; }
+    0% { transform: scale(1); filter: drop-shadow(0 0 10px cyan); }
+    100% { transform: scale(1.1); filter: drop-shadow(0 0 25px cyan); }
 }
 
 
