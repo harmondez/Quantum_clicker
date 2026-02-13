@@ -1191,22 +1191,21 @@ body.intro-mode .floating-text {
     max-width: 80%;
 }
 
-/* Animación del Destello Final */
+/* Animación del Destello Final (Más rápida y explosiva) */
 @keyframes bigBangFlash {
-    0% { background-color: rgba(255, 255, 255, 0); }
-    10% { background-color: rgba(255, 255, 255, 1); } /* Sube rápido a blanco */
-    100% { background-color: rgba(255, 255, 255, 0); } /* Baja lento a transparente */
+    0% { opacity: 0; background: white; }
+    10% { opacity: 1; } /* ¡PUM! Blanco total casi al instante */
+    100% { opacity: 0; } /* Se desvanece suavemente */
 }
 
 .flash-bang {
     position: fixed;
-    top: 0; 
-    left: 0; 
-    width: 100vw; 
-    height: 100vh; 
-    z-index: 9999; 
-    pointer-events: none; /* IMPORTANTE: Permite hacer click a través */
-    animation: bigBangFlash 3s forwards ease-out; /* dura 3 segundos */
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 9999;
+    pointer-events: none;
+    /* Reducimos duración de 3s a 1.2s para que sea un flash real */
+    animation: bigBangFlash 1.2s forwards ease-out; 
 }
 
 /* --- ESTILOS DE LA VENTANA DE ESTADÍSTICAS --- */

@@ -113,7 +113,7 @@ let buffMultiplier = 1; // Multiplicador global de producción
 let clickBuffMultiplier = 1; // Multiplicador de clicks
 let isApocalypse = false;
 // Añade esto junto a tus otras variables globales al principio de game.js
-const INTRO_TOTAL_CLICKS = 70; // Más largo, más épico
+const INTRO_TOTAL_CLICKS = 100; // Más largo, más épico
 let introParticlesMesh = null; // Para el efecto de polvo cósmico
 // ==========================================
 // 🌑 PROTOCOLO DE INICIO (INTRO NARRATIVA)
@@ -129,97 +129,82 @@ function startIntroSequence() {
     // 1. EL VACÍO ABSOLUTO
     if(mainObject) {
         mainObject.material.emissiveIntensity = 0;
-        mainObject.material.color.setHex(0x000000); // Negro total
-        mainObject.material.roughness = 1.0; // Muy rugoso (apagado)
-        
-        glowMesh.visible = false; // Sin red
-    }
-    
-    // Resetear partículas
-    if(introParticlesMesh) {
-        introParticlesMesh.material.opacity = 0;
+        mainObject.material.color.setHex(0x000000); 
+        glowMesh.visible = false; 
     }
 
-    // Mensaje inicial
+    // --- NUEVO: OCULTAR ESTRELLAS (Para que no se vean puntos estáticos) ---
+    if (typeof starMesh !== 'undefined' && starMesh) {
+        starMesh.visible = false;
+    }
+    // ---------------------------------------------------------------------
+    
+    // Resetear partículas intro
+    if(introParticlesMesh) introParticlesMesh.material.opacity = 0;
+
     showIntroText("Detectando vacío cuántico...");
 }
 
 function handleIntroClick() {
+    // Si ya hemos llegado al final, IGNORAR clicks extra para no romper la cinemática
+    if (introClicks >= INTRO_TOTAL_CLICKS) return; 
+
     introClicks++;
     
-    // Progreso de 0.0 a 1.0
+    // Progreso de 0.0 a 1.0 basado en 100 clicks
     const progress = Math.min(1.0, introClicks / INTRO_TOTAL_CLICKS);
     
-    // --- EFECTOS VISUALES (EL ARDOR) ---
+    // --- EFECTOS VISUALES ---
     if(mainObject) {
-        // A. TEMBLOR (Cada vez más fuerte)
-        const shake = progress * 0.3;
+        // Temblor
+        const shake = progress * 0.5; 
         mainObject.rotation.x += (Math.random()-0.5) * shake;
         mainObject.rotation.y += (Math.random()-0.5) * shake;
 
-        // B. COLOR Y TEMPERATURA
-        // Fase 1 (0-30%): De Negro a Rojo Oscuro (Calentamiento)
-        if (progress < 0.3) {
-            const localP = progress / 0.3;
-            mainObject.material.color.setHSL(0.0, 1.0, localP * 0.2); // HSL: Rojo, Sat Max, Luz baja
-            mainObject.material.emissive.setHSL(0.0, 1.0, localP * 0.1);
+        // Color (Negro -> Rojo -> Blanco)
+        if (progress < 0.4) {
+            const localP = progress / 0.4;
+            mainObject.material.color.setHSL(0.0, 1.0, localP * 0.15); 
+            mainObject.material.emissive.setHSL(0.0, 1.0, localP * 0.05);
         } 
-        // Fase 2 (30-70%): De Rojo a Naranja/Amarillo (Ignición)
-        else if (progress < 0.7) {
-            const localP = (progress - 0.3) / 0.4;
-            mainObject.material.color.setHSL(0.1 * localP, 1.0, 0.2 + (localP * 0.3)); // Hacia naranja
-            mainObject.material.emissiveIntensity = localP * 0.5;
+        else if (progress < 0.8) {
+            const localP = (progress - 0.4) / 0.4;
+            mainObject.material.color.setHSL(0.08 * localP, 1.0, 0.15 + (localP * 0.35)); 
+            mainObject.material.emissiveIntensity = localP * 0.8;
         }
-        // Fase 3 (70-100%): De Amarillo a Blanco Cegador (Crítico)
         else {
-            const localP = (progress - 0.7) / 0.3;
-            mainObject.material.color.setHSL(0.15, 1.0, 0.5 + (localP * 0.5)); // Hacia blanco
-            mainObject.material.emissiveIntensity = 0.5 + (localP * 2.0); // Brillo extremo (hasta 2.5)
+            const localP = (progress - 0.8) / 0.2;
+            mainObject.material.color.setHSL(0.12, 1.0, 0.5 + (localP * 0.5)); 
+            mainObject.material.emissiveIntensity = 0.8 + (localP * 3.0); 
             
-            // La red aparece al final, vibrando
             glowMesh.visible = true;
             glowMesh.material.opacity = localP;
-            glowMesh.scale.setScalar(1.0 + (Math.random() * 0.1));
+            glowMesh.scale.setScalar(1.0 + (Math.random() * 0.2));
         }
 
-        // C. PARTÍCULAS (Vórtice)
+        // Partículas
         if(introParticlesMesh) {
-            introParticlesMesh.material.opacity = progress * 0.8;
-            introParticlesMesh.rotation.y += 0.05 * progress; // Giran más rápido
-            introParticlesMesh.scale.setScalar(1.0 - (progress * 0.5)); // Se contraen hacia el núcleo (implosión)
+            introParticlesMesh.material.opacity = progress; 
+            introParticlesMesh.rotation.y += 0.02 + (progress * 0.1); 
+            introParticlesMesh.scale.setScalar(1.5 - (progress * 0.8)); 
         }
     }
 
-    // --- NARRATIVA (Pausas más largas) ---
-    // Distribución: 1, 15, 30, 50, 65, 70
+    // --- NARRATIVA ---
+    if (introClicks === 1) showIntroText("Iniciando compresión de materia...");
+    else if (introClicks === 20) { playTone(50, 'sawtooth', 0.2); showIntroText("Temperatura central en aumento."); }
+    else if (introClicks === 50) { playTone(100, 'square', 0.3); showIntroText("Fricción atómica detectada. Continúa."); }
+    else if (introClicks === 80) { playTone(300, 'sawtooth', 0.6); showIntroText("¡ADVERTENCIA: MASA CRÍTICA ALCANZADA!"); }
+    else if (introClicks === 95) { playTone(600, 'sine', 1.0); showIntroText("¡COLAPSO INMINENTE!"); }
     
-    if (introClicks === 1) {
-        showIntroText("Iniciando compresión de materia...");
-    }
-    else if (introClicks === 15) {
-        // Aparece un brillo rojo muy tenue
-        playTone(50, 'sawtooth', 0.2);
-        showIntroText("Temperatura central en aumento.");
-    }
-    else if (introClicks === 30) {
-        // Naranja
-        playTone(100, 'square', 0.3);
-        showIntroText("Fricción atómica detectada. Continúa.");
-    }
-    else if (introClicks === 50) {
-        // Amarillo brillante
-        playTone(200, 'sawtooth', 0.5);
-        showIntroText("¡ADVERTENCIA: MASA CRÍTICA ALCANZADA!");
-    }
-    else if (introClicks === 65) {
-        // Blanco casi puro
-        playTone(400, 'sine', 0.8);
-        showIntroText("¡COLAPSO INMINENTE!");
-    }
-    else if (introClicks >= INTRO_TOTAL_CLICKS) {
+    // AL FINALIZAR: Llamamos una sola vez
+    else if (introClicks === INTRO_TOTAL_CLICKS) {
         finishIntro();
     }
 }
+
+
+
 
 function showIntroText(text) {
     const el = document.getElementById('intro-text');
@@ -231,69 +216,83 @@ function showIntroText(text) {
 }
 
 function finishIntro() {
-    // 1. Limpiamos partículas de la intro si existen
+    // 1. Quitar partículas de intro inmediatamente
     if(typeof introParticlesMesh !== 'undefined' && introParticlesMesh) {
         scene.remove(introParticlesMesh);
         introParticlesMesh = null;
     }
 
-    // 2. Ocultamos texto
     const el = document.getElementById('intro-text');
     if(el) el.style.opacity = 0;
 
-    // 3. SECUENCIA FINAL
-    // Esperamos 1 seg para dar dramatismo antes del Big Bang
+    // SECUENCIA CINEMATOGRÁFICA
     setTimeout(() => {
+        el.innerText = "“La energía no se crea ni se destruye...”";
+        el.style.opacity = 1;
         
-        // --- A. CREAR EL FLASH BLANCO ---
-        const flash = document.createElement('div');
-        flash.className = 'flash-bang';
-        document.body.appendChild(flash);
-        
-        // Sonido de explosión
-        playTone(50, 'sine', 1.0); 
-        sfxAnomaly(); 
-
-        // --- B. CAMBIAR EL ESTADO DEL JUEGO (Detrás del flash) ---
-        // Lo hacemos casi al instante para que cuando el flash baje de intensidad,
-        // el juego ya se vea debajo.
         setTimeout(() => {
-            isIntroActive = false;
-            document.body.classList.remove('intro-mode');
-            if(el) el.innerText = "";
-            
-            // FORZAR COLORES NORMALES (Resetear la "quemadura")
-            if(mainObject) {
-                mainObject.material.color.setHex(0x00ff88); // Verde Base
-                mainObject.material.emissive.setHex(0x004422);
-                mainObject.material.emissiveIntensity = 0.5;
-                mainObject.scale.setScalar(1);
-                mainObject.rotation.set(0,0,0);
-            }
+            el.style.opacity = 0;
+            setTimeout(() => {
+                el.innerText = "“...solo se transforma.”";
+                el.style.opacity = 1;
+                
+                setTimeout(() => {
+                    el.style.opacity = 0;
+                    setTimeout(() => {
+                        el.innerText = "Aquí empieza tu imperio.";
+                        el.style.color = "#00ff88"; 
+                        el.style.opacity = 1;
 
-            if(glowMesh) {
-                glowMesh.visible = true;
-                glowMesh.material.opacity = 1;
-                glowMesh.scale.setScalar(1.2);
-            }
+                        // --- EL FLASH ---
+                        setTimeout(() => {
+                            const flash = document.createElement('div');
+                            flash.className = 'flash-bang';
+                            document.body.appendChild(flash);
+                            
+                            playTone(50, 'sine', 3.0); 
+                            sfxAnomaly(); 
 
-            // Guardar que ya hemos visto la intro
-            saveGame();
-            
-            // Iniciar anomalías tras unos segundos
-            setTimeout(spawnAnomaly, 10000);
+                            // TRANSICIÓN AL JUEGO (Muy rápida tras el flash)
+                            setTimeout(() => {
+                                isIntroActive = false;
+                                document.body.classList.remove('intro-mode');
+                                if(el) el.innerText = "";
+                                
+                                // Restaurar Bola Verde
+                                if(mainObject) {
+                                    mainObject.material.color.setHex(0x00ff88); 
+                                    mainObject.material.emissive.setHex(0x004422);
+                                    mainObject.material.emissiveIntensity = 0.5;
+                                    mainObject.scale.setScalar(1);
+                                    mainObject.rotation.set(0,0,0);
+                                }
+                                if(glowMesh) {
+                                    glowMesh.visible = true;
+                                    glowMesh.material.opacity = 1;
+                                    glowMesh.scale.setScalar(1.2);
+                                }
 
-        }, 200); // 200ms después de que empiece el flash blanco
+                                // Mostrar Estrellas ahora
+                                if (typeof starMesh !== 'undefined' && starMesh) {
+                                    starMesh.visible = true;
+                                }
 
-        // --- C. BORRAR EL FLASH FÍSICAMENTE ---
-        // Coincide con la duración de la animación CSS (3s)
-        setTimeout(() => {
-            if(flash && flash.parentNode) {
-                flash.remove();
-            }
-        }, 3000);
+                                saveGame();
+                                setTimeout(spawnAnomaly, 10000);
 
-    }, 1000);
+                            }, 150); // 150ms después del flash blanco
+
+                            // Limpiar el flash del DOM
+                            setTimeout(() => {
+                                if(flash && flash.parentNode) flash.remove();
+                            }, 2000);
+
+                        }, 3000); // Leer frase final
+                    }, 1500);
+                }, 4000); // Leer frase 2
+            }, 1500); 
+        }, 4000); // Leer frase 1
+    }, 1000); 
 }
 
 // ==========================================
