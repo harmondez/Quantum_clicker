@@ -21,8 +21,8 @@ Nota: Si tienes el Protocolo Omega (Apocalipsis) activo, hay un 30% de probabili
 Para esto debes modificar la propiedad cookies del objeto game. Sin embargo, para que el número se refleje en la pantalla y no se rompa la lógica de "Energía Total Ganada" (que controla el nivel y la ascensión), te recomiendo ejecutar estas tres líneas a la vez:
 
 
-game.cookies = 999999999;
-game.totalCookiesEarned += 999999999;
+game.cookies = 9999999999;
+game.totalCookiesEarned += 9999999999;
 updateUI();
 
 

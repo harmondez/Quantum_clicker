@@ -295,6 +295,101 @@ function finishIntro() {
     }, 1000); 
 }
 
+
+function triggerOmegaFinalAnimation() {
+    isIntroActive = true; // Bloqueamos interacciones
+    const duration = 5000; // 5 segundos
+    const startTime = Date.now();
+
+    // 1. Efecto de sonido inicial (Estruendo)
+    playTone(40, 'sawtooth', 4.0, 0.5);
+    playTone(100, 'sine', 5.0, 0.3);
+
+    const omegaInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const progress = elapsed / duration;
+
+        if (progress >= 1) {
+            clearInterval(omegaInterval);
+            finishOmegaEvent(); // Función que limpia y da la perla
+            return;
+        }
+
+        // --- EFECTOS EN EL NÚCLEO (Three.js) ---
+        if (mainObject && glowMesh) {
+            // Vibración violenta in crescendo
+            mainObject.position.x = (Math.random() - 0.5) * progress * 2;
+            mainObject.position.y = (Math.random() - 0.5) * progress * 2;
+            
+            // La malla de brillo se expande descontroladamente
+            glowMesh.scale.setScalar(1.2 + progress * 5);
+            glowMesh.material.opacity = Math.sin(Date.now() * 0.05); // Parpadeo epiléptico
+            
+            // Cambio de color a blanco incandescente
+            mainObject.material.emissiveIntensity = progress * 10;
+            mainObject.material.color.lerp(new THREE.Color(0xffffff), 0.1);
+        }
+
+        // --- EFECTOS DE CÁMARA ---
+        camera.position.z = 8 - (progress * 4); // La cámara se acerca al colapso
+        camera.rotation.z += progress * 0.2; // La realidad se tuerce
+
+        // --- EFECTOS DE PANTALLA (Glitch visual) ---
+        if (Math.random() > 0.9) {
+            document.body.style.filter = `invert(1) hue-rotate(${Math.random() * 360}deg)`;
+        } else {
+            document.body.style.filter = "none";
+        }
+
+    }, 1000 / 60); // 60 FPS
+}
+
+
+/////////////VISUALES
+
+function finishOmegaEvent() {
+    // 1. Crear el Flash final
+    const flash = document.createElement('div');
+    flash.className = 'flash-bang'; // Reutilizamos tu CSS de flash
+    document.body.appendChild(flash);
+
+    // 2. Aplicar cambios definitivos
+    isApocalypse = true;
+    unlockPearl('red');
+    
+    // Resetear transformaciones de cámara y objeto
+    mainObject.position.set(0,0,0);
+    mainObject.scale.setScalar(1);
+    camera.position.set(0,0,8);
+    camera.rotation.set(0,0,0);
+    document.body.style.filter = "none";
+
+    // 3. Limpiar flash y mostrar mensaje final
+    setTimeout(() => {
+        if (flash.parentNode) flash.remove();
+        isIntroActive = false;
+        showSystemModal(
+            "🔴 SINGULARIDAD ALCANZADA", 
+            "El núcleo ha colapsado. La Perla de la Entropía es tuya.\nLa realidad ya no volverá a ser la misma.", 
+            false, null
+        );
+        renderStore();
+        updateUI();
+    }, 1200);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ==========================================
 // 2.5. SISTEMA DE AYUDANTES (10 ALIENS)
 // ==========================================
@@ -1255,19 +1350,15 @@ function executeUpgradePurchase(upgradeId, cost) {
     game.cookies -= cost;
     game.upgrades.push(upgradeId);
 
-    // Lógica especial para el final
     if (upgradeId === 'omega-final') {
-        unlockPearl('red');
-        showSystemModal(
-            "🔴 PERLA ANGULAR OBTENIDA", 
-            "El Protocolo Omega ha condensado toda la entropía en una joya física.\n\nEquípala en el Relicario para desatar su verdadero poder.", 
-            false, null
-        );
+        // En lugar de dar el mensaje directo, disparamos la animación épica
+        triggerOmegaFinalAnimation();
+    } else {
+        // Comportamiento normal para otras mejoras
+        recalculateStats();
+        renderStore();
+        updateUI();
     }
-
-    recalculateStats();
-    renderStore();
-    updateUI();
 }
 
 
