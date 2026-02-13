@@ -1478,55 +1478,98 @@ window.toggleHelper = function(helperId) {
 
 function epicBluePearlScene() {
     console.log("Escena épica de la Perla Azul activada");
-    // Bloquea interacción (opcional: usa una variable global o un overlay)
+    
+    // 1. Bloqueo y Estética
+    isIntroActive = true; // Usamos tu variable global para bloquear clicks
     document.body.classList.add('blue-glitch');
-    window.isSceneBlocked = true;
-
-    // Cambia colores en Three.js
-    if (mainObject && mainObject.material) {
-        mainObject.material.color.setHex(0x00e5ff);
-        mainObject.material.emissive.setHex(0x003366);
-    }
-    if (glowMesh && glowMesh.material) {
-        glowMesh.material.color.setHex(0x00e5ff);
-    }
-
-    // Genera partículas azules épicas
-    for(let i=0; i<200; i++) {
+    
+    // Sonido inicial: Impacto temporal
+    playTone(1200, 'sine', 0.5, 0.2);
+    setTimeout(() => playTone(1800, 'sine', 0.5, 0.2), 200);
+    
+    // 2. Explosión masiva de partículas (Tu código mejorado)
+    for(let i=0; i<300; i++) { // Aumentamos a 300
         const mesh = new THREE.Mesh(
             particleGeo,
-            new THREE.MeshBasicMaterial({ color: 0x00e5ff })
+            new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true })
         );
         mesh.position.copy(mainObject.position);
         mesh.userData.vel = new THREE.Vector3(
             (Math.random()-0.5)*2,
             (Math.random()-0.5)*2,
             (Math.random()-0.5)*2
-        ).normalize().multiplyScalar(Math.random()*0.5+0.2);
+        ).normalize().multiplyScalar(Math.random()*0.8 + 0.3); // Más rápidas
         scene.add(mesh);
         particles.push(mesh);
     }
 
+    // 3. BUCLE DE ANIMACIÓN (Los 5 segundos de locura)
+    const startTime = Date.now();
+    const duration = 5000;
 
+    const blueInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const progress = elapsed / duration;
 
-    // Sonido sci-fi
-    playTone(1200, 'sine', 0.5, 0.2);
-    setTimeout(() => playTone(1800, 'sine', 0.5, 0.2), 200);
-    setTimeout(() => playTone(800, 'triangle', 0.5, 0.2), 800);
+        if (progress >= 1) {
+            clearInterval(blueInterval);
+            finishBlueScene(); // Limpieza final
+            return;
+        }
 
-    // Desbloquea tras 5 segundos y restaura colores
+        // --- DISTORSIÓN THREE.JS ---
+        if (mainObject && glowMesh) {
+            // El núcleo vibra y crece
+            const pulse = 1 + Math.sin(Date.now() * 0.05) * (0.2 * progress);
+            mainObject.scale.setScalar(pulse);
+            
+            // Colores cian eléctricos
+            mainObject.material.color.lerp(new THREE.Color(0x00e5ff), 0.1);
+            mainObject.material.emissive.lerp(new THREE.Color(0x003366), 0.1);
+            
+            // La malla gira como un ventilador descontrolado
+            glowMesh.rotation.y += 0.5 * progress;
+            glowMesh.rotation.z += 0.2;
+            glowMesh.scale.setScalar(pulse * 1.4);
+        }
+
+        // --- CÁMARA (Efecto Vértigo) ---
+        camera.position.z = 8 - (Math.sin(progress * Math.PI) * 3); // Se acerca y aleja
+        camera.fov = 50 + (progress * 30); // Deformación de lente
+        camera.updateProjectionMatrix();
+
+    }, 1000 / 60);
+}
+
+function finishBlueScene() {
+    // 1. Flash blanco-azulado
+    const flash = document.createElement('div');
+    flash.className = 'flash-bang';
+    flash.style.background = 'white';
+    document.body.appendChild(flash);
+
+    // 2. Restaurar todo
+    document.body.classList.remove('blue-glitch');
+    isIntroActive = false;
+    camera.position.set(0,0,8);
+    camera.fov = 50;
+    camera.updateProjectionMatrix();
+
+    if (mainObject && mainObject.material) {
+        mainObject.material.color.setHex(0x00ff88);
+        mainObject.material.emissive.setHex(0x004422);
+        mainObject.scale.setScalar(1);
+    }
+    
+    // 3. Mensaje final y limpieza
     setTimeout(() => {
-        document.getElementById('scene-blocker').style.display = 'none';
-        document.body.classList.remove('blue-glitch');
-        window.isSceneBlocked = false;
-        if (mainObject && mainObject.material) {
-            mainObject.material.color.setHex(0x00ff88);
-            mainObject.material.emissive.setHex(0x004422);
-        }
-        if (glowMesh && glowMesh.material) {
-            glowMesh.material.color.setHex(0x7c4dff);
-        }
-    }, 5000);
+        flash.remove();
+        showSystemModal(
+            "🔵 SINGULARIDAD TEMPORAL", 
+            "Has alcanzado el límite de la persistencia cinética.\nEl tiempo se ha condensado en una Perla Azul.", 
+            false, null
+        );
+    }, 1000);
 }
 
 
@@ -2066,15 +2109,18 @@ function doClickLogic(cx, cy) {
     // 🔵 EL EVENTO DE LA PERLA AZUL (¡AQUÍ!)
     // ==========================================
     if (game.totalClicks >= 10000 && !game.pearls.includes('blue')) {
-    unlockPearl('blue');
-    showSystemModal(
-        "🔵 HITO ALCANZADO",
-        "10,000 Clicks. La persistencia ha fracturado el tiempo. ¡Has desbloqueado la Perla del Cronos (Clicks x50)!",
-        false,
-        null
-    );
+        epicBluePearlScene();
+        unlockPearl('blue');
+    
+        showSystemModal(
+            "🔵 HITO ALCANZADO",
+            "10,000 Clicks. La persistencia ha fracturado el tiempo. ¡Has desbloqueado la Perla del Cronos (Clicks x50)!",
+            false,
+            null
+        );
+
     console.log("Llamando a escena épica de la Perla Azul");
-    epicBluePearlScene();
+    
     }
 
     // 4. TEXTO FLOTANTE
