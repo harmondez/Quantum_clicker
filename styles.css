@@ -1149,3 +1149,56 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
         font-size: 1rem; /* Iconos más grandes */
     }
 }
+
+
+
+
+/* ==========================================
+   🌑 MODO INTRO (EL VACÍO)
+   ========================================== */
+
+/* Cuando esta clase está en el body, ocultamos la UI del juego */
+body.intro-mode #score-container,
+body.intro-mode #cps-display,
+body.intro-mode #store-area,
+body.intro-mode #upgrades-panel,
+body.intro-mode #helpers-list,
+body.intro-mode #save-controls,
+body.intro-mode #anomaly-notifications,
+body.intro-mode .floating-text {
+    display: none !important;
+}
+
+/* El texto misterioso central */
+#intro-layer {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; /* Para poder clickar la bola a través */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5000;
+}
+
+#intro-text {
+    color: #fff;
+    font-family: 'Courier New', monospace; /* Fuente tipo terminal */
+    font-size: 1.5rem;
+    text-align: center;
+    text-shadow: 0 0 10px #fff;
+    opacity: 0;
+    transition: opacity 1.5s ease-in-out;
+    max-width: 80%;
+}
+
+/* Animación del Destello Final (Big Bang) */
+@keyframes bigBangFlash {
+    0% { background: transparent; }
+    50% { background: white; }
+    100% { background: transparent; }
+}
+
+.flash-bang {
+    animation: bigBangFlash 2s forwards;
+    position: fixed; top:0; left:0; width:100%; height:100%; z-index:9999; pointer-events:none;
+}

@@ -112,6 +112,110 @@ let game = {
 let buffMultiplier = 1; // Multiplicador global de producción
 let clickBuffMultiplier = 1; // Multiplicador de clicks
 let isApocalypse = false;
+// ==========================================
+// 🌑 PROTOCOLO DE INICIO (INTRO NARRATIVA)
+// ==========================================
+let introStep = 0;
+let introClicks = 0;
+let isIntroActive = false;
+
+function startIntroSequence() {
+    isIntroActive = true;
+    document.body.classList.add('intro-mode');
+    
+    // Apagar la bola 3D casi por completo
+    if(mainObject) {
+        mainObject.material.emissiveIntensity = 0;
+        mainObject.material.color.setHex(0x111111); // Casi negra
+        glowMesh.visible = false; // Ocultar la red externa
+    }
+
+    // Primer mensaje
+    showIntroText("Sistema desconectado...");
+}
+
+function handleIntroClick() {
+    introClicks++;
+    
+    // Feedback visual: La bola se ilumina un poco con cada click
+    const intensity = Math.min(1.0, introClicks / 40);
+    mainObject.material.emissiveIntensity = intensity;
+    mainObject.material.color.setHex(0x00ff88); // Va recuperando el verde
+
+    // Secuencia Narrativa
+    if (introClicks === 1) {
+        showIntroText("Pulsa para iniciar secuencia de ignición.");
+    }
+    else if (introClicks === 10) {
+        glowMesh.visible = true; // Aparece la red tenue
+        showIntroText("¡Más rápido! Los niveles de energía son críticos.");
+    }
+    else if (introClicks === 20) {
+        playTone(100, 'sawtooth', 0.5); // Sonido de motor arrancando
+        showIntroText("Núcleo al 50%... Continúa.");
+    }
+    else if (introClicks === 30) {
+        playTone(200, 'square', 0.5);
+        showIntroText("¡ESTABILIZANDO SINGULARIDAD!");
+    }
+    else if (introClicks >= 40) {
+        // EL FINAL DE LA INTRO
+        finishIntro();
+    }
+}
+
+function showIntroText(text) {
+    const el = document.getElementById('intro-text');
+    el.style.opacity = 0;
+    setTimeout(() => {
+        el.innerText = text;
+        el.style.opacity = 1;
+    }, 1000);
+}
+
+function finishIntro() {
+    isIntroActive = false; // Desactivar lógica intro
+    
+    // 1. Frases Finales
+    const el = document.getElementById('intro-text');
+    el.style.opacity = 0;
+    
+    setTimeout(() => {
+        el.innerText = "“La energía no se crea ni se destruye, solo se transforma.”";
+        el.style.opacity = 1;
+        
+        setTimeout(() => {
+            el.style.opacity = 0;
+            setTimeout(() => {
+                el.innerText = "“Todo es energía y eso es todo lo que hay.”";
+                el.style.opacity = 1;
+                
+                // 2. EL DESTELLO (BIG BANG)
+                setTimeout(() => {
+                    const flash = document.createElement('div');
+                    flash.className = 'flash-bang';
+                    document.body.appendChild(flash);
+                    
+                    // Sonido Épico
+                    playTone(50, 'sine', 3.0); 
+                    sfxAnomaly();
+
+                    // 3. REVELAR INTERFAZ
+                    document.body.classList.remove('intro-mode');
+                    el.innerText = ""; // Limpiar texto
+                    
+                    // Restaurar bola a estado normal
+                    update3D(); 
+                    
+                    // Guardar para que no vuelva a salir
+                    saveGame();
+                    
+                    setTimeout(() => flash.remove(), 2000);
+                }, 4000); // Tiempo leyendo la segunda frase
+            }, 1500);
+        }, 4000); // Tiempo leyendo la primera frase
+    }, 1000);
+}
 
 // ==========================================
 // 2.5. SISTEMA DE AYUDANTES (10 ALIENS)
@@ -321,29 +425,53 @@ function createStarfield() {
     scene.add(starMesh);
 }
 
+
 function onCanvasClick(e) {
+    // 1. Activar audio si es el primer click
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
+    // 2. Calcular posición del ratón para Raycaster (3D)
     const rect = renderer.domElement.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
 
-    if (raycaster.intersectObject(mainObject).length > 0) {
+    // 3. Comprobar si ha tocado la esfera
+    const intersects = raycaster.intersectObject(mainObject);
+
+    if (intersects.length > 0) {
+        
+        // --- 🛑 INTERCEPCIÓN DEL MODO INTRO ---
+        if (isIntroActive) {
+            handleIntroClick(); // Avanza la historia
+            
+            // Efecto visual sutil (solo partículas, sin sacudida fuerte)
+            spawnParticles(intersects[0].point);
+            sfxClick(); 
+            
+            // IMPORTANTE: 'return' para que NO ejecute la lógica normal de dinero
+            return; 
+        }
+        // ---------------------------------------
+
+        // 4. LÓGICA DE JUEGO NORMAL
         doClickLogic(e.clientX, e.clientY);
         
-        // Shake
+        // Efecto Shake (Temblor de cámara)
         camera.position.x = (Math.random() - 0.5) * 0.2; 
         camera.position.y = (Math.random() - 0.5) * 0.2;
         
+        // Efecto Latido (La bola se encoge)
         mainObject.scale.setScalar(0.9);
         glowMesh.scale.setScalar(0.95);
+        
         setTimeout(() => {
             mainObject.scale.setScalar(1);
             glowMesh.scale.setScalar(1);
         }, 80);
 
-        spawnParticles(raycaster.intersectObject(mainObject)[0].point);
+        // Partículas
+        spawnParticles(intersects[0].point);
     }
 }
 
@@ -1614,7 +1742,11 @@ function loadGame() {
     // 1. Cargar el string del almacenamiento
     const rawSave = localStorage.getItem('quantumClickerUlt');
     
+    // CASO A: SI EXISTE PARTIDA GUARDADA (Jugador que regresa)
     if (rawSave) {
+        // Aseguramos que NO se vea la intro, sino la interfaz completa
+        document.body.classList.remove('intro-mode');
+        
         let parsedSave;
         try {
             parsedSave = JSON.parse(rawSave);
@@ -1629,28 +1761,30 @@ function loadGame() {
             console.log(`Cargando versión ${parsedSave.version}...`);
             loadedGame = parsedSave.data;
         } else {
+            // OJO: Aquí NO ponemos startIntroSequence(). 
+            // Si es legacy, simplemente cargamos sus datos antiguos y le dejamos jugar.
             console.log("Cargando versión Legacy...");
             loadedGame = parsedSave;
         }
 
-        // 3. FUSIONAR DATOS (MERGE INTELIGENTE)
-        // A. Valores primitivos (Números, Strings, Booleanos)
-        // Usamos un bucle para copiar solo lo que existe en el save, respetando los defaults nuevos
+        // 3. FUSIONAR DATOS (MERGE INTELIGENTE / DEEP MERGE)
+        // (Copiamos el bloque seguro que hicimos antes)
+        
+        // A. Valores primitivos
         for (const key in loadedGame) {
             if (key !== 'buildings' && key !== 'upgrades' && key !== 'achievements' && key !== 'helpers' && key !== 'heavenlyUpgrades' && key !== 'pearls') {
                 game[key] = loadedGame[key];
             }
         }
 
-        // B. Arrays (Reemplazar o Unir) -> En este caso, reemplazamos porque son listas de IDs
+        // B. Arrays (Reemplazo directo)
         if (loadedGame.upgrades) game.upgrades = loadedGame.upgrades;
         if (loadedGame.achievements) game.achievements = loadedGame.achievements;
         if (loadedGame.helpers) game.helpers = loadedGame.helpers;
         if (loadedGame.heavenlyUpgrades) game.heavenlyUpgrades = loadedGame.heavenlyUpgrades;
         if (loadedGame.pearls) game.pearls = loadedGame.pearls;
 
-        // C. Objetos complejos (Edificios) -> FUSIÓN PROFUNDA
-        // Esto es vital: Si añades un edificio nuevo en el código, el save antiguo no lo borrará.
+        // C. Objetos complejos (Edificios - FUSIÓN PROFUNDA)
         if (loadedGame.buildings) {
             for (const bId in loadedGame.buildings) {
                 if (game.buildings.hasOwnProperty(bId)) {
@@ -1659,45 +1793,39 @@ function loadGame() {
             }
         }
 
-        // 4. LIMPIEZA Y SEGURIDAD (Valores por defecto si faltan)
+        // 4. LIMPIEZA Y SEGURIDAD (Valores por defecto)
         if (typeof game.totalClicks === 'undefined') game.totalClicks = 0;
         if (typeof game.prestigeLevel === 'undefined') game.prestigeLevel = game.antimatter || 0;
         if (typeof game.anomaliesClicked === 'undefined') game.anomaliesClicked = 0;
         if (typeof game.totalTimePlayed === 'undefined') game.totalTimePlayed = 0;
         
-        // Restaurar variable global visual
+        // Restaurar estado visual
         if (typeof game.isApocalypse !== 'undefined') isApocalypse = game.isApocalypse;
         else isApocalypse = false;
 
-        // 5. MIGRACIONES (Parches de compatibilidad)
-        // Parche Omega: Si tienes la mejora final, debes tener la perla roja
+        // 5. MIGRACIONES Y ACTUALIZACIONES
         if (game.upgrades.includes('omega-final') && !game.pearls.includes('red')) {
             game.pearls.push('red');
         }
 
-        // 6. ACTUALIZAR ESTADO DEL JUEGO
         recalculateStats();
-        renderPearls(); 
+        renderPearls();
         
-        // Restaurar visibilidad de la sección de Ayudantes
+        // Restaurar sección de Ayudantes si corresponde
         if (game.totalCookiesEarned >= 150) {
             const hList = document.getElementById('helpers-list');
             if(hList) {
                 hList.classList.remove('locked-section');
-                areHelpersUnlocked = true; // Variable global de control
+                areHelpersUnlocked = true;
             }
         }
 
-        // 7. CÁLCULO DE PROGRESO OFFLINE
+        // 6. CÁLCULO OFFLINE (Igual que tenías)
         if (game.lastSaveTime) {
             const now = Date.now();
             const secondsOffline = (now - game.lastSaveTime) / 1000;
-            
-            // Solo si ha pasado más de 1 minuto
             if (secondsOffline > 60) {
-                let efficiency = 0.5; // 50% base
-                
-                // Mejora celestial: Cronos (100% eficiencia)
+                let efficiency = 0.5;
                 if (game.heavenlyUpgrades.includes('offline_god')) efficiency = 1.0;
                 
                 const currentCPS = getCPS();
@@ -1706,7 +1834,6 @@ function loadGame() {
                 if (offlineProduction > 0) {
                     game.cookies += offlineProduction;
                     game.totalCookiesEarned += offlineProduction;
-                    
                     setTimeout(() => {
                         showSystemModal(
                             "REGRESO AL UNIVERSO", 
@@ -1717,6 +1844,12 @@ function loadGame() {
                 }
             }
         }
+
+    } 
+    // CASO B: NO EXISTE PARTIDA (JUGADOR NUEVO)
+    else {
+        console.log("Iniciando Protocolo Génesis...");
+        startIntroSequence(); // <--- AQUÍ ES DONDE DEBE IR
     }
 }
 
