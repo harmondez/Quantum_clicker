@@ -1201,6 +1201,7 @@ let lastTime = Date.now();
 
 function gameLoop() {
     checkAchievements();
+    checkUnlocks();
     requestAnimationFrame(gameLoop);
     update3D();
 
@@ -1288,9 +1289,12 @@ function updateUI() {
 }
 
 
+
+
 function renderStore() {
     upgradesEl.innerHTML = '';
-    let anyUp = false;
+    buildingsEl.innerHTML = ''; // Limpiamos la lista de edificios
+    let anyUp = false; // Variable para saber si hay mejoras disponibles
 
     // ===============================================
     // 1. MEJORAS DE EDIFICIOS (MK-1, MK-2...)
@@ -1328,45 +1332,38 @@ function renderStore() {
         { id: 'overcharge-plus', name: 'Batería de Helio', icon: '🔋', cost: 250000, desc: 'Sobrecarga dura 5 segundos más.', req: () => game.totalCookiesEarned > 750000 },
 
         // --- LA CADENA OMEGA (CRESCENDO DE TERROR) ---
-        // 1. INICIO
         { 
             id: 'protocol-omega', name: 'Protocolo Omega', icon: '⚠️', cost: 5000000, 
             desc: 'Inicia el experimento prohibido.\nProducción Global x1.2', 
             req: () => game.totalCookiesEarned > 2000000 
         },
-        // 2. ADVERTENCIA
         { 
             id: 'omega-phase-2', name: 'Resonancia Oscura', icon: '🔉', cost: 25000000, 
             desc: 'Se oyen susurros en los servidores.\nProducción Global x1.5', 
             req: () => game.upgrades.includes('protocol-omega') 
         },
-        // 3. PELIGRO
         { 
             id: 'omega-phase-3', name: 'Fisura Dimensional', icon: '🌀', cost: 150000000, 
             desc: 'La realidad comienza a agrietarse.\nProducción Global x2.0', 
             req: () => game.upgrades.includes('omega-phase-2') 
         },
-        // 4. PUNTO DE NO RETORNO
         { 
-            id: 'omega-phase-4', name: 'Fallo de Contención', icon: '🚨', cost: 1000000000, // 1 Billón
+            id: 'omega-phase-4', name: 'Fallo de Contención', icon: '🚨', cost: 1000000000, 
             desc: '¡LOS NIVELES DE ENTROPÍA SON CRÍTICOS!\nProducción Global x3.0', 
             req: () => game.upgrades.includes('omega-phase-3') 
         },
-        // 5. EL FINAL (ACTIVADOR DEL APOCALIPSIS)
         { 
-            id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, // 5 Billones
+            id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, 
             desc: 'LIBERA AL VACÍO.\nProducción x5.0 + ???', 
             req: () => game.upgrades.includes('omega-phase-4') && !isApocalypse
         }
     ];
 
     specials.forEach(s => {
-        // Si cumples los requisitos (req) y NO la has comprado
         if (s.req() && !game.upgrades.includes(s.id)) {
             anyUp = true;
             
             const btn = document.createElement('div');
-            // Detectar si es Omega para darle estilo especial si quieres
             const isOmega = s.id.startsWith('omega') || s.id === 'protocol-omega';
             
             btn.className = isOmega ? 'upgrade-crate omega' : 'upgrade-crate special';
@@ -1383,33 +1380,100 @@ function renderStore() {
     if(!anyUp) upgradesEl.innerHTML = '<div style="color:#444; font-size:0.8rem; width:100%; text-align:center;">Juega más para desbloquear tecnología...</div>';
 
     // ===============================================
-    // 3. RENDERIZAR LISTA DE EDIFICIOS (STORE)
+    // 3. RENDERIZAR LISTA DE EDIFICIOS (CON REVELACIÓN PROGRESIVA)
     // ===============================================
-    buildingsEl.innerHTML = '';
-    buildingsConfig.forEach(b => {
+    let lockedShown = 0; // Contador de edificios bloqueados visibles
+
+    for (let i = 0; i < buildingsConfig.length; i++) {
+        const b = buildingsConfig[i];
         const count = game.buildings[b.id] || 0;
-        const cost = getCost(b.id);
+        const owned = count > 0;
+
+        // CRITERIO DE VISIBILIDAD:
+        // 1. Si ya tienes uno comprado -> SE VE.
+        // 2. Si es el primer edificio (Cursor) -> SE VE.
+        // 3. Si no lo tienes, pero es uno de los siguientes 2 -> SE VE.
         
-        const div = document.createElement('div');
-        div.className = 'building-item';
-        div.dataset.cost = cost;
-        
-        const mult = b.currentPower / b.basePower;
-        const multTxt = mult > 1 ? `<span style="color:var(--accent); font-size:0.8em">x${mult}</span>` : '';
-        
-        div.innerHTML = `
-            <div class="item-info">
-                <h4>${b.name} ${multTxt}</h4>
-                <p>${b.desc}</p>
-                <div class="item-cost">⚡ ${formatNumber(cost)}</div>
-            </div>
-            <div class="item-count">${count}</div>
-        `;
-        
-        div.onclick = () => window.buyBuilding(b.id);
-        buildingsEl.appendChild(div);
-    });
+        if (owned || i === 0 || lockedShown < 2) {
+            
+            const cost = getCost(b.id);
+            const div = document.createElement('div');
+            div.className = 'building-item';
+            div.dataset.cost = cost; 
+            
+            // Si no lo tienes, sumamos al contador de "bloqueados visibles"
+            if (!owned) lockedShown++;
+
+            // Visual: Si está bloqueado y es el "segundo" bloqueado, lo mostramos con misterio
+            const isMystery = !owned && lockedShown === 2;
+            
+            const mult = b.currentPower / b.basePower;
+            const multTxt = mult > 1 ? `<span style="color:var(--accent); font-size:0.8em">x${mult}</span>` : '';
+
+            div.innerHTML = `
+                <div class="item-info">
+                    <h4>${isMystery ? '???' : b.name} ${multTxt}</h4>
+                    <p>${isMystery ? 'Datos clasificados...' : b.desc}</p>
+                    <div class="item-cost">⚡ ${formatNumber(cost)}</div>
+                </div>
+                <div class="item-count">${count}</div>
+            `;
+            
+            if (isMystery) {
+                div.style.opacity = "0.5";
+                div.style.filter = "blur(1px)";
+            }
+
+            // IMPORTANTE: Si es misterioso, el click no hace nada
+            if (!isMystery) {
+                div.onclick = () => window.buyBuilding(b.id);
+            } else {
+                div.style.cursor = "default";
+            }
+
+            buildingsEl.appendChild(div);
+
+        } else {
+            // Si ya hemos mostrado 2 bloqueados, no dibujamos más y SALIMOS del bucle
+            break; 
+        }
+    }
 }
+
+
+// Variable para controlar si ya se mostró (para no repetir la animación)
+let areHelpersUnlocked = false;
+
+function checkUnlocks() {
+    const helpersList = document.getElementById('helpers-list');
+    
+    // REQUISITO: Tener al menos 150 Watts totales acumulados (o Nivel 5)
+    // Ajusta este número según cuándo quieras que aparezcan los aliens/humanos
+    const unlockThreshold = 150; 
+
+    if (!areHelpersUnlocked && game.totalCookiesEarned >= unlockThreshold) {
+        areHelpersUnlocked = true;
+        
+        // Quitar clase oculta y añadir animación
+        helpersList.classList.remove('locked-section');
+        helpersList.classList.add('reveal-section');
+        
+        // Renderizar por primera vez
+        renderHelpers();
+        
+        // Notificación de logro/progreso
+        showNotification("📡 SEÑAL ENTRANTE", "Se ha desbloqueado la pestaña de PERSONAL.");
+        sfxPrestige(); // Sonido importante
+    }
+    
+    // Si cargamos partida y ya teníamos progreso, aseguramos que se vea sin animación
+    // (Esto se maneja en loadGame, pero por seguridad):
+    if (areHelpersUnlocked && helpersList.classList.contains('locked-section')) {
+        helpersList.classList.remove('locked-section');
+        renderHelpers();
+    }
+}
+
 
 
 
@@ -1546,9 +1610,6 @@ window.saveGame = function() {
 }
 
 
-
-
-
 function loadGame() {
     // 1. Cargar el string del almacenamiento
     const rawSave = localStorage.getItem('quantumClickerUlt');
@@ -1572,58 +1633,84 @@ function loadGame() {
             loadedGame = parsedSave;
         }
 
-        // 3. FUSIONAR (Merge): Datos cargados sobre los datos por defecto
-        game = { ...game, ...loadedGame };
+        // 3. FUSIONAR DATOS (MERGE INTELIGENTE)
+        // A. Valores primitivos (Números, Strings, Booleanos)
+        // Usamos un bucle para copiar solo lo que existe en el save, respetando los defaults nuevos
+        for (const key in loadedGame) {
+            if (key !== 'buildings' && key !== 'upgrades' && key !== 'achievements' && key !== 'helpers' && key !== 'heavenlyUpgrades' && key !== 'pearls') {
+                game[key] = loadedGame[key];
+            }
+        }
 
-        // 4. LIMPIEZA Y SEGURIDAD (Inicializar arrays si son null/undefined)
-        if (!game.upgrades) game.upgrades = [];
-        if (!game.achievements) game.achievements = [];
-        if (!game.helpers) game.helpers = [];
-        if (!game.heavenlyUpgrades) game.heavenlyUpgrades = [];
-        if (!game.buildings) game.buildings = {};
-        if (!game.pearls) game.pearls = [];
-        
-        // Valores numéricos seguros
+        // B. Arrays (Reemplazar o Unir) -> En este caso, reemplazamos porque son listas de IDs
+        if (loadedGame.upgrades) game.upgrades = loadedGame.upgrades;
+        if (loadedGame.achievements) game.achievements = loadedGame.achievements;
+        if (loadedGame.helpers) game.helpers = loadedGame.helpers;
+        if (loadedGame.heavenlyUpgrades) game.heavenlyUpgrades = loadedGame.heavenlyUpgrades;
+        if (loadedGame.pearls) game.pearls = loadedGame.pearls;
+
+        // C. Objetos complejos (Edificios) -> FUSIÓN PROFUNDA
+        // Esto es vital: Si añades un edificio nuevo en el código, el save antiguo no lo borrará.
+        if (loadedGame.buildings) {
+            for (const bId in loadedGame.buildings) {
+                if (game.buildings.hasOwnProperty(bId)) {
+                    game.buildings[bId] = loadedGame.buildings[bId];
+                }
+            }
+        }
+
+        // 4. LIMPIEZA Y SEGURIDAD (Valores por defecto si faltan)
         if (typeof game.totalClicks === 'undefined') game.totalClicks = 0;
         if (typeof game.prestigeLevel === 'undefined') game.prestigeLevel = game.antimatter || 0;
         if (typeof game.anomaliesClicked === 'undefined') game.anomaliesClicked = 0;
         if (typeof game.totalTimePlayed === 'undefined') game.totalTimePlayed = 0;
-
-        // 5. RESTAURAR ESTADO GLOBAL
+        
+        // Restaurar variable global visual
         if (typeof game.isApocalypse !== 'undefined') isApocalypse = game.isApocalypse;
         else isApocalypse = false;
 
-        // 6. MIGRACIONES DE LÓGICA (Ahora sí, porque ya tenemos los datos cargados)
-        // Si tiene Omega Final comprado pero no tiene la perla roja, se la damos
+        // 5. MIGRACIONES (Parches de compatibilidad)
+        // Parche Omega: Si tienes la mejora final, debes tener la perla roja
         if (game.upgrades.includes('omega-final') && !game.pearls.includes('red')) {
             game.pearls.push('red');
         }
 
-        // 7. ACTUALIZAR ESTADÍSTICAS Y VISUALES
+        // 6. ACTUALIZAR ESTADO DEL JUEGO
         recalculateStats();
-        renderPearls(); // Importante refrescar la UI de perlas aquí
+        renderPearls(); 
+        
+        // Restaurar visibilidad de la sección de Ayudantes
+        if (game.totalCookiesEarned >= 150) {
+            const hList = document.getElementById('helpers-list');
+            if(hList) {
+                hList.classList.remove('locked-section');
+                areHelpersUnlocked = true; // Variable global de control
+            }
+        }
 
-        // 8. CÁLCULO DE PROGRESO OFFLINE
+        // 7. CÁLCULO DE PROGRESO OFFLINE
         if (game.lastSaveTime) {
             const now = Date.now();
             const secondsOffline = (now - game.lastSaveTime) / 1000;
             
+            // Solo si ha pasado más de 1 minuto
             if (secondsOffline > 60) {
-                let efficiency = 0.5; // 50% por defecto
-                // Mejora celestial 'Cronos' (offline_god)
+                let efficiency = 0.5; // 50% base
+                
+                // Mejora celestial: Cronos (100% eficiencia)
                 if (game.heavenlyUpgrades.includes('offline_god')) efficiency = 1.0;
                 
-                const offlineProduction = (getCPS() * secondsOffline) * efficiency;
+                const currentCPS = getCPS();
+                const offlineProduction = (currentCPS * secondsOffline) * efficiency;
                 
                 if (offlineProduction > 0) {
                     game.cookies += offlineProduction;
                     game.totalCookiesEarned += offlineProduction;
                     
-                    // Mostrar modal después de un segundo para que la UI cargue primero
                     setTimeout(() => {
                         showSystemModal(
                             "REGRESO AL UNIVERSO", 
-                            `Has estado fuera ${formatTime(secondsOffline)}.\nProducción Offline (${efficiency*100}%):\n+${formatNumber(offlineProduction)} Energía.`, 
+                            `Has estado en estasis durante ${formatTime(secondsOffline)}.\n\nSistemas auxiliares generaron:\n<span style="color:#00ff88; font-size:1.2em">+${formatNumber(offlineProduction)} Watts</span>\n(Eficiencia: ${efficiency*100}%)`, 
                             false, null
                         );
                     }, 1000);
@@ -1632,6 +1719,12 @@ function loadGame() {
         }
     }
 }
+
+
+
+
+
+
 
 window.resetGame = function() {
     
