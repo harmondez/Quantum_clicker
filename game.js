@@ -1184,8 +1184,8 @@ function getCPS() {
     // 2. MULTIPLICADORES GLOBALES (PRESTIGIO)
     let total = cps * game.prestigeMult;
     
-    // 3. AYUDANTES (STAFF)
-    // Ing. Marcus Voltz (Multiplicador simple)
+    // 3. AYUDANTES (STAFF) Y SUS MEJORAS DE ÉLITE
+    // Ing. Marcus Voltz (Multiplicador base)
     const prodHelper = helpersConfig.find(h => h.effect === 'cpsMultiplier');
     if (prodHelper && game.helpers.includes(prodHelper.id)) {
         total *= prodHelper.value;
@@ -1195,9 +1195,24 @@ function getCPS() {
     const synergyHelper = helpersConfig.find(h => h.effect === 'buildingSynergy');
     if (synergyHelper && game.helpers.includes(synergyHelper.id)) {
         const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
-        // Ejemplo: 100 edificios * 0.01 = +100% (x2.0)
         total *= (1 + (totalBuildings * synergyHelper.value));
     }
+
+    // --- NUEVO: MEJORAS DE ÉLITE (Sincronía y Protocolo Maestro) ---
+    game.helpers.forEach(helperId => {
+        // Mejora de Sincronía (+25% Global por cada experto sincronizado)
+        if (game.upgrades.includes(`upg_power_${helperId}`)) {
+            total *= 1.25; 
+        }
+        
+        // Protocolo Maestro (Efectos únicos de clase)
+        if (game.upgrades.includes(`upg_master_${helperId}`)) {
+            if (helperId === 'h_clicker') total *= 1.15; // Dra. Thorne da bono pasivo
+            if (helperId === 'h_miner') total *= 1.50;   // Marcus aumenta eficiencia de red
+            if (helperId === 'h_discount') total *= 1.10; // Silas optimiza dividendos
+            // Puedes añadir más efectos específicos aquí para otros ayudantes
+        }
+    });
 
     // 4. CADENA OMEGA (LORE)
     if (game.upgrades.includes('protocol-omega')) total *= 1.2;
@@ -1206,39 +1221,43 @@ function getCPS() {
     if (game.upgrades.includes('omega-phase-4')) total *= 3.0;
     if (game.upgrades.includes('omega-final')) total *= 5.0;
 
-    // 5. ÁRBOL DE ASCENSIÓN (COSMOS - NUEVO)
-    
-    // Eficiencia Industrial I (+15%)
+    // 5. ÁRBOL DE ASCENSIÓN (COSMOS)
     if (game.heavenlyUpgrades.includes('perm_prod_1')) total *= 1.15;
-    
-    // (Compatibilidad con save antiguo 'perm_prod')
     if (game.heavenlyUpgrades.includes('perm_prod')) total *= 1.10; 
 
-    // Cerebro Galáctico (+2% por cada logro desbloqueado)
     if (game.heavenlyUpgrades.includes('galaxy_brain')) {
         const achievementBonus = 1 + (game.achievements.length * 0.02);
         total *= achievementBonus;
     }
     
-    // Sinergia Estructural (+10% por cada 50 edificios totales)
     if (game.heavenlyUpgrades.includes('synergy_passive')) {
         const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
         const stacks = Math.floor(totalBuildings / 50);
         if (stacks > 0) total *= (1 + (stacks * 0.10));
     }
 
-    // Motor de Materia Oscura (Multiplicador puro x2)
     if (game.heavenlyUpgrades.includes('dark_matter_engine')) total *= 2.0;
-    
-    // Multiverso (Dobla la eficiencia del prestigio)
     if (game.heavenlyUpgrades.includes('multiverse')) total *= 2.0;
 
+    // --- NUEVO: MEJORAS DE ESCALA (BASADAS EN EL TOTAL ACTUAL) ---
+    // Retroalimentación Positiva: +1% por cada 10,000 W/s
+    if (game.upgrades.includes('scaling_efficiency_1')) {
+        const bonus = Math.floor(total / 10000) * 0.01;
+        total *= (1 + bonus);
+    }
+    // Recursión Infinita: +5% por cada 1M W/s
+    if (game.upgrades.includes('scaling_efficiency_2')) {
+        const bonus = Math.floor(total / 1000000) * 0.05;
+        total *= (1 + bonus);
+    }
+
     // 6. MULTIPLICADORES TEMPORALES Y ESPECIALES
-    if (isOvercharged) total *= 5; // Sobrecarga manual
-    if (game.activePearl === 'red') total *= 10; // Perla Roja (Apocalipsis)
+    if (isOvercharged) total *= 5; 
+    if (game.activePearl === 'red') total *= 10; 
     
-    return total * buffMultiplier; // Buffs de Anomalías
+    return total * buffMultiplier; // Aplicar buffs de Anomalías al final
 }
+
 
 
 
@@ -1707,8 +1726,9 @@ function renderStore() {
         });
     });
 
-    // 2. MEJORAS ESPECIALES (Protocolo Omega Completo)
+    // 2. LISTA DE MEJORAS ESPECIALES (CADENA OMEGA + ESCALA)
     const specials = [
+        // --- CADENA OMEGA ---
         { 
             id: 'protocol-omega', 
             name: 'Protocolo Omega', 
@@ -1748,14 +1768,81 @@ function renderStore() {
             cost: 5000000000, 
             desc: 'LIBERA AL VACÍO.\nProducción x5.0 + Perla Roja', 
             req: () => game.upgrades.includes('omega-phase-4') && !game.upgrades.includes('omega-final')
+        },
+
+        // --- MEJORAS DE ESCALA ---
+        {
+            id: 'scaling_efficiency_1',
+            name: 'Retroalimentación Positiva',
+            icon: '📈',
+            cost: 100000000, 
+            desc: 'Gana +1% de producción extra por cada 10,000 W/s de producción base.',
+            req: () => getCPS() > 50000 && !game.upgrades.includes('scaling_efficiency_1')
+        },
+        {
+            id: 'scaling_efficiency_2',
+            name: 'Recursión Infinita',
+            icon: '♾️',
+            cost: 1000000000000, 
+            desc: 'Gana +5% de producción extra por cada 1M W/s de producción base.',
+            req: () => game.upgrades.includes('scaling_efficiency_1') && !game.upgrades.includes('scaling_efficiency_2')
         }
     ];
 
+    // --- MEJORAS DINÁMICAS PARA AYUDANTES (ELITE) ---
+    helpersConfig.forEach(h => {
+        const isEquipped = game.helpers.includes(h.id);
+        const powerId = `upg_power_${h.id}`;
+        const masterId = `upg_master_${h.id}`;
+
+        // Mejora 1: Sincronía
+        if (isEquipped && !game.upgrades.includes(powerId)) {
+            specials.push({
+                id: powerId,
+                name: `Sincronía: ${h.name}`,
+                icon: '🔥',
+                cost: h.cost * 50,
+                desc: `Efectividad de ${h.icon} +50% y Producción Global +25%.`,
+                req: () => true 
+            });
+        }
+
+        // Mejora 2: Protocolo Maestro
+        if (isEquipped && game.upgrades.includes(powerId) && !game.upgrades.includes(masterId)) {
+            let masterDesc = "";
+            switch(h.id) {
+                case 'h_clicker': masterDesc = "Dra. Thorne: +15% producción pasiva global."; break;
+                case 'h_miner': masterDesc = "Marcus Voltz: Potencia la red un +50% adicional."; break;
+                case 'h_discount': masterDesc = "Silas Vane: +10% bono de eficiencia a dividendos."; break;
+                case 'h_combo': masterDesc = "Dra. Flux: Combo máximo sube a x10.0."; break;
+                case 'h_anomaly': masterDesc = "Dorian Nox: Anomalías sin efectos negativos."; break;
+                case 'h_crit': masterDesc = "Sgt. Kael: Probabilidad de crítico al 25%."; break;
+                case 'h_efficiency': masterDesc = "Dra. Joule: Mantenimiento del staff reducido a 0."; break;
+                case 'h_banker': masterDesc = "Victor Ray: Anomalías de capital dan x10."; break;
+                case 'h_synergy': masterDesc = "IA: Sinergia por edificio duplicada (+2%)."; break;
+                case 'h_master': masterDesc = "Director Cipher: Multiplicador global x5.0."; break;
+                default: masterDesc = "Desbloquea el potencial oculto.";
+            }
+
+            specials.push({
+                id: masterId,
+                name: `Protocolo Maestro: ${h.icon}`,
+                icon: '👑',
+                cost: h.cost * 500,
+                desc: masterDesc,
+                req: () => true 
+            });
+        }
+    });
+
+    // RENDERIZADO DE TODAS LAS ESPECIALES
     specials.forEach(s => {
         if (s.req()) {
             anyUp = true;
             const btn = document.createElement('div');
-            btn.className = 'upgrade-crate special-upgrade'; 
+            // Estilo visual: Rojo/Violeta para Omega y Maestro
+            const isCritical = s.id.includes('omega') || s.id.includes('master');
+            btn.className = `upgrade-crate ${isCritical ? 'special-upgrade' : ''}`; 
             btn.innerHTML = s.icon;
             btn.dataset.cost = s.cost;
             btn.setAttribute('data-tooltip', `${s.name}\n${s.desc}\nCoste: ${formatNumber(s.cost)}`);
@@ -1767,7 +1854,7 @@ function renderStore() {
 
     if(!anyUp) upgradesEl.innerHTML = '<div style="color:#444; font-size:0.8rem; width:100%; text-align:center;">Juega más para desbloquear tecnología...</div>';
 
-    // 3. RENDERIZAR EDIFICIOS
+    // 3. RENDERIZAR LISTA DE EDIFICIOS
     let lockedShown = 0; 
     for (let i = 0; i < buildingsConfig.length; i++) {
         const b = buildingsConfig[i];
@@ -1808,6 +1895,8 @@ function renderStore() {
         }
     }
 }
+
+
 
 
 // Variable para controlar si ya se mostró (para no repetir la animación)
