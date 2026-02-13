@@ -112,6 +112,9 @@ let game = {
 let buffMultiplier = 1; // Multiplicador global de producción
 let clickBuffMultiplier = 1; // Multiplicador de clicks
 let isApocalypse = false;
+// Añade esto junto a tus otras variables globales al principio de game.js
+const INTRO_TOTAL_CLICKS = 70; // Más largo, más épico
+let introParticlesMesh = null; // Para el efecto de polvo cósmico
 // ==========================================
 // 🌑 PROTOCOLO DE INICIO (INTRO NARRATIVA)
 // ==========================================
@@ -123,43 +126,97 @@ function startIntroSequence() {
     isIntroActive = true;
     document.body.classList.add('intro-mode');
     
-    // Apagar la bola 3D casi por completo
+    // 1. EL VACÍO ABSOLUTO
     if(mainObject) {
         mainObject.material.emissiveIntensity = 0;
-        mainObject.material.color.setHex(0x111111); // Casi negra
-        glowMesh.visible = false; // Ocultar la red externa
+        mainObject.material.color.setHex(0x000000); // Negro total
+        mainObject.material.roughness = 1.0; // Muy rugoso (apagado)
+        
+        glowMesh.visible = false; // Sin red
+    }
+    
+    // Resetear partículas
+    if(introParticlesMesh) {
+        introParticlesMesh.material.opacity = 0;
     }
 
-    // Primer mensaje
-    showIntroText("Sistema desconectado...");
+    // Mensaje inicial
+    showIntroText("Detectando vacío cuántico...");
 }
 
 function handleIntroClick() {
     introClicks++;
     
-    // Feedback visual: La bola se ilumina un poco con cada click
-    const intensity = Math.min(1.0, introClicks / 40);
-    mainObject.material.emissiveIntensity = intensity;
-    mainObject.material.color.setHex(0x00ff88); // Va recuperando el verde
+    // Progreso de 0.0 a 1.0
+    const progress = Math.min(1.0, introClicks / INTRO_TOTAL_CLICKS);
+    
+    // --- EFECTOS VISUALES (EL ARDOR) ---
+    if(mainObject) {
+        // A. TEMBLOR (Cada vez más fuerte)
+        const shake = progress * 0.3;
+        mainObject.rotation.x += (Math.random()-0.5) * shake;
+        mainObject.rotation.y += (Math.random()-0.5) * shake;
 
-    // Secuencia Narrativa
+        // B. COLOR Y TEMPERATURA
+        // Fase 1 (0-30%): De Negro a Rojo Oscuro (Calentamiento)
+        if (progress < 0.3) {
+            const localP = progress / 0.3;
+            mainObject.material.color.setHSL(0.0, 1.0, localP * 0.2); // HSL: Rojo, Sat Max, Luz baja
+            mainObject.material.emissive.setHSL(0.0, 1.0, localP * 0.1);
+        } 
+        // Fase 2 (30-70%): De Rojo a Naranja/Amarillo (Ignición)
+        else if (progress < 0.7) {
+            const localP = (progress - 0.3) / 0.4;
+            mainObject.material.color.setHSL(0.1 * localP, 1.0, 0.2 + (localP * 0.3)); // Hacia naranja
+            mainObject.material.emissiveIntensity = localP * 0.5;
+        }
+        // Fase 3 (70-100%): De Amarillo a Blanco Cegador (Crítico)
+        else {
+            const localP = (progress - 0.7) / 0.3;
+            mainObject.material.color.setHSL(0.15, 1.0, 0.5 + (localP * 0.5)); // Hacia blanco
+            mainObject.material.emissiveIntensity = 0.5 + (localP * 2.0); // Brillo extremo (hasta 2.5)
+            
+            // La red aparece al final, vibrando
+            glowMesh.visible = true;
+            glowMesh.material.opacity = localP;
+            glowMesh.scale.setScalar(1.0 + (Math.random() * 0.1));
+        }
+
+        // C. PARTÍCULAS (Vórtice)
+        if(introParticlesMesh) {
+            introParticlesMesh.material.opacity = progress * 0.8;
+            introParticlesMesh.rotation.y += 0.05 * progress; // Giran más rápido
+            introParticlesMesh.scale.setScalar(1.0 - (progress * 0.5)); // Se contraen hacia el núcleo (implosión)
+        }
+    }
+
+    // --- NARRATIVA (Pausas más largas) ---
+    // Distribución: 1, 15, 30, 50, 65, 70
+    
     if (introClicks === 1) {
-        showIntroText("Pulsa para iniciar secuencia de ignición.");
+        showIntroText("Iniciando compresión de materia...");
     }
-    else if (introClicks === 10) {
-        glowMesh.visible = true; // Aparece la red tenue
-        showIntroText("¡Más rápido! Los niveles de energía son críticos.");
-    }
-    else if (introClicks === 20) {
-        playTone(100, 'sawtooth', 0.5); // Sonido de motor arrancando
-        showIntroText("Núcleo al 50%... Continúa.");
+    else if (introClicks === 15) {
+        // Aparece un brillo rojo muy tenue
+        playTone(50, 'sawtooth', 0.2);
+        showIntroText("Temperatura central en aumento.");
     }
     else if (introClicks === 30) {
-        playTone(200, 'square', 0.5);
-        showIntroText("¡ESTABILIZANDO SINGULARIDAD!");
+        // Naranja
+        playTone(100, 'square', 0.3);
+        showIntroText("Fricción atómica detectada. Continúa.");
     }
-    else if (introClicks >= 40) {
-        // EL FINAL DE LA INTRO
+    else if (introClicks === 50) {
+        // Amarillo brillante
+        playTone(200, 'sawtooth', 0.5);
+        showIntroText("¡ADVERTENCIA: MASA CRÍTICA ALCANZADA!");
+    }
+    else if (introClicks === 65) {
+        // Blanco casi puro
+        playTone(400, 'sine', 0.8);
+        showIntroText("¡COLAPSO INMINENTE!");
+    }
+    else if (introClicks >= INTRO_TOTAL_CLICKS) {
         finishIntro();
     }
 }
@@ -174,46 +231,68 @@ function showIntroText(text) {
 }
 
 function finishIntro() {
-    isIntroActive = false; // Desactivar lógica intro
-    
-    // 1. Frases Finales
-    const el = document.getElementById('intro-text');
-    el.style.opacity = 0;
-    
-    setTimeout(() => {
-        el.innerText = "“La energía no se crea ni se destruye, solo se transforma.”";
-        el.style.opacity = 1;
-        
-        setTimeout(() => {
-            el.style.opacity = 0;
-            setTimeout(() => {
-                el.innerText = "“Todo es energía y eso es todo lo que hay.”";
-                el.style.opacity = 1;
-                
-                // 2. EL DESTELLO (BIG BANG)
-                setTimeout(() => {
-                    const flash = document.createElement('div');
-                    flash.className = 'flash-bang';
-                    document.body.appendChild(flash);
-                    
-                    // Sonido Épico
-                    playTone(50, 'sine', 3.0); 
-                    sfxAnomaly();
+    // 1. Limpiamos partículas de la intro si existen
+    if(typeof introParticlesMesh !== 'undefined' && introParticlesMesh) {
+        scene.remove(introParticlesMesh);
+        introParticlesMesh = null;
+    }
 
-                    // 3. REVELAR INTERFAZ
-                    document.body.classList.remove('intro-mode');
-                    el.innerText = ""; // Limpiar texto
-                    
-                    // Restaurar bola a estado normal
-                    update3D(); 
-                    
-                    // Guardar para que no vuelva a salir
-                    saveGame();
-                    
-                    setTimeout(() => flash.remove(), 2000);
-                }, 4000); // Tiempo leyendo la segunda frase
-            }, 1500);
-        }, 4000); // Tiempo leyendo la primera frase
+    // 2. Ocultamos texto
+    const el = document.getElementById('intro-text');
+    if(el) el.style.opacity = 0;
+
+    // 3. SECUENCIA FINAL
+    // Esperamos 1 seg para dar dramatismo antes del Big Bang
+    setTimeout(() => {
+        
+        // --- A. CREAR EL FLASH BLANCO ---
+        const flash = document.createElement('div');
+        flash.className = 'flash-bang';
+        document.body.appendChild(flash);
+        
+        // Sonido de explosión
+        playTone(50, 'sine', 1.0); 
+        sfxAnomaly(); 
+
+        // --- B. CAMBIAR EL ESTADO DEL JUEGO (Detrás del flash) ---
+        // Lo hacemos casi al instante para que cuando el flash baje de intensidad,
+        // el juego ya se vea debajo.
+        setTimeout(() => {
+            isIntroActive = false;
+            document.body.classList.remove('intro-mode');
+            if(el) el.innerText = "";
+            
+            // FORZAR COLORES NORMALES (Resetear la "quemadura")
+            if(mainObject) {
+                mainObject.material.color.setHex(0x00ff88); // Verde Base
+                mainObject.material.emissive.setHex(0x004422);
+                mainObject.material.emissiveIntensity = 0.5;
+                mainObject.scale.setScalar(1);
+                mainObject.rotation.set(0,0,0);
+            }
+
+            if(glowMesh) {
+                glowMesh.visible = true;
+                glowMesh.material.opacity = 1;
+                glowMesh.scale.setScalar(1.2);
+            }
+
+            // Guardar que ya hemos visto la intro
+            saveGame();
+            
+            // Iniciar anomalías tras unos segundos
+            setTimeout(spawnAnomaly, 10000);
+
+        }, 200); // 200ms después de que empiece el flash blanco
+
+        // --- C. BORRAR EL FLASH FÍSICAMENTE ---
+        // Coincide con la duración de la animación CSS (3s)
+        setTimeout(() => {
+            if(flash && flash.parentNode) {
+                flash.remove();
+            }
+        }, 3000);
+
     }, 1000);
 }
 
@@ -349,6 +428,34 @@ let isOvercharged = false;
 const particleGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
 const particleMat = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
 
+
+
+
+function createIntroParticles() {
+    const geometry = new THREE.BufferGeometry();
+    const count = 2000;
+    const posArray = new Float32Array(count * 3);
+    
+    for(let i = 0; i < count * 3; i++) {
+        // Distribución en una esfera más grande que la bola principal
+        posArray[i] = (Math.random() - 0.5) * 15; 
+    }
+    
+    geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    
+    // Material que empieza invisible
+    const material = new THREE.PointsMaterial({
+        size: 0.05,
+        color: 0xff4400, // Naranja fuego
+        transparent: true,
+        opacity: 0, // Empieza invisible
+        blending: THREE.AdditiveBlending
+    });
+    
+    introParticlesMesh = new THREE.Points(geometry, material);
+    scene.add(introParticlesMesh);
+}
+
 function initThree() {
     const canvas = document.getElementById('three-canvas');
     const width = canvas.clientWidth;
@@ -356,6 +463,7 @@ function initThree() {
 
     scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x000000, 0.03);
+    createIntroParticles()
 
     camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
     camera.position.z = 8;
@@ -378,6 +486,7 @@ function initThree() {
         });
         canvas.dispatchEvent(mouseEvent);
     }, { passive: false });
+    
 
     // OBJETO PRINCIPAL
     const geometry = new THREE.IcosahedronGeometry(1.8, 1);
@@ -411,6 +520,11 @@ function initThree() {
     window.addEventListener('resize', onResize);
     canvas.addEventListener('mousedown', onCanvasClick);
 }
+
+
+
+
+
 
 function createStarfield() {
     const starGeo = new THREE.BufferGeometry();
@@ -488,87 +602,127 @@ function spawnParticles(pos) {
 }
 
 function update3D() {
-    const cps = getCPS();
     const time = Date.now() * 0.002;
-    
-    // 1. ROTACIÓN DINÁMICA
-    // La velocidad aumenta ligeramente con la producción
+    const cps = getCPS();
+
+    // ===============================================
+    // 🛑 1. LÓGICA ESPECIAL DE LA INTRO
+    // ===============================================
+    if (isIntroActive) {
+        // Si hay polvo estelar (intro), que gire suavemente
+        if (typeof introParticlesMesh !== 'undefined' && introParticlesMesh) {
+            introParticlesMesh.rotation.y += 0.002;
+            introParticlesMesh.rotation.z += 0.001;
+        }
+
+        // Actualizamos las partículas de click (chispas)
+        updateParticles(); 
+        
+        // Renderizamos y SALIMOS. No queremos que el código de abajo
+        // cambie los colores de la bola ni mueva las estrellas.
+        composer.render();
+        return; 
+    }
+
+    // ===============================================
+    // 🚀 2. JUEGO NORMAL (SOLO SI NO HAY INTRO)
+    // ===============================================
+
+    // A. ROTACIÓN DINÁMICA
     const rotSpeed = 0.005 + Math.min(0.1, cps * 0.00001);
     mainObject.rotation.y += rotSpeed;
     mainObject.rotation.x += rotSpeed * 0.5;
     glowMesh.rotation.y -= rotSpeed;
     
-    // 2. LÓGICA DE COLORES Y EVOLUCIÓN (SISTEMA DE WATTS)
+    // B. LÓGICA DE COLORES Y EVOLUCIÓN
     if (isApocalypse) {
-        // MODO APOCALIPSIS (ROJO ENTROPÍA)
+        // MODO APOCALIPSIS
         mainObject.material.color.setHex(0xff0000); 
         mainObject.material.emissive.setHex(0x550000);
         glowMesh.material.color.setHex(0xff3300);   
-        scene.fog.color.setHex(0x220000);           
+        if(scene.fog) scene.fog.color.setHex(0x220000);           
         mainObject.scale.setScalar(1 + Math.sin(time * 5) * 0.05); 
     } else {
-        // MODO NORMAL: EVOLUCIÓN POR ENERGÍA TOTAL ACUMULADA
-        let targetColor = new THREE.Color(0x00ff88); // Base: Verde (Watts)
+        // MODO NORMAL: EVOLUCIÓN
+        let targetColor = new THREE.Color(0x00ff88); // Base: Verde
         let targetEmissive = new THREE.Color(0x004422);
         let targetGlow = new THREE.Color(0x7c4dff);
 
-        // FASE KILOWATT (1,000 W): Núcleo Térmico (Naranja)
+        // FASE KILOWATT (1,000 W) -> Naranja
         if (game.totalCookiesEarned >= 1000) {
             targetColor.setHex(0xffaa00);
             targetEmissive.setHex(0xff4400);
             targetGlow.setHex(0xffcc00);
         }
-        // FASE MEGAWATT (1,000,000 W): Núcleo de Plasma (Azul)
+        // FASE MEGAWATT (1M W) -> Azul Cyan
         if (game.totalCookiesEarned >= 1000000) {
             targetColor.setHex(0x00e5ff);
             targetEmissive.setHex(0x0044aa);
             targetGlow.setHex(0x00ffff);
         }
-        // FASE GIGAWATT (1,000,000,000 W): Núcleo de Singularidad (Violeta)
+        // FASE GIGAWATT (1B W) -> Violeta Singularidad
         if (game.totalCookiesEarned >= 1000000000) {
             targetColor.setHex(0x9900ff);
             targetEmissive.setHex(0x220044);
             targetGlow.setHex(0xff00ff);
         }
 
-        // Transición suave de colores
+        // Transición suave (Lerp)
         mainObject.material.color.lerp(targetColor, 0.05);
         mainObject.material.emissive.lerp(targetEmissive, 0.05);
         glowMesh.material.color.lerp(targetGlow, 0.05);
-        scene.fog.color.lerp(new THREE.Color(0x000000), 0.1);
+        
+        // El fog vuelve a negro si salimos del apocalipsis
+        if(scene.fog) scene.fog.color.lerp(new THREE.Color(0x000000), 0.1);
 
-        // Latido suave basado en la energía
+        // Latido suave
         const pulse = 1 + Math.sin(time * 2) * 0.02;
         mainObject.scale.setScalar(pulse);
     }
     
-    // 3. FONDO DE ESTRELLAS (VELOCIDAD LUZ)
-    const positions = starMesh.geometry.attributes.position.array;
-    const starSpeed = 0.05 + Math.min(2.0, cps * 0.0005); 
-    
-    for(let i=2; i<positions.length; i+=3) {
-        positions[i] += starSpeed;
-        if(positions[i] > 20) positions[i] = -40; 
+    // C. FONDO DE ESTRELLAS (Solo se mueven si el juego ha empezado)
+    if (starMesh && starMesh.geometry) {
+        const positions = starMesh.geometry.attributes.position.array;
+        const starSpeed = 0.05 + Math.min(2.0, cps * 0.0005); 
+        
+        for(let i=2; i<positions.length; i+=3) {
+            positions[i] += starSpeed;
+            if(positions[i] > 20) positions[i] = -40; 
+        }
+        starMesh.geometry.attributes.position.needsUpdate = true;
     }
-    starMesh.geometry.attributes.position.needsUpdate = true;
 
-    // 4. PARTÍCULAS (LIMPIEZA DE MEMORIA)
+    // D. PARTÍCULAS
+    updateParticles();
+
+    // E. RENDERIZADO FINAL
+    camera.position.lerp(new THREE.Vector3(0,0,8), 0.1);
+    
+    // Variación suave de emisión
+    if (!isApocalypse) {
+        mainObject.material.emissiveIntensity = 0.5 + Math.sin(time) * 0.2;
+    }
+    
+    composer.render();
+}
+
+// Función auxiliar para limpiar el código (Pon esto fuera)
+function updateParticles() {
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.position.add(p.userData.vel);
         p.scale.multiplyScalar(0.92); 
         
         if(p.scale.x < 0.01) { 
-            dispose3D(p); 
+            // Eliminar de escena y memoria
+            scene.remove(p);
+            if(p.geometry) p.geometry.dispose();
+            if(p.material) p.material.dispose();
             particles.splice(i, 1); 
         }
     }
-
-    // 5. RENDERIZADO FINAL
-    camera.position.lerp(new THREE.Vector3(0,0,8), 0.1);
-    mainObject.material.emissiveIntensity = 0.5 + Math.sin(time) * 0.2;
-    composer.render();
 }
+
 
 function onResize() {
     const canvas = document.getElementById('three-canvas');
@@ -607,173 +761,145 @@ function dispose3D(object) {
 // ==========================================
 // ANOMALIAS RANDOM (FRENZY GOLDEN COOKIES)
 
-let isAnomalyLoopActive = false; // Variable de seguridad fuera de la función
+// Variable de seguridad fuera de la función
+
+// Variable global para evitar bucles dobles (si no la tienes declarada fuera)
+let isAnomalyLoopActive = false; 
 
 function spawnAnomaly() {
     isAnomalyLoopActive = true;
 
-    // 1. Probabilidad de Corrupción (Apocalipsis)
+    // ----------------------------------------------------
+    // 1. ESCUDO DE INTRO (Protegemos el misterio)
+    // ----------------------------------------------------
+    // Si la intro está activa, cancelamos inmediatamente.
+    if (typeof isIntroActive !== 'undefined' && isIntroActive) return;
+
+    // ----------------------------------------------------
+    // 2. ESCUDO DE TECNOLOGÍA (El Sensor)
+    // ----------------------------------------------------
+    // Si NO tienes la mejora 'unlock-anomalies' comprada, entramos en modo espera.
+    // Volvemos a comprobar en 5 segundos.
+    if (!game.upgrades.includes('unlock-anomalies')) {
+        setTimeout(spawnAnomaly, 5000);
+        return;
+    }
+
+    // ----------------------------------------------------
+    // 3. GENERACIÓN DE LA BOLA (Tu lógica original de recompensas)
+    // ----------------------------------------------------
     const isCorrupt = isApocalypse && Math.random() < 0.3;
-    
-    // 2. Evento de Perla Azul (Solo si tienes +10k clicks y NO tienes la perla)
     const isTemporalEvent = !game.pearls.includes('blue') && (game.totalClicks >= 10000) && Math.random() < 0.3;
     
-    // 3. Elegir tipo de recompensa (Lógica Ajustada)
-    // Antes: 50% dinero. Ahora: 40% dinero, 30% prod, 30% click (Más divertido)
-    const types = ['money', 'money', 'production', 'production', 'click', 'click']; 
+    // Probabilidades ajustadas (Menos dinero directo, más buffs para compensar la rareza)
+    const types = ['money', 'money', 'production', 'production', 'production', 'click', 'click']; 
     const type = types[Math.floor(Math.random() * types.length)];
     
     const orb = document.createElement('div');
-    
-    // Configuración visual por defecto
-    let icon = '⚛️';
-    let color = 'gold';
-    let size = '3.5rem';
+    let icon = '⚛️'; let color = 'gold'; let size = '3.5rem';
      
-    // --- VISUALES SEGÚN TIPO ---
+    // --- VISUALES ---
     if (isTemporalEvent) {
-        icon = '⏳'; 
-        color = '#00e5ff'; // Cyan
-        orb.style.animation = 'pulseBlue 0.5s infinite alternate';
+        icon = '⏳'; color = '#00e5ff'; orb.style.animation = 'pulseBlue 0.5s infinite alternate';
     } else if (isCorrupt) {
-        icon = '👁️';
-        color = '#ff0000'; // Rojo Sangre
-        size = '4.5rem';
+        icon = '👁️'; color = '#ff0000'; size = '4.5rem';
     } else if (type === 'production') {
-        icon = '⚡'; 
-        color = '#ffaa00';
+        icon = '⚡'; color = '#ffaa00';
     } else if (type === 'click') {
-        icon = '🖱️'; 
-        color = '#00ff88';
+        icon = '🖱️'; color = '#00ff88';
     }
 
     orb.innerHTML = icon;
-    
-    // Posicionamiento
     orb.style.cssText = `
-        position: absolute; 
-        font-size: ${size}; 
-        cursor: pointer; 
-        z-index: 2000; 
+        position: absolute; font-size: ${size}; cursor: pointer; z-index: 2000; 
         filter: drop-shadow(0 0 15px ${color}); 
-        left: ${Math.random() * 80 + 10}%; 
-        top: ${Math.random() * 80 + 10}%;
-        user-select: none;
-        transition: transform 0.1s;
+        left: ${Math.random() * 80 + 10}%; top: ${Math.random() * 80 + 10}%;
+        user-select: none; transition: transform 0.1s;
     `;
-    
     orb.onmouseover = () => orb.style.transform = "scale(1.2)";
     orb.onmouseout = () => orb.style.transform = "scale(1.0)";
 
-    // --- LÓGICA DEL CLICK ---
+    // --- CLICK ---
     orb.onclick = function(e) {
         e.stopPropagation(); 
         sfxAnomaly();
         game.anomaliesClicked++;
-        
         createFloatingText(e.clientX, e.clientY, "ANOMALÍA CAPTURADA");
 
-        // A. EVENTO ÚNICO (PERLA)
-        if (isTemporalEvent) {
-            unlockPearl('blue');
-        } 
-        // B. APOCALIPSIS (RIESGO)
+        if (isTemporalEvent) { unlockPearl('blue'); } 
         else if (isCorrupt) {
-            // Lógica: Diplomacia del Vacío reduce riesgo 50% -> 25%
             let riskThreshold = 0.5;
             if (game.heavenlyUpgrades.includes('wrath_control')) riskThreshold = 0.25;
-
             if (Math.random() < riskThreshold) {
-                // MALO (Resta 5% del banco)
-                let loss = game.cookies * 0.05; 
-                game.cookies -= loss;
+                let loss = game.cookies * 0.05; game.cookies -= loss;
                 showAnomalyPopup(`📉 ENTROPÍA: -${formatNumber(loss)} Watts`, 'bad');
             } else {
-                // BUENO (Gana 666s de producción)
-                let gain = getCPS() * 666; 
-                game.cookies += gain;
-                game.totalCookiesEarned += gain;
+                let gain = getCPS() * 2000; // Premio GORDO por rareza
+                game.cookies += gain; game.totalCookiesEarned += gain;
                 showAnomalyPopup(`😈 CAOS: +${formatNumber(gain)} Watts`, 'good');
             }
         } 
-        // C. DINERO DIRECTO (BALANCEADO)
         else if (type === 'money') {
             let bonusMult = 1;
             if (game.helpers.includes('h_banker')) bonusMult *= 1.5;
             if (game.heavenlyUpgrades.includes('anomaly_nuke')) bonusMult *= 3.0;
-
-            // Base: Entre 5 y 30 minutos de producción (reducido un poco para no romper el juego)
-            let seconds = 300 + Math.random() * 1500; 
+            
+            let seconds = 600 + Math.random() * 1800; 
             let gain = (getCPS() * seconds) * bonusMult;
             
-            // LÓGICA DE BALANCEO (Soft-Cap):
-            // La ganancia no puede superar el 25% de lo que tienes ahorrado actualmente.
-            // Esto obliga al jugador a ahorrar para ganar premios más grandes (Estrategia "Bank").
-            let bankCap = game.cookies * 0.25; 
-            if (gain > bankCap && bankCap > 0) {
-                gain = bankCap; 
-            }
-            
-            // Suelo mínimo garantizado (para cuando empiezas y tienes 0)
+            let bankCap = game.cookies * 0.50; // Cap subido al 50%
+            if (gain > bankCap && bankCap > 0) gain = bankCap; 
             if (gain < 15) gain = 15;
 
-            game.cookies += gain;
-            game.totalCookiesEarned += gain;
+            game.cookies += gain; game.totalCookiesEarned += gain;
             showAnomalyPopup(`💰 SURGE: +${formatNumber(gain)} Watts`);
         } 
-        // D. BUFF PRODUCCIÓN
         else if (type === 'production') {
             let duration = 77;
             if (game.heavenlyUpgrades.includes('golden_duration')) duration += 10;
-            
             activateBuff('production', 7, duration);
             showAnomalyPopup(`⚡ SOBRECARGA: x7 Prod (${duration}s)`);
         } 
-        // E. BUFF CLICK
         else if (type === 'click') {
             let duration = 13;
             if (game.heavenlyUpgrades.includes('click_frenzy_boost')) duration *= 2;
             if (game.heavenlyUpgrades.includes('golden_duration')) duration += 10;
-
             activateBuff('click', 777, duration);
             showAnomalyPopup(`🖱️ CLICKSTORM: x777 Power (${duration}s)`);
         }
-
-        this.remove();
-        updateUI();
+        this.remove(); updateUI();
     };
-
-
 
     document.getElementById('game-area').appendChild(orb);
     
-    // --- LÓGICA DE DESAPARICIÓN ---
-    let lifeTime = isCorrupt ? 5000 : 12000; 
+    // Tiempo de vida en pantalla (ligeramente aumentado por rareza)
+    let lifeTime = isCorrupt ? 8000 : 15000; 
     if (game.upgrades.includes('quantum-lens')) lifeTime += 4000;
     if (game.heavenlyUpgrades.includes('golden_duration')) lifeTime += 3000;
 
     setTimeout(() => { 
         if(orb.parentNode) {
-            orb.style.opacity = 0;
-            orb.style.transition = "opacity 1s";
+            orb.style.opacity = 0; orb.style.transition = "opacity 1s";
             setTimeout(() => { if(orb.parentNode) orb.remove(); }, 1000);
         } 
     }, lifeTime); 
 
-    // --- RECURSIVIDAD (SIGUIENTE SPAWN) ---
+    // ----------------------------------------------------
+    // 4. CÁLCULO DE TIEMPO (LENTO: 2 MINUTOS MÍNIMO)
+    // ----------------------------------------------------
     const anomalyHelper = helpersConfig.find(h => h.effect === 'anomalyRate');
     
-    // Tiempo base: entre 30s y 90s
-    let baseTime = 30000 + Math.random() * 60000; 
+    // TIEMPO BASE: 120 segundos (120,000 ms) + Variación de 0 a 60s
+    let baseTime = 120000 + Math.random() * 60000; 
     
-    // Aplicar reducciones de tiempo
+    // Modificadores de reducción
     if (anomalyHelper && game.helpers.includes(anomalyHelper.id)) baseTime /= anomalyHelper.value;
     if (game.upgrades.includes('entropy-antenna')) baseTime *= 0.8; 
-    if (game.heavenlyUpgrades.includes('lucky_star')) baseTime *= 0.85; // 15% más rápido
-    
-    // Si el jugador está activo (combo alto), premiamos con más frecuencia
-    if (comboMultiplier > 3.0) baseTime *= 0.7;
+    if (game.heavenlyUpgrades.includes('lucky_star')) baseTime *= 0.85; 
 
+    if (comboMultiplier > 3.0) baseTime *= 0.8;
+
+    // console.log(`Próxima anomalía en: ${Math.round(baseTime/1000)}s`); // Debug opcional
     setTimeout(spawnAnomaly, baseTime);
 }
 
@@ -1449,60 +1575,52 @@ function renderStore() {
     });
 
     // ===============================================
-    // 2. MEJORAS ESPECIALES (UTILIDAD Y CADENA OMEGA)
+    // 2. MEJORAS ESPECIALES (CÓDIGO ACTUALIZADO)
     // ===============================================
     const specials = [
-        // --- UTILIDAD BÁSICA ---
-        { id: 'entropy-antenna', name: 'Antena de Entropía', icon: '📡', cost: 50000, desc: 'Anomalías aparecen un 20% más rápido.', req: () => game.totalCookiesEarned > 100000 },
-        { id: 'quantum-lens', name: 'Lente Cuántica', icon: '🔍', cost: 150000, desc: 'Las anomalías duran +2s en pantalla.', req: () => game.clickCount > 500 },
+        // --- NUEVO: EL ACTIVADOR DE ANOMALÍAS ---
+        { 
+            id: 'unlock-anomalies', 
+            name: 'Sensor de Anomalías', 
+            icon: '🧿', // Ojo místico / Sensor
+            cost: 10000000000, // 10 Billones (Coste Post-Omega)
+            desc: 'Permite detectar inestabilidades en la realidad.\nDesbloquea la aparición de Anomalías.', 
+            req: () => game.pearls.includes('red') // REQUISITO: Haber completado el Protocolo Omega (Perla Roja)
+        },
+
+        // --- UTILIDAD BÁSICA (Modificadas para requerir el Sensor) ---
+        { 
+            id: 'entropy-antenna', 
+            name: 'Antena de Entropía', 
+            icon: '📡', 
+            cost: 50000, 
+            desc: 'Anomalías aparecen un 20% más rápido.', 
+            // Ahora requiere tener el Sensor comprado:
+            req: () => game.upgrades.includes('unlock-anomalies') 
+        },
+        { 
+            id: 'quantum-lens', 
+            name: 'Lente Cuántica', 
+            icon: '🔍', 
+            cost: 150000, 
+            desc: 'Las anomalías duran +2s en pantalla.', 
+            req: () => game.upgrades.includes('unlock-anomalies')
+        },
+        
+        // ... (Tus otras mejoras de sinergia: Red Neuronal, etc. déjalas igual) ...
         { id: 'grandma-mine-synergy', name: 'Red Neuronal', icon: '🧠', cost: 500000, desc: 'Servidores potencian Minas (+1%/cad uno).', req: () => game.buildings['grandma'] >= 50 && game.buildings['mine'] >= 10 },
         { id: 'factory-click-synergy', name: 'Sobrecarga de Pulsos', icon: '🌀', cost: 1000000, desc: 'Cada Sincrotrón da +5 de poder de click base.', req: () => game.buildings['factory'] >= 15 },
         { id: 'overcharge-plus', name: 'Batería de Helio', icon: '🔋', cost: 250000, desc: 'Sobrecarga dura 5 segundos más.', req: () => game.totalCookiesEarned > 750000 },
 
-        // --- LA CADENA OMEGA (CRESCENDO DE TERROR) ---
-        { 
-            id: 'protocol-omega', name: 'Protocolo Omega', icon: '⚠️', cost: 5000000, 
-            desc: 'Inicia el experimento prohibido.\nProducción Global x1.2', 
-            req: () => game.totalCookiesEarned > 2000000 
-        },
-        { 
-            id: 'omega-phase-2', name: 'Resonancia Oscura', icon: '🔉', cost: 25000000, 
-            desc: 'Se oyen susurros en los servidores.\nProducción Global x1.5', 
-            req: () => game.upgrades.includes('protocol-omega') 
-        },
-        { 
-            id: 'omega-phase-3', name: 'Fisura Dimensional', icon: '🌀', cost: 150000000, 
-            desc: 'La realidad comienza a agrietarse.\nProducción Global x2.0', 
-            req: () => game.upgrades.includes('omega-phase-2') 
-        },
-        { 
-            id: 'omega-phase-4', name: 'Fallo de Contención', icon: '🚨', cost: 1000000000, 
-            desc: '¡LOS NIVELES DE ENTROPÍA SON CRÍTICOS!\nProducción Global x3.0', 
-            req: () => game.upgrades.includes('omega-phase-3') 
-        },
-        { 
-            id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, 
-            desc: 'LIBERA AL VACÍO.\nProducción x5.0 + ???', 
-            req: () => game.upgrades.includes('omega-phase-4') && !isApocalypse
-        }
+        // ... (La Cadena Omega se queda igual) ...
+        { id: 'protocol-omega', name: 'Protocolo Omega', icon: '⚠️', cost: 5000000, desc: 'Inicia el experimento prohibido.\nProducción Global x1.2', req: () => game.totalCookiesEarned > 2000000 },
+        { id: 'omega-phase-2', name: 'Resonancia Oscura', icon: '🔉', cost: 25000000, desc: 'Se oyen susurros en los servidores.\nProducción Global x1.5', req: () => game.upgrades.includes('protocol-omega') },
+        { id: 'omega-phase-3', name: 'Fisura Dimensional', icon: '🌀', cost: 150000000, desc: 'La realidad comienza a agrietarse.\nProducción Global x2.0', req: () => game.upgrades.includes('omega-phase-2') },
+        { id: 'omega-phase-4', name: 'Fallo de Contención', icon: '🚨', cost: 1000000000, desc: '¡LOS NIVELES DE ENTROPÍA SON CRÍTICOS!\nProducción Global x3.0', req: () => game.upgrades.includes('omega-phase-3') },
+        
+        // EL FINAL (Si ya tienes la perla roja, esta mejora ya no necesita salir, o puedes dejarla como "comprada")
+        { id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, desc: 'LIBERA AL VACÍO.\nProducción x5.0 + ???', req: () => game.upgrades.includes('omega-phase-4') && !isApocalypse }
     ];
-
-    specials.forEach(s => {
-        if (s.req() && !game.upgrades.includes(s.id)) {
-            anyUp = true;
-            
-            const btn = document.createElement('div');
-            const isOmega = s.id.startsWith('omega') || s.id === 'protocol-omega';
-            
-            btn.className = isOmega ? 'upgrade-crate omega' : 'upgrade-crate special';
-            btn.innerHTML = s.icon;
-            btn.dataset.cost = s.cost;
-            btn.setAttribute('data-tooltip', `${s.name}\n${s.desc}\nCoste: ${formatNumber(s.cost)}`);
-            
-            btn.onclick = () => window.buyUpgrade(s.id, s.cost);
-            upgradesEl.appendChild(btn);
-        }
-    });
 
     // MENSAJE SI NO HAY MEJORAS DISPONIBLES
     if(!anyUp) upgradesEl.innerHTML = '<div style="color:#444; font-size:0.8rem; width:100%; text-align:center;">Juega más para desbloquear tecnología...</div>';
