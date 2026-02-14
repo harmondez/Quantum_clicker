@@ -48,21 +48,56 @@ function sfxPrestige() {
 // ==========================================
 const buildingsConfig = [
     // TIER 1: MECÁNICO
-    { id: 'cursor', name: 'Generador de Manivela', type: 'click', baseCost: 15, basePower: 1, desc: '+1 W por click (Manual)' },
-    { id: 'grandma', name: 'Hámster en Rueda', type: 'auto', baseCost: 100, basePower: 1, desc: '+1 W/s (Bio-energía básica)' },
+    { id: 'cursor', name: 'Generador de Manivela', type: 'click', baseCost: 15, basePower: 1, desc: '+1 W por click (Manual)', icon: '👆' },
+    { id: 'grandma', name: 'Hámster en Rueda', type: 'auto', baseCost: 100, basePower: 1, desc: '+1 W/s (Bio-energía básica)', icon: '🐹' },
     
     // TIER 2: ELÉCTRICO
-    { id: 'farm', name: 'Panel Solar', type: 'auto', baseCost: 1100, basePower: 8, desc: '+8 W/s (Fotovoltaica)' },
-    { id: 'mine', name: 'Turbina Eólica', type: 'auto', baseCost: 12000, basePower: 47, desc: '+47 W/s (Eólica)' },
+    { id: 'farm', name: 'Panel Solar', type: 'auto', baseCost: 1100, basePower: 8, desc: '+8 W/s (Fotovoltaica)', icon: '☀️' },
+    { id: 'mine', name: 'Turbina Eólica', type: 'auto', baseCost: 12000, basePower: 47, desc: '+47 W/s (Eólica)', icon: '🌬️' },
     
     // TIER 3: INDUSTRIAL
-    { id: 'factory', name: 'Central Hidroeléctrica', type: 'auto', baseCost: 130000, basePower: 260, desc: '+260 W/s (Hidráulica)' },
-    { id: 'bank', name: 'Reactor Nuclear', type: 'auto', baseCost: 1400000, basePower: 1400, desc: '+1.4 kW/s (Fisión)' },
+    { id: 'factory', name: 'Central Hidroeléctrica', type: 'auto', baseCost: 130000, basePower: 260, desc: '+260 W/s (Hidráulica)', icon: '💧' },
+    { id: 'bank', name: 'Reactor Nuclear', type: 'auto', baseCost: 1400000, basePower: 1400, desc: '+1.4 kW/s (Fisión)', icon: '☢️' },
     
     // TIER 4: CUÁNTICO
-    { id: 'temple', name: 'Reactor de Fusión', type: 'auto', baseCost: 20000000, basePower: 7800, desc: '+7.8 kW/s (Fusión)' },
-    { id: 'portal', name: 'Matriz de Dyson', type: 'auto', baseCost: 330000000, basePower: 44000, desc: '+44 kW/s (Estelar)' }
+    { id: 'temple', name: 'Reactor de Fusión', type: 'auto', baseCost: 20000000, basePower: 7800, desc: '+7.8 kW/s (Fusión)', icon: '⚛️' },
+    { id: 'portal', name: 'Matriz de Dyson', type: 'auto', baseCost: 330000000, basePower: 44000, desc: '+44 kW/s (Estelar)', icon: '🛰️' },
+
+    // --- TIER ÉLITE: ANDRÓMEDA (Solo vía Comerciantes) ---
+    { 
+        id: 'andromeda_siphon', 
+        name: 'Sifón de Vacío', 
+        type: 'auto', 
+        baseCost: 5000000000, // 5 Billones
+        basePower: 1000000, 
+        desc: 'Extrae energía del tejido espacial. Produce 1 MW/s.', 
+        icon: '🕳️', 
+        isAndromeda: true 
+    },
+    { 
+        id: 'andromeda_bazar', 
+        name: 'Bazar Galáctico', 
+        type: 'auto', 
+        baseCost: 25000000000, // 25 Billones
+        basePower: 5000000, 
+        desc: 'Sinergia comercial: +5% producción global por unidad.', 
+        icon: '🏪', 
+        isAndromeda: true 
+    },
+    { 
+        id: 'andromeda_dyson', 
+        name: 'Esfera Dyson Enana', 
+        type: 'auto', 
+        baseCost: 100000000000, // 100 Billones
+        basePower: 25000000, 
+        desc: 'Multiplica el poder de tu Prestigio por 1.1x.', 
+        icon: '🌟', 
+        isAndromeda: true 
+    }
 ];
+
+
+
 
 const pearlsConfig = {
     red: { 
@@ -86,6 +121,11 @@ const pearlsConfig = {
 };
 
 const milestones = [10, 25, 50, 100, 200];
+const alienTypes = {
+    green: { color: '#00ff44', clicks: 10, reward: 2.0, icon: '👽' },
+    yellow: { color: '#ffff00', clicks: 25, reward: 5.0, icon: '🛸' },
+    red: { color: '#ff0000', clicks: 50, reward: 15.0, icon: '👾' }
+};
 for (let i = 400; i <= 10000; i *= 2) milestones.push(i);
 const upgradeIcons = ["⚡", "🔋", "💾", "📡", "🧪", "☢️", "🌌", "🪐", "⚛️"];
 
@@ -147,6 +187,8 @@ function startIntroSequence() {
 
     showIntroText("Detectando vacío cuántico...");
 }
+
+startMerchantLoop();
 
 function handleIntroClick() {
     // Si ya hemos llegado al final, IGNORAR clicks extra para no romper la cinemática
@@ -686,6 +728,140 @@ function onCanvasClick(e) {
     }
 }
 
+
+
+
+function applyHeavenlyUpgrades() {
+    // 1. Mejora Génesis: Watts iniciales
+    if (game.heavenlyUpgrades.includes('genesis') && game.cookies < 100) {
+        game.cookies = 100;
+    }
+
+    // 2. Kit de Supervivencia: Edificios gratis al empezar
+    if (game.heavenlyUpgrades.includes('starter_kit') && !game.starterKitClaimed) {
+        game.buildings.h_hamster = (game.buildings.h_hamster || 0) + 5;
+        game.buildings.b_manual_gen = (game.buildings.b_manual_gen || 0) + 10;
+        game.starterKitClaimed = true; // Variable para que no se repita cada segundo
+    }
+
+    // 3. Eficiencia Industrial: Multiplicador permanente
+    // Esta se usa dentro de getCPS(), asegúrate de multiplicar el resultado por 1.15
+}
+
+
+
+
+
+
+
+
+
+function spawnAlien() {
+    // 🛑 CORRECCIÓN CRÍTICA: Miramos 'heavenlyUpgrades', no 'upgrades' normales
+    // Y usamos el ID correcto: 'alien_contact'
+    if (!game.heavenlyUpgrades.includes('alien_contact')) return;
+    
+    // Evitar duplicados
+    if (document.getElementById('active-alien')) return;
+    if (typeof isIntroActive !== 'undefined' && isIntroActive) return;
+
+    // Seleccionar tipo según probabilidad
+    const rand = Math.random();
+    let type = 'green';
+    
+    // Solo salen los fuertes si tienes ciertas mejoras de tecnología alienígena (que crearemos luego)
+    // O si tienes mucha suerte base
+    if (rand > 0.95) type = 'red';
+    else if (rand > 0.8) type = 'yellow';
+
+    const config = alienTypes[type];
+    let clicksLeft = config.clicks;
+
+    const alien = document.createElement('div');
+    alien.id = 'active-alien';
+    alien.className = 'alien-invader';
+    alien.innerHTML = `
+        <div class="alien-icon" style="font-size: 4rem;">${config.icon}</div>
+        <div class="alien-hp-bar"><div class="alien-hp-fill"></div></div>
+    `;
+
+    // Posición inicial aleatoria
+    alien.style.cssText = `
+        position: absolute; 
+        left: ${Math.random() * 80 + 10}%; 
+        top: ${Math.random() * 80 + 10}%; 
+        z-index: 5000; 
+        transition: top 1s, left 1s; /* Movimiento suave */
+        filter: drop-shadow(0 0 10px ${config.color});
+        cursor: crosshair;
+        user-select: none;
+    `;
+
+    document.getElementById('game-area').appendChild(alien);
+
+    // Sonido de llegada
+    if(typeof sfxAnomaly === 'function') sfxAnomaly();
+
+    // Movimiento: El alien se mueve cada segundo
+    const moveInterval = setInterval(() => {
+        if(!alien.parentNode) { clearInterval(moveInterval); return; }
+        alien.style.left = `${Math.random() * 80 + 10}%`;
+        alien.style.top = `${Math.random() * 80 + 10}%`;
+    }, 1000);
+
+    alien.onclick = (e) => {
+        e.stopPropagation();
+        clicksLeft--;
+        
+        // Sonido de impacto diferente al click normal
+        if(typeof playTone === 'function') playTone(200 + (clicksLeft*20), 'sawtooth', 0.05, 0.2);
+        
+        // Efecto visual de daño
+        alien.querySelector('.alien-icon').style.transform = `scale(0.9) rotate(${Math.random()*20-10}deg)`;
+        setTimeout(() => {
+             if(alien.parentNode) alien.querySelector('.alien-icon').style.transform = 'scale(1) rotate(0deg)'; 
+        }, 50);
+        
+        // Actualizar barra de HP
+        const fill = alien.querySelector('.alien-hp-fill');
+        if(fill) fill.style.width = `${(clicksLeft / config.clicks) * 100}%`;
+
+        // MUERTE DEL ALIEN
+        if (clicksLeft <= 0) {
+            clearInterval(moveInterval);
+            
+            // Recompensa basada en tu producción actual (CPS)
+            const reward = getCPS() * config.reward * 10; // x10 para que valga la pena
+            game.cookies += reward;
+            game.totalCookiesEarned += reward;
+            
+            createFloatingText(e.clientX, e.clientY, `¡AMENAZA NEUTRALIZADA! +${formatNumber(reward)}`, true);
+            
+            // Posibilidad de soltar "Tecnología Alien" (Mejora gratis o descuento)
+            if (Math.random() < 0.3) {
+                 showNotification("📦 DROP", "El alien dejó caer chatarra útil.");
+                 // Aquí podrías dar un bono extra
+            }
+
+            alien.remove();
+            updateUI();
+        }
+    };
+
+    // Si no lo matas en 25 segundos, huye
+    setTimeout(() => {
+        if (alien.parentNode) {
+            clearInterval(moveInterval);
+            alien.style.opacity = '0';
+            setTimeout(() => alien.remove(), 500);
+            showNotification("💨 ESCAPE", "El visitante ha escapado.");
+        }
+    }, 25000);
+}
+
+
+
+
 function spawnParticles(pos) {
     for(let i=0; i<6; i++) {
         const mesh = new THREE.Mesh(particleGeo, particleMat);
@@ -1101,6 +1277,22 @@ function getClickPower() {
 }
 
 
+
+function getMaxCombo() {
+    let max = 5.0; // Base inicial
+    
+    // Mejora de la Dra. Elena Flux
+    if (game.heavenlyUpgrades.includes('elena_flux_mastery')) max = 10.0;
+    
+    // Mejoras adicionales de expansión (+5.0 cada una)
+    if (game.heavenlyUpgrades.includes('combo_expand_1')) max += 5.0;
+    if (game.heavenlyUpgrades.includes('combo_expand_2')) max += 5.0;
+    if (game.heavenlyUpgrades.includes('combo_expand_3')) max += 5.0;
+    if (game.heavenlyUpgrades.includes('combo_expand_4')) max += 5.0;
+
+    return max; // Puede llegar hasta x35.0 si tiene todo
+}
+
 function getCPS() {
     let cps = 0;
 
@@ -1110,7 +1302,7 @@ function getCPS() {
             let count = game.buildings[u.id] || 0; 
             let bPower = count * u.currentPower;
             
-            // Sinergia: Red Neuronal (Mina potencia por cada Abuela)
+            // Sinergia: Red Neuronal
             if (u.id === 'mine' && game.upgrades?.includes('grandma-mine-synergy')) { 
                 const grandmaCount = game.buildings['grandma'] || 0; 
                 bPower *= (1 + (grandmaCount * 0.01));
@@ -1122,78 +1314,69 @@ function getCPS() {
     // 2. MULTIPLICADORES GLOBALES (PRESTIGIO)
     let total = cps * game.prestigeMult;
     
-    // 3. AYUDANTES (STAFF) Y SUS MEJORAS DE ÉLITE
-    // Ing. Marcus Voltz (Multiplicador base)
+    // 3. AYUDANTES Y ÉLITE
     const prodHelper = helpersConfig.find(h => h.effect === 'cpsMultiplier');
-    if (prodHelper && game.helpers.includes(prodHelper.id)) {
-        total *= prodHelper.value;
-    }
+    if (prodHelper && game.helpers.includes(prodHelper.id)) total *= prodHelper.value;
 
-    // IA "Mente Enlazada" (Sinergia por número de edificios)
     const synergyHelper = helpersConfig.find(h => h.effect === 'buildingSynergy');
     if (synergyHelper && game.helpers.includes(synergyHelper.id)) {
         const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
         total *= (1 + (totalBuildings * synergyHelper.value));
     }
 
-    // --- NUEVO: MEJORAS DE ÉLITE (Sincronía y Protocolo Maestro) ---
+    // Mejoras de Sincronía y Protocolo Maestro
     game.helpers.forEach(helperId => {
-        // Mejora de Sincronía (+25% Global por cada experto sincronizado)
-        if (game.upgrades.includes(`upg_power_${helperId}`)) {
-            total *= 1.25; 
-        }
-        
-        // Protocolo Maestro (Efectos únicos de clase)
+        if (game.upgrades.includes(`upg_power_${helperId}`)) total *= 1.25; 
         if (game.upgrades.includes(`upg_master_${helperId}`)) {
-            if (helperId === 'h_clicker') total *= 1.15; // Dra. Thorne da bono pasivo
-            if (helperId === 'h_miner') total *= 1.50;   // Marcus aumenta eficiencia de red
-            if (helperId === 'h_discount') total *= 1.10; // Silas optimiza dividendos
-            // Puedes añadir más efectos específicos aquí para otros ayudantes
+            if (helperId === 'h_clicker') total *= 1.15;
+            if (helperId === 'h_miner') total *= 1.50;
+            if (helperId === 'h_discount') total *= 1.10;
         }
     });
 
-    // 4. CADENA OMEGA (LORE)
+    // 4. CADENA OMEGA
     if (game.upgrades.includes('protocol-omega')) total *= 1.2;
     if (game.upgrades.includes('omega-phase-2')) total *= 1.5;
     if (game.upgrades.includes('omega-phase-3')) total *= 2.0;
     if (game.upgrades.includes('omega-phase-4')) total *= 3.0;
     if (game.upgrades.includes('omega-final')) total *= 5.0;
 
-    // 5. ÁRBOL DE ASCENSIÓN (COSMOS)
+    // 5. ÁRBOL DE ASCENSIÓN (MEJORADO)
     if (game.heavenlyUpgrades.includes('perm_prod_1')) total *= 1.15;
-    if (game.heavenlyUpgrades.includes('perm_prod')) total *= 1.10; 
-
+    
+    // Cerebro Galáctico: +2% por logro
     if (game.heavenlyUpgrades.includes('galaxy_brain')) {
         const achievementBonus = 1 + (game.achievements.length * 0.02);
         total *= achievementBonus;
     }
     
+    // Sinergia Estructural
     if (game.heavenlyUpgrades.includes('synergy_passive')) {
         const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
         const stacks = Math.floor(totalBuildings / 50);
         if (stacks > 0) total *= (1 + (stacks * 0.10));
     }
 
+    // NUEVO: Bonus de Singularidad (Multiplicador por Aliens capturados)
+    if (game.heavenlyUpgrades.includes('singularity')) {
+        total *= 1.5; // Bonus fijo por alcanzar el fin del árbol
+    }
+
     if (game.heavenlyUpgrades.includes('dark_matter_engine')) total *= 2.0;
     if (game.heavenlyUpgrades.includes('multiverse')) total *= 2.0;
 
-    // --- NUEVO: MEJORAS DE ESCALA (BASADAS EN EL TOTAL ACTUAL) ---
-    // Retroalimentación Positiva: +1% por cada 10,000 W/s
-    if (game.upgrades.includes('scaling_efficiency_1')) {
-        const bonus = Math.floor(total / 10000) * 0.01;
-        total *= (1 + bonus);
-    }
-    // Recursión Infinita: +5% por cada 1M W/s
-    if (game.upgrades.includes('scaling_efficiency_2')) {
-        const bonus = Math.floor(total / 1000000) * 0.05;
-        total *= (1 + bonus);
-    }
-
-    // 6. MULTIPLICADORES TEMPORALES Y ESPECIALES
+    // 6. MULTIPLICADORES TEMPORALES
     if (isOvercharged) total *= 5; 
     if (game.activePearl === 'red') total *= 10; 
+        // Añade esto al final de getCPS antes del return
+    if (game.buildings.andromeda_dyson > 0) {
+        total *= Math.pow(1.1, game.buildings.andromeda_dyson);
+    }
+    if (game.buildings.andromeda_bazar > 0) {
+        total *= (1 + (game.buildings.andromeda_bazar * 0.05));
+    }
     
-    return total * buffMultiplier; // Aplicar buffs de Anomalías al final
+    return total * buffMultiplier; 
 }
 
 
@@ -1528,7 +1711,40 @@ function finishBlueScene() {
 
 
 
+// Variable global para controlar el temporizador alienígena
+let alienLoopTimeout = null;
 
+function startAlienLoop() {
+    // 1. Limpiamos cualquier temporizador anterior para evitar duplicados
+    if (alienLoopTimeout) clearTimeout(alienLoopTimeout);
+
+    // 2. Definimos el rango de tiempo (en milisegundos)
+    // Por defecto: Entre 1.5 y 2.5 minutos (Promedio: 2 minutos)
+    let minTime = 90000;  // 90 segundos
+    let maxTime = 150000; // 150 segundos
+
+    // 3. Si tienes la mejora 'Tecnología de Rapto', aparecen más seguido (Promedio: 1 min)
+    if (game.heavenlyUpgrades.includes('abduction_tech')) {
+        minTime = 45000; // 45 segundos
+        maxTime = 75000; // 75 segundos
+    }
+
+    // 4. Calculamos el tiempo aleatorio para ESTA aparición
+    const randomDelay = Math.floor(Math.random() * (maxTime - minTime + 1) + minTime);
+    
+    // console.log(`👽 Próximo alien en: ${Math.round(randomDelay/1000)}s`); 
+
+    // 5. Programamos la aparición
+    alienLoopTimeout = setTimeout(() => {
+        // Solo si tenemos la mejora de Primer Contacto comprada
+        if (game.heavenlyUpgrades.includes('alien_contact')) {
+            spawnAlien();
+        }
+        
+        // Reiniciamos el ciclo para el siguiente alien
+        startAlienLoop();
+    }, randomDelay);
+}
 
 
 
@@ -1666,44 +1882,269 @@ function renderHelpers() {
 // --- BUCLE PRINCIPAL ---
 let lastTime = Date.now();
 
+// Asegúrate de tener estas variables definidas antes del gameLoop en tu archivo
+// let lastTime = Date.now(); 
+
 function gameLoop() {
     requestAnimationFrame(gameLoop);
+    
     const now = Date.now();
-    const dt = (now - lastTime) / 1000;
+    // Si por algún motivo lastTime falla, usamos 'now' para evitar que dt sea NaN
+    const dt = (now - (lastTime || now)) / 1000;
     lastTime = now;
 
-    // ... (Tu lógica de CPS y Combo se queda igual) ...
+    // --- 1. LÓGICA DE PRODUCCIÓN PASIVA (WPS) ---
+    const netCPS = typeof getNetCPS === 'function' ? getNetCPS() : 0;
+    if (netCPS > 0) {
+        const gained = netCPS * dt;
+        game.cookies += gained;
+        game.totalCookiesEarned += gained;
+    }
 
-    // --- LÓGICA DE LA BARRA DE PROGRESO ---
+    // --- 2. LÓGICA DE COMBO (DINÁMICA) ---
+    // Si no tienes la función getMaxCombo aún, usamos 5.0 por defecto
+    const maxComboLimit = typeof getMaxCombo === 'function' ? getMaxCombo() : 5.0;
+    const comboEl = document.getElementById('combo-display');
+    
+    if (typeof comboTimer !== 'undefined' && comboTimer > 0) {
+        comboTimer -= dt;
+    } else if (typeof comboMultiplier !== 'undefined' && comboMultiplier > 1.0) {
+         comboMultiplier -= dt * 2; 
+        if (comboMultiplier < 1.0) comboMultiplier = 1.0;
+        
+        if(comboEl) {
+            comboEl.innerText = `COMBO x${comboMultiplier.toFixed(2)}`;
+            if(comboMultiplier <= 1.0) comboEl.style.opacity = 0;
+            else comboEl.style.opacity = 1;
+        }
+    }
+
+    // --- 3. LÓGICA DE LA BARRA DE PROGRESO DE ANOMALÍAS ---
     const barContainer = document.getElementById('buff-container');
     const barFill = document.getElementById('buff-bar');
 
-    if (buffEndTime > now) {
+    if (typeof buffEndTime !== 'undefined' && buffEndTime > now) {
         if (barContainer) barContainer.style.display = 'block';
         if (barFill) {
-            // Cálculo del porcentaje restante
             const remaining = buffEndTime - now;
-            const percentage = (remaining / buffDuration) * 100;
+            const percentage = Math.max(0, (remaining / (buffDuration || 10000)) * 100);
             barFill.style.width = percentage + "%";
             
-            // Cambiar color de la barra según el tipo activo
-            const color = clickBuffMultiplier > 1 ? '#00e5ff' : '#ffaa00';
+            // Color según el buff activo
+            const color = (typeof clickBuffMultiplier !== 'undefined' && clickBuffMultiplier > 1) ? '#00e5ff' : '#ffaa00';
             barFill.style.backgroundColor = color;
         }
-    } else {
-        if (barContainer) barContainer.style.display = 'none';
+    } else if (barContainer) {
+        barContainer.style.display = 'none';
     }
 
-    update3D();
-    updateUI();
+    // --- 4. ACTUALIZACIÓN DE MOTORES Y UI ---
+    // Es vital que estas funciones existan para que no se quede en negro
+    if (typeof update3D === 'function') update3D();
+    if (typeof updateUI === 'function') updateUI();
     
-    // Optimizaciones de frames
+    // --- 5. OPTIMIZACIONES (CADA 1 SEGUNDO aprox) ---
+    // Usamos el residuo de 'now' para ejecutar tareas pesadas solo a veces
     if (Math.floor(now / 200) % 5 === 0) { 
-        checkAvailability();
-        checkUnlocks();
-        checkAchievements();
+        if (typeof checkAvailability === 'function') checkAvailability();
+        if (typeof checkUnlocks === 'function') checkUnlocks();
+        if (typeof checkAchievements === 'function') checkAchievements();
+        if (typeof renderHelpers === 'function') renderHelpers();
     }
 }
+
+
+function spawnMerchant() {
+    // 1. ESCUDOS DE SEGURIDAD
+    if (!game.heavenlyUpgrades.includes('andromeda_trade')) return;
+    if (document.querySelector('.merchant-ship')) return; // No duplicar naves
+    if (typeof isIntroActive !== 'undefined' && isIntroActive) return; // No molestar en la intro
+
+    const ship = document.createElement('div');
+    ship.innerHTML = '🛸';
+    ship.className = 'merchant-ship';
+    
+    // Posición aleatoria en el eje Y para que no salga siempre en el mismo sitio
+    const randomTop = Math.random() * 60 + 10; 
+
+    ship.style.cssText = `
+        position: absolute; 
+        top: ${randomTop}%; 
+        left: -100px; 
+        font-size: 3.5rem; 
+        cursor: pointer; 
+        z-index: 5000; 
+        transition: left 20s linear; /* Un poco más lenta para dar tiempo a clicar */
+        filter: drop-shadow(0 0 20px #b388ff);
+        user-select: none;
+    `;
+    
+    const gameArea = document.getElementById('game-area');
+    if (!gameArea) return;
+    gameArea.appendChild(ship);
+    
+    // Sonido de aviso (si lo tienes implementado) o notificación discreta
+    console.log("🛸 Un comerciante de Andrómeda ha entrado en el sector.");
+    if (typeof sfxAnomaly === 'function') sfxAnomaly(); 
+    
+    // Iniciamos el movimiento
+    setTimeout(() => { 
+        ship.style.left = '110%'; 
+    }, 100);
+    
+    // CLICK EN LA NAVE
+    ship.onclick = (e) => {
+        e.stopPropagation(); // Evita clics accidentales en el fondo
+        
+        // Efecto visual al capturarla
+        createFloatingText(e.clientX, e.clientY, "¡CONTACTO ESTABLECIDO!");
+        
+        if (typeof openMerchantMenu === 'function') {
+            openMerchantMenu(); 
+        } else {
+            console.error("Error: openMerchantMenu no está definida.");
+        }
+        
+        ship.remove();
+    };
+    
+    // Auto-destrucción si sale de la pantalla
+    setTimeout(() => { 
+        if(ship.parentNode) ship.remove(); 
+    }, 21000);
+}
+
+function openMerchantMenu() {
+    // 1. Seleccionar una estructura de Andrómeda al azar
+    const availableBuildings = buildingsConfig.filter(b => b.isAndromeda);
+    const offer = availableBuildings[Math.floor(Math.random() * availableBuildings.length)];
+    
+    // Precio inicial (Precio base con el escalado de cuántos tienes)
+    const currentCount = game.buildings[offer.id] || 0;
+    let currentPrice = Math.floor(offer.baseCost * Math.pow(1.15, currentCount));
+    
+    // Crear el contenedor del menú
+    const overlay = document.createElement('div');
+    overlay.id = 'merchant-overlay';
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85); z-index: 10000;
+        display: flex; align-items: center; justify-content: center;
+        backdrop-filter: blur(5px); font-family: 'Courier New', monospace;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: #0a0514; border: 2px solid #b388ff; padding: 30px;
+        border-radius: 15px; text-align: center; color: white;
+        box-shadow: 0 0 50px rgba(179, 136, 255, 0.3); max-width: 450px;
+    `;
+
+    content.innerHTML = `
+        <h2 style="color: #b388ff; text-shadow: 0 0 10px #b388ff;">📡 MERCADO NEGRO DE ANDRÓMEDA</h2>
+        <p style="font-size: 0.9rem; color: #aaa;">"Tengo algo que hará que tu red cuántica parezca un juguete..."</p>
+        
+        <div style="background: rgba(179, 136, 255, 0.1); padding: 15px; border-radius: 10px; margin: 20px 0;">
+            <div style="font-size: 3rem; margin-bottom: 10px;">${offer.icon}</div>
+            <h3 style="margin: 0;">${offer.name}</h3>
+            <p style="font-size: 0.8rem; margin: 5px 0 15px 0;">${offer.desc}</p>
+            <div id="merchant-price-display" style="font-size: 1.2rem; color: #00ff88; font-weight: bold;">
+                ⚡ ${formatNumber(currentPrice)} Watts
+            </div>
+        </div>
+
+        <div id="merchant-actions" style="display: flex; flex-direction: column; gap: 10px;">
+            <button id="btn-buy-merchant" style="background: #00ff88; color: black; border: none; padding: 12px; cursor: pointer; font-weight: bold; border-radius: 5px;">
+                ADQUIRIR TECNOLOGÍA
+            </button>
+            
+            <button id="btn-haggle-merchant" style="background: transparent; color: #b388ff; border: 1px solid #b388ff; padding: 10px; cursor: pointer; border-radius: 5px;">
+                REGATEAR (-20% precio)
+            </button>
+            
+            <button onclick="document.getElementById('merchant-overlay').remove()" style="background: none; border: none; color: #666; cursor: pointer; font-size: 0.8rem; margin-top: 10px;">
+                [ DECLINAR OFERTA ]
+            </button>
+        </div>
+        <p id="merchant-msg" style="font-size: 0.75rem; color: #ffaa00; margin-top: 15px; min-height: 1em;"></p>
+    `;
+
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+
+    // --- LÓGICA DE LOS BOTONES ---
+
+    // Botón de Comprar
+    document.getElementById('btn-buy-merchant').onclick = () => {
+        if (game.cookies >= currentPrice) {
+            game.cookies -= currentPrice;
+            game.buildings[offer.id] = (game.buildings[offer.id] || 0) + 1;
+            showNotification("CONTRATO FIRMADO", `${offer.name} añadido a la flota.`);
+            overlay.remove();
+            updateUI();
+        } else {
+            document.getElementById('merchant-msg').innerText = "❌ No tienes suficiente energía.";
+        }
+    };
+
+    // Botón de Regatear
+    let haggleCount = 0;
+    document.getElementById('btn-haggle-merchant').onclick = () => {
+        haggleCount++;
+        const msg = document.getElementById('merchant-msg');
+        const priceDisplay = document.getElementById('merchant-price-display');
+        
+        // Probabilidad de éxito (50% el primer intento, 25% el segundo...)
+        const successChance = 0.5 / haggleCount;
+
+        if (Math.random() < successChance) {
+            currentPrice = Math.floor(currentPrice * 0.8);
+            priceDisplay.innerText = `⚡ ${formatNumber(currentPrice)} Watts`;
+            priceDisplay.style.color = "#00ff88";
+            msg.innerText = "✅ El comerciante acepta... de mala gana.";
+            msg.style.color = "#00ff88";
+            // Animación de brillo verde
+            priceDisplay.style.animation = "pulseGreen 0.5s ease";
+        } else {
+            // FRACASO: El comerciante se ofende
+            msg.innerText = "💢 ¡INSULTANTE! El comerciante se retira.";
+            document.getElementById('merchant-actions').innerHTML = `
+                <p style="color: #ff4444; font-weight: bold;">NEGOCIACIÓN FALLIDA</p>
+            `;
+            setTimeout(() => overlay.remove(), 2000);
+        }
+    };
+}
+
+// Función para comprar desde el mercader
+function buyAndromedaBuilding(id, price) {
+    if (game.cookies >= price) {
+        game.cookies -= price;
+        game.buildings[id] = (game.buildings[id] || 0) + 1;
+        document.getElementById('merchant-popup').remove();
+        showNotification("SISTEMA", "Estructura alienígena asimilada.");
+        updateUI();
+    } else {
+        alert("Energía insuficiente para este trato.");
+    }
+}
+
+function startMerchantLoop() {
+    // Intentar aparecer cada 5-10 minutos
+    const waitTime = 300000 + (Math.random() * 300000); 
+    
+    setTimeout(() => {
+        if (game.heavenlyUpgrades.includes('andromeda_trade')) {
+            spawnMerchant();
+        }
+        startMerchantLoop(); // Re-programar siguiente visita
+    }, waitTime);
+}
+
+// Llama a esta función una sola vez al cargar el juego
+
+
+
 
 // --- UI ---
 const scoreEl = document.getElementById('score');
@@ -1717,7 +2158,7 @@ function updateUI() {
     const currentCookies = Math.floor(game.cookies);
     scoreEl.innerText = formatNumber(currentCookies);
     
-    // Título de la pestaña (Solo si cambia el número entero para ahorrar recursos)
+    // Título de la pestaña
     if (document.title !== `${formatNumber(currentCookies)} - Quantum Grid`) {
         document.title = `${formatNumber(currentCookies)} - Quantum Grid`;
     }
@@ -1728,7 +2169,6 @@ function updateUI() {
     const netCPS = getNetCPS();
     
     if (helperCost > 0) {
-        // Usamos una cadena simple para comparar y no actualizar el DOM si no ha cambiado el valor
         const newCpsHTML = `${formatNumber(netCPS)} / s <span style="font-size: 0.75rem; color: #999; margin-left: 5px;">(Gen: ${formatNumber(grossCPS)} - Uso: ${formatNumber(helperCost)})</span>`;
         if (cpsEl.innerHTML !== newCpsHTML) {
             cpsEl.innerHTML = newCpsHTML;
@@ -1740,9 +2180,9 @@ function updateUI() {
         }
     }
 
-    // 3. Sistema de Nivel de Energía (Para desbloqueos)
+    // 3. Sistema de Nivel de Energía
     const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned));
-    const levelEl = document.getElementById('player-level-display'); // Asegúrate de tener este ID en tu HTML
+    const levelEl = document.getElementById('player-level-display');
     if (levelEl) {
         levelEl.innerText = `NIVEL: ${playerLevel}`;
     }
@@ -1755,16 +2195,14 @@ function updateUI() {
         if (pBtn) {
             pBtn.style.display = 'block';
             
-            // Calculamos el nivel de prestigio acumulado histórico
             const totalPotential = Math.floor(Math.cbrt(game.totalCookiesEarned / PRESTIGE_BASE));
             const currentLevel = game.prestigeLevel || 0;
             const gain = totalPotential - currentLevel;
 
             if (gain > 0) {
                 pBtn.innerText = `ASCENDER (+${gain} Nivel)`;
-                pBtn.classList.add('available'); // Clase CSS para que brille
+                pBtn.classList.add('available'); 
             } else {
-                // Cálculo para el siguiente punto
                 const nextPointEnergy = Math.pow(currentLevel + 1, 3) * PRESTIGE_BASE;
                 const remaining = nextPointEnergy - game.totalCookiesEarned;
                 pBtn.innerText = `ASCENDER`;
@@ -1782,6 +2220,36 @@ function updateUI() {
         if (prestigeHud) prestigeHud.style.display = 'block';
         if (prestigeDisp) prestigeDisp.innerText = `x${game.prestigeMult.toFixed(1)}`;
     }
+
+    // --- 6. NUEVO: RADAR DE COMERCIO DE ANDRÓMEDA ---
+    // Esto crea un indicador visual si tienes la mejora comprada
+    let radarEl = document.getElementById('trade-signal');
+    
+    // Si no existe, lo creamos dinámicamente (Lazy creation)
+    if (!radarEl) {
+        radarEl = document.createElement('div');
+        radarEl.id = 'trade-signal';
+        // Estilo: Arriba a la derecha, color violeta neón
+        radarEl.style.cssText = `
+            position: absolute; top: 15px; right: 15px; 
+            color: #b388ff; font-size: 0.8rem; font-family: monospace;
+            border: 1px solid #b388ff; padding: 5px 10px; border-radius: 15px; 
+            background: rgba(0,0,0,0.6); display: none; z-index: 100;
+            box-shadow: 0 0 10px rgba(179, 136, 255, 0.2);
+            pointer-events: none;
+        `;
+        radarEl.innerHTML = "📡 SEÑAL: ANDRÓMEDA";
+        document.body.appendChild(radarEl);
+    }
+
+    // Control de visibilidad
+    if (game.heavenlyUpgrades.includes('andromeda_trade')) {
+        radarEl.style.display = 'block';
+        // Efecto de parpadeo suave
+        radarEl.style.opacity = 0.5 + Math.sin(Date.now() * 0.005) * 0.5;
+    } else {
+        radarEl.style.display = 'none';
+    }
 }
 
 
@@ -1794,107 +2262,92 @@ function renderStore() {
 
     // 1. MEJORAS DE EDIFICIOS (MK-1, MK-2...)
     buildingsConfig.forEach(b => {
+        // --- FILTRO: Los edificios de Andrómeda no tienen mejoras MK normales ---
+        if (b.isAndromeda) return;
+
         const count = game.buildings[b.id] || 0;
-        milestones.forEach((th, i) => {
-            const uid = `${b.id}-${th}`;
-            if (count >= th && !game.upgrades.includes(uid)) {
-                anyUp = true;
-                const cost = b.baseCost * 20 * (i + 1) * th;
-                
-                const btn = document.createElement('div');
-                btn.className = 'upgrade-crate';
-                btn.innerHTML = upgradeIcons[i % upgradeIcons.length];
-                btn.dataset.cost = cost;
-                btn.setAttribute('data-tooltip', `${b.name} MK-${i+1}\nx2 Producción\nCoste: ${formatNumber(cost)}`);
-                
-                btn.onclick = () => window.buyUpgrade(uid, cost);
-                upgradesEl.appendChild(btn);
-            }
-        });
+        // Verificamos que milestones y upgradeIcons existan para evitar pantalla negra
+        if (typeof milestones !== 'undefined' && typeof upgradeIcons !== 'undefined') {
+            milestones.forEach((th, i) => {
+                const uid = `${b.id}-${th}`;
+                if (count >= th && !game.upgrades.includes(uid)) {
+                    anyUp = true;
+                    const cost = b.baseCost * 20 * (i + 1) * th;
+                    
+                    const btn = document.createElement('div');
+                    btn.className = 'upgrade-crate';
+                    btn.innerHTML = upgradeIcons[i % upgradeIcons.length];
+                    btn.dataset.cost = cost;
+                    btn.setAttribute('data-tooltip', `${b.name} MK-${i+1}\nx2 Producción\nCoste: ${formatNumber(cost)}`);
+                    
+                    btn.onclick = () => window.buyUpgrade(uid, cost);
+                    upgradesEl.appendChild(btn);
+                }
+            });
+        }
     });
 
-    // 2. LISTA DE MEJORAS ESPECIALES (CADENA OMEGA + ESCALA)
+    // 2. LISTA DE MEJORAS ESPECIALES
     const specials = [
         // --- CADENA OMEGA ---
-        { 
-            id: 'protocol-omega', 
-            name: 'Protocolo Omega', 
-            icon: '⚠️', 
-            cost: 5000000, 
-            desc: 'Inicia el experimento prohibido.\nProducción Global x1.2', 
-            req: () => game.totalCookiesEarned > 2000000 && !game.upgrades.includes('protocol-omega')
-        },
-        { 
-            id: 'omega-phase-2', 
-            name: 'Resonancia Oscura', 
-            icon: '🔉', 
-            cost: 25000000, 
-            desc: 'Se oyen susurros en los servidores.\nProducción Global x1.5', 
-            req: () => game.upgrades.includes('protocol-omega') && !game.upgrades.includes('omega-phase-2')
-        },
-        { 
-            id: 'omega-phase-3', 
-            name: 'Fisura Dimensional', 
-            icon: '🌀', 
-            cost: 150000000, 
-            desc: 'La realidad comienza a agrietarse.\nProducción Global x2.0', 
-            req: () => game.upgrades.includes('omega-phase-2') && !game.upgrades.includes('omega-phase-3')
-        },
-        { 
-            id: 'omega-phase-4', 
-            name: 'Fallo de Contención', 
-            icon: '🚨', 
-            cost: 1000000000, 
-            desc: '¡ENTROPÍA CRÍTICA!\nProducción Global x3.0', 
-            req: () => game.upgrades.includes('omega-phase-3') && !game.upgrades.includes('omega-phase-4')
-        },
-        { 
-            id: 'omega-final', 
-            name: 'EL DESPERTAR', 
-            icon: '👁️', 
-            cost: 5000000000, 
-            desc: 'LIBERA AL VACÍO.\nProducción x5.0 + Perla Roja', 
-            req: () => game.upgrades.includes('omega-phase-4') && !game.upgrades.includes('omega-final')
-        },
+        { id: 'protocol-omega', name: 'Protocolo Omega', icon: '⚠️', cost: 5000000, desc: 'Inicia el experimento prohibido.\nProducción Global x1.2', req: () => game.totalCookiesEarned > 2000000 && !game.upgrades.includes('protocol-omega') },
+        { id: 'omega-phase-2', name: 'Resonancia Oscura', icon: '🔉', cost: 25000000, desc: 'Producción Global x1.5', req: () => game.upgrades.includes('protocol-omega') && !game.upgrades.includes('omega-phase-2') },
+        { id: 'omega-phase-3', name: 'Fisura Dimensional', icon: '🌀', cost: 150000000, desc: 'Producción Global x2.0', req: () => game.upgrades.includes('omega-phase-2') && !game.upgrades.includes('omega-phase-3') },
+        { id: 'omega-phase-4', name: 'Fallo de Contención', icon: '🚨', cost: 1000000000, desc: 'Producción Global x3.0', req: () => game.upgrades.includes('omega-phase-3') && !game.upgrades.includes('omega-phase-4') },
+        { id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, desc: 'LIBERA AL VACÍO.\nProducción x5.0 + Perla Roja', req: () => game.upgrades.includes('omega-phase-4') && !game.upgrades.includes('omega-final') },
 
         // --- MEJORAS DE ESCALA ---
+        { id: 'scaling_efficiency_1', name: 'Retroalimentación Positiva', icon: '📈', cost: 100000000, desc: 'Gana +1% de prod. extra por cada 10k W/s.', req: () => getCPS() > 50000 && !game.upgrades.includes('scaling_efficiency_1') },
+        
+        // --- NUEVO: MEJORA DE ANDRÓMEDA ---
+        { 
+            id: 'black_market_deal', 
+            name: 'Contrabando de Andrómeda', 
+            icon: '📦', 
+            cost: 2500000000, 
+            desc: 'Los comerciantes aparecen un 50% más seguido.', 
+            req: () => game.heavenlyUpgrades.includes('andromeda_trade') && !game.upgrades.includes('black_market_deal')
+        },
+
+        // --- NUEVO: TECNOLOGÍA ALIENÍGENA (Se desbloquea tras Ascensión) ---
         {
-            id: 'scaling_efficiency_1',
-            name: 'Retroalimentación Positiva',
-            icon: '📈',
-            cost: 100000000, 
-            desc: 'Gana +1% de producción extra por cada 10,000 W/s de producción base.',
-            req: () => getCPS() > 50000 && !game.upgrades.includes('scaling_efficiency_1')
+            id: 'alien_tech_1',
+            name: 'Xenolingüística',
+            icon: '🗣️',
+            cost: 1000000, 
+            desc: 'Entendemos sus insultos. Los aliens aparecen un 30% más rápido.',
+            req: () => game.heavenlyUpgrades.includes('alien_contact') && !game.upgrades.includes('alien_tech_1')
         },
         {
-            id: 'scaling_efficiency_2',
-            name: 'Recursión Infinita',
-            icon: '♾️',
-            cost: 1000000000000, 
-            desc: 'Gana +5% de producción extra por cada 1M W/s de producción base.',
-            req: () => game.upgrades.includes('scaling_efficiency_1') && !game.upgrades.includes('scaling_efficiency_2')
+            id: 'alien_tech_2',
+            name: 'Disección de Grises',
+            icon: '👽',
+            cost: 50000000, 
+            desc: 'Estudiar su anatomía revela puntos débiles. Aliens tienen -20% de vida.',
+            req: () => game.upgrades.includes('alien_tech_1') && !game.upgrades.includes('alien_tech_2')
+        },
+        {
+            id: 'alien_tech_3',
+            name: 'Ingeniería Inversa',
+            icon: '🛸',
+            cost: 5000000000,
+            desc: 'Robamos su tecnología de fusión. Producción Global x1.5.',
+            req: () => game.upgrades.includes('alien_tech_2') && !game.upgrades.includes('alien_tech_3')
         }
     ];
 
-    // --- MEJORAS DINÁMICAS PARA AYUDANTES (ELITE) ---
+    // --- MEJORAS DINÁMICAS PARA AYUDANTES ---
     helpersConfig.forEach(h => {
         const isEquipped = game.helpers.includes(h.id);
         const powerId = `upg_power_${h.id}`;
         const masterId = `upg_master_${h.id}`;
 
-        // Mejora 1: Sincronía
         if (isEquipped && !game.upgrades.includes(powerId)) {
             specials.push({
-                id: powerId,
-                name: `Sincronía: ${h.name}`,
-                icon: '🔥',
-                cost: h.cost * 50,
-                desc: `Efectividad de ${h.icon} +50% y Producción Global +25%.`,
-                req: () => true 
+                id: powerId, name: `Sincronía: ${h.name}`, icon: '🔥', cost: h.cost * 50, desc: `Efectividad de ${h.icon} +50% y Producción Global +25%.`, req: () => true 
             });
         }
 
-        // Mejora 2: Protocolo Maestro
         if (isEquipped && game.upgrades.includes(powerId) && !game.upgrades.includes(masterId)) {
             let masterDesc = "";
             switch(h.id) {
@@ -1904,36 +2357,24 @@ function renderStore() {
                 case 'h_combo': masterDesc = "Dra. Flux: Combo máximo sube a x10.0."; break;
                 case 'h_anomaly': masterDesc = "Dorian Nox: Anomalías sin efectos negativos."; break;
                 case 'h_crit': masterDesc = "Sgt. Kael: Probabilidad de crítico al 25%."; break;
-                case 'h_efficiency': masterDesc = "Dra. Joule: Mantenimiento del staff reducido a 0."; break;
-                case 'h_banker': masterDesc = "Victor Ray: Anomalías de capital dan x10."; break;
-                case 'h_synergy': masterDesc = "IA: Sinergia por edificio duplicada (+2%)."; break;
-                case 'h_master': masterDesc = "Director Cipher: Multiplicador global x5.0."; break;
                 default: masterDesc = "Desbloquea el potencial oculto.";
             }
-
             specials.push({
-                id: masterId,
-                name: `Protocolo Maestro: ${h.icon}`,
-                icon: '👑',
-                cost: h.cost * 500,
-                desc: masterDesc,
-                req: () => true 
+                id: masterId, name: `Protocolo Maestro: ${h.icon}`, icon: '👑', cost: h.cost * 500, desc: masterDesc, req: () => true 
             });
         }
     });
 
-    // RENDERIZADO DE TODAS LAS ESPECIALES
+    // RENDERIZADO DE ESPECIALES
     specials.forEach(s => {
         if (s.req()) {
             anyUp = true;
             const btn = document.createElement('div');
-            // Estilo visual: Rojo/Violeta para Omega y Maestro
-            const isCritical = s.id.includes('omega') || s.id.includes('master');
+            const isCritical = s.id.includes('omega') || s.id.includes('master') || s.id.includes('andromeda') || s.id.includes('alien_tech');
             btn.className = `upgrade-crate ${isCritical ? 'special-upgrade' : ''}`; 
             btn.innerHTML = s.icon;
             btn.dataset.cost = s.cost;
             btn.setAttribute('data-tooltip', `${s.name}\n${s.desc}\nCoste: ${formatNumber(s.cost)}`);
-            
             btn.onclick = () => window.buyUpgrade(s.id, s.cost);
             upgradesEl.appendChild(btn);
         }
@@ -1945,6 +2386,10 @@ function renderStore() {
     let lockedShown = 0; 
     for (let i = 0; i < buildingsConfig.length; i++) {
         const b = buildingsConfig[i];
+        
+        // --- FILTRO: Si es un edificio de Andrómeda, NO se muestra en la tienda normal ---
+        if (b.isAndromeda) continue;
+
         const count = game.buildings[b.id] || 0;
         const owned = count > 0;
 
@@ -1978,12 +2423,26 @@ function renderStore() {
             }
             buildingsEl.appendChild(div);
         } else {
-            break; 
+            // No hacemos break aquí para permitir que el bucle revise todos los edificios
+            // pero controlamos que solo se muestren 2 bloqueados máximo
+            if (lockedShown >= 2) break;
         }
     }
 }
 
 
+
+
+// Donde sumas al combo (ej: click del objeto principal)
+function increaseCombo() {
+    const limit = getMaxCombo();
+    if (comboMultiplier < limit) {
+        comboMultiplier += 0.01; // O el valor que uses para subir
+        if (comboMultiplier > limit) comboMultiplier = limit;
+    }
+    lastClickTime = Date.now(); // Reset del tiempo para que no baje
+    updateUI();
+}
 
 
 // Variable para controlar si ya se mostró (para no repetir la animación)
@@ -2040,10 +2499,9 @@ function checkAvailability() {
 
 
 function doClickLogic(cx, cy) {
-    sfxClick();
+    sfxClick(); // Sonido estándar agradable
     
-    // 1. AUMENTAR COMBO (Con límite dinámico por Protocolo Maestro)
-    // Si tienes el Protocolo Maestro de la Dra. Flux, el límite sube a x10.0
+    // 1. AUMENTAR COMBO
     const maxCombo = game.upgrades.includes('upg_master_h_combo') ? 10.0 : 5.0;
     
     comboMultiplier += 0.05; 
@@ -2061,11 +2519,10 @@ function doClickLogic(cx, cy) {
     let val = getClickPower();
     let isCrit = false;
 
-    // --- CÁLCULO DE CRÍTICO (Con mejora de Maestro de Sgt. Kael) ---
+    // --- CÁLCULO DE CRÍTICO ---
     let critChance = 0;
     if (game.heavenlyUpgrades.includes('crit_master')) critChance += 0.05;
     
-    // Si tienes el Protocolo Maestro de Kael, el crítico sube al 25%
     if (game.upgrades.includes('upg_master_h_crit')) {
         critChance = 0.25; 
     } else if (game.helpers.includes('h_crit')) {
@@ -2075,12 +2532,16 @@ function doClickLogic(cx, cy) {
     if (Math.random() < critChance) {
         isCrit = true;
         val *= 10; 
-        playTone(600, 'square', 0.1, 0.2); 
+        
+        // --- 🔇 SONIDO ELIMINADO ---
+        // playTone(600, 'square', 0.1, 0.2); // <--- ESTA LÍNEA CAUSABA EL RUIDO MOLESTO
+        
+        // Mantenemos el temblor de cámara para que se sienta el impacto
         camera.position.x += (Math.random() - 0.5) * 0.5;
         camera.position.y += (Math.random() - 0.5) * 0.5;
     }
 
-    // 3. APLICAR RESULTADO Y ESTADÍSTICAS
+    // 3. APLICAR RESULTADO
     game.cookies += val;
     game.totalCookiesEarned += val;
     
@@ -2088,22 +2549,16 @@ function doClickLogic(cx, cy) {
     game.totalClicks++; 
     game.clickCount++;  
 
-    // ==========================================
-    // 🔵 EL EVENTO DE LA PERLA AZUL (¡AQUÍ!)
-    // ==========================================
+    // EVENTO PERLA AZUL
     if (game.totalClicks >= 10000 && !game.pearls.includes('blue')) {
         epicBluePearlScene();
         unlockPearl('blue');
-    
         showSystemModal(
             "🔵 HITO ALCANZADO",
             "10,000 Clicks. La persistencia ha fracturado el tiempo. ¡Has desbloqueado la Perla del Cronos (Clicks x50)!",
             false,
             null
         );
-
-    console.log("Llamando a escena épica de la Perla Azul");
-    
     }
 
     // 4. TEXTO FLOTANTE
@@ -2295,6 +2750,8 @@ function loadGame() {
     else {
         console.log("Iniciando Protocolo Génesis...");
         startIntroSequence(); // <--- AQUÍ ES DONDE DEBE IR
+        // ... al final de loadGame o del archivo ...
+        startAlienLoop();
     }
 }
 
@@ -2961,117 +3418,156 @@ const heavenlyConfig = [
         desc: 'El comienzo de todo. Empiezas con 100 Watts tras reiniciar.', 
         parents: [] 
     },
+    // --- MEJORA DE COMERCIANTES (UBICACIÓN ACCESIBLE) ---
+    { 
+        id: 'andromeda_trade', 
+        name: 'Comerciantes de Andrómeda', 
+        icon: '⚖️', 
+        cost: 10, // Barato para la primera ascensión
+        x: 200, y: 200, // Posición visible arriba a la izquierda
+        desc: 'Habilita rutas comerciales con Andrómeda. Aparecerán naves mercantes con tecnología única.', 
+        parents: ['genesis'] // Se desbloquea comprando la primera mejora
+    },
 
-    // --- RAMA IZQUIERDA: INDUSTRIAL (PRODUCCIÓN PASIVA) ---
+    // --- RAMA SUPERIOR: EVENTOS Y ALIENS (ACCESO RÁPIDO) ---
+    {
+        id: 'alien_contact',
+        name: 'Primer Contacto',
+        desc: 'Desbloquea visitas alienígenas (x2, x5, x15 Energía).',
+        icon: '👽',
+        cost: 10, // Muy accesible en la primera ascensión
+        x: 400, y: 200, 
+        parents: ['genesis'] 
+    },
+    {
+        id: 'galaxy_brain', name: 'Cerebro Galáctico', icon: '🧠', cost: 30, 
+        x: 400, y: 120, 
+        desc: 'Por cada Logro desbloqueado, +2% de Producción Global.', 
+        parents: ['alien_contact'] 
+    },
+    { 
+        id: 'abduction_tech', name: 'Tecnología de Rapto', icon: '🛸', cost: 100, 
+        x: 320, y: 50, 
+        desc: 'Los Aliens aparecen un 50% más rápido.', 
+        parents: ['galaxy_brain'] 
+    },
+
+    // --- RAMA IZQUIERDA: INDUSTRIAL (PRODUCCIÓN) ---
     { 
         id: 'starter_kit', name: 'Kit de Supervivencia', icon: '📦', cost: 5, 
         x: 300, y: 300, 
-        desc: 'Inicias con 10 Generadores Manuales y 5 Hámsters gratis.', 
+        desc: 'Inicias con 10 Gen. Manuales y 5 Hámsters gratis.', 
         parents: ['genesis'] 
     },
     { 
-        id: 'perm_prod_1', name: 'Eficiencia Industrial I', icon: '🏭', cost: 25, 
-        x: 220, y: 250, 
-        desc: 'Toda la producción de edificios +15% PERMANENTE.', 
+        id: 'perm_prod_1', name: 'Eficiencia Industrial', icon: '🏭', cost: 20, 
+        x: 200, y: 250, 
+        desc: 'Producción de edificios +15% PERMANENTE.', 
         parents: ['starter_kit'] 
     },
     { 
-        id: 'cheaper_builds', name: 'Arquitectura Cuántica', icon: '📉', cost: 100, 
-        x: 150, y: 300, 
-        desc: 'Todos los edificios cuestan un 5% menos (acumulable con otros descuentos).', 
+        id: 'cheaper_builds', name: 'Arquitectura Cuántica', icon: '📉', cost: 50, 
+        x: 180, y: 350, 
+        desc: 'Edificios cuestan un 5% menos.', 
         parents: ['starter_kit'] 
-    },
-    { 
-        id: 'offline_god', name: 'Cronos', icon: '💤', cost: 250, 
-        x: 80, y: 250, 
-        desc: 'Gana el 100% de producción offline (antes 50%) durante 24h.', 
-        parents: ['perm_prod_1'] 
-    },
-    { 
-        id: 'synergy_passive', name: 'Sinergia Estructural', icon: '🏗️', cost: 1000, 
-        x: 80, y: 350, 
-        desc: 'Por cada 50 edificios que tengas en total, ganas +10% de Producción Global.', 
-        parents: ['cheaper_builds'] 
     },
 
-    // --- RAMA DERECHA: CINÉTICA (CLICKS Y CRÍTICOS) ---
+    // --- RAMA DERECHA: CINÉTICA (CLICKS) ---
     { 
         id: 'click_transistor', name: 'Transistor de Dedo', icon: '👆', cost: 10, 
         x: 500, y: 300, 
-        desc: 'Tus clicks ahora generan el 1% de tu Producción por Segundo (WPS).', 
+        desc: 'Clicks generan 1% de tu WPS.', 
         parents: ['genesis'] 
     },
     { 
-        id: 'crit_master', name: 'Punto Débil', icon: '🎯', cost: 50, 
-        x: 580, y: 250, 
-        desc: 'Probabilidad base de crítico manual +5%.', 
+        id: 'crit_master', name: 'Punto Débil', icon: '🎯', cost: 25, 
+        x: 600, y: 250, 
+        desc: 'Probabilidad de crítico manual +5%.', 
         parents: ['click_transistor'] 
     },
     { 
-        id: 'click_god', name: 'Mano de Dios', icon: '⚡', cost: 300, 
-        x: 650, y: 300, 
+        id: 'click_god', name: 'Mano de Dios', icon: '⚡', cost: 80, 
+        x: 620, y: 350, 
         desc: 'El 1% de WPS pasa a ser el 5% de WPS por click.', 
         parents: ['click_transistor'] 
     },
-    { 
-        id: 'click_frenzy_boost', name: 'Condensador de Flujo', icon: '🖱️', cost: 1500, 
-        x: 720, y: 250, 
-        desc: 'Los buffs de "Clickstorm" (x777) duran el doble de tiempo.', 
-        parents: ['crit_master', 'click_god'] 
-    },
 
-    // --- RAMA INFERIOR: CAOS (ANOMALÍAS Y SUERTE) ---
+    // --- RAMA INFERIOR: CAOS (ANOMALÍAS) ---
     { 
-        id: 'lucky_star', name: 'Suerte Cósmica', icon: '🍀', cost: 50, 
+        id: 'lucky_star', name: 'Suerte Cósmica', icon: '🍀', cost: 15, 
         x: 400, y: 400, 
-        desc: 'Las anomalías aparecen un 15% más frecuentemente.', 
+        desc: 'Anomalías aparecen un 15% más frecuentemente.', 
         parents: ['genesis'] 
     },
     { 
-        id: 'wrath_control', name: 'Diplomacia del Vacío', icon: '🤝', cost: 200, 
-        x: 350, y: 480, 
-        desc: 'Las anomalías rojas (malas) tienen un 50% menos de probabilidad de efecto negativo.', 
+        id: 'wrath_control', name: 'Diplomacia del Vacío', icon: '🤝', cost: 50, 
+        x: 300, y: 480, 
+        desc: 'Anomalías rojas fallan un 50% menos.', 
         parents: ['lucky_star'] 
     },
     { 
-        id: 'golden_duration', name: 'Estabilidad Temporal', icon: '⏳', cost: 500, 
-        x: 450, y: 480, 
-        desc: 'Los efectos de las anomalías (x7, x777) duran +10 segundos.', 
+        id: 'golden_duration', name: 'Estabilidad Temporal', icon: '⏳', cost: 50, 
+        x: 500, y: 480, 
+        desc: 'Buffs de anomalías duran +10 segundos.', 
         parents: ['lucky_star'] 
     },
+
+    // --- EL FINAL DEL ÁRBOL (ENDGAME ACCESIBLE) ---
     { 
-        id: 'anomaly_nuke', name: 'Colapso de Probabilidad', icon: '🎲', cost: 5000, 
+        id: 'singularity', name: 'LA SINGULARIDAD', icon: '👁️', cost: 500, 
         x: 400, y: 550, 
-        desc: 'Las anomalías de "Dinero Instantáneo" dan el triple de recompensa.', 
+        desc: 'Desbloquea el acceso a las Perlas Legendarias.', 
         parents: ['wrath_control', 'golden_duration'] 
     },
-
-    // --- RAMA SUPERIOR: DIVINA (ENDGAME / MULTIPLICADORES PUROS) ---
     { 
-        id: 'galaxy_brain', name: 'Cerebro Galáctico', icon: '🧠', cost: 1000, 
-        x: 400, y: 200, 
-        desc: 'Por cada Logro desbloqueado, ganas +2% de Producción Global.', 
-        parents: ['genesis'] 
-    },
-    { 
-        id: 'dark_matter_engine', name: 'Motor de Materia Oscura', icon: '🌌', cost: 10000, 
-        x: 320, y: 120, 
-        desc: 'Aumenta la producción base de TODO un x2.0 (Se multiplica con todo).', 
-        parents: ['galaxy_brain'] 
-    },
-    { 
-        id: 'singularity', name: 'LA SINGULARIDAD', icon: '👁️', cost: 100000, 
-        x: 480, y: 120, 
-        desc: 'Rompe el juego. Comienzas con todas las mejoras tecnológicas de Tier 1 y 2 desbloqueadas.', 
-        parents: ['galaxy_brain'] 
-    },
-    { 
-        id: 'multiverse', name: 'Multiverso', icon: '🪐', cost: 1000000, // 1 Millón
-        x: 400, y: 50, 
-        desc: 'Prestigio Infinito: Tu multiplicador de Ascensión es el doble de efectivo.', 
-        parents: ['dark_matter_engine', 'singularity'] 
+        id: 'multiverse', name: 'Multiverso', icon: '🪐', cost: 5000, 
+        x: 550, y: 50, 
+        desc: 'Prestigio Infinito: El multiplicador de Ascensión es el doble de efectivo.', 
+        parents: ['abduction_tech', 'galaxy_brain'] 
     }
 ];
+
+
+
+
+
+
+
+// Este bucle intenta llamar a un comerciante cada cierto tiempo
+setInterval(() => {
+    // Solo si el jugador tiene la mejora comprada
+    if (game.heavenlyUpgrades.includes('andromeda_trade')) {
+        // Probabilidad del 30% cada 2 minutos para que no sea molesto
+        if (Math.random() < 0.3) {
+            spawnMerchant();
+        }
+    }
+}, 120000); // 120.000 ms = 2 minutos
+
+// BUCLE DE INVASIÓN ALIEN
+setInterval(() => {
+    // Solo intentamos si el jugador tiene la mejora de ascensión
+    if (game.heavenlyUpgrades.includes('alien_contact')) {
+        
+        // Probabilidad base: 10% cada 5 segundos
+        let chance = 0.1;
+
+        // Si compró la mejora "Xenolingüística", sube la probabilidad
+        if (game.upgrades.includes('alien_tech_1')) chance += 0.05;
+        
+        // Si tiene la mejora del árbol "Tecnología de Rapto", sube más
+        if (game.heavenlyUpgrades.includes('abduction_tech')) chance += 0.1;
+
+        if (Math.random() < chance) {
+            spawnAlien();
+        }
+    }
+}, 5000); // Chequea cada 5 segundos
+
+
+
+
+
 
 // Variable para guardar las mejoras celestiales compradas
 // Asegúrate de añadir "heavenlyUpgrades: []" al objeto "game" inicial al principio del archivo.
@@ -3336,4 +3832,9 @@ window.openStats = openStats;
 window.closeStats = closeStats;
 
 window.game = game;
+// --- HACER PÚBLICAS LAS FUNCIONES DE ANDRÓMEDA ---
+window.spawnMerchant = spawnMerchant;
+window.openMerchantMenu = openMerchantMenu;
+window.buyAndromedaBuilding = buyAndromedaBuilding;
+window.startMerchantLoop = startMerchantLoop;
 

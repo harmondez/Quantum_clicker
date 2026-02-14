@@ -27,6 +27,7 @@ updateUI();
 
 
 
+
 game.cookies: Cambia tu saldo actual.
 game.totalCookiesEarned: Asegura que tu Nivel de Jugador (que se calcula con la raíz cúbica de este valor) suba acorde a tu nueva riqueza.
 updateUI(): Fuerza al juego a refrescar el marcador superior para que veas el cambio inmediatamente.
@@ -55,6 +56,11 @@ simula que has dado 10000 clicks
 
 
 game.totalClicks = 10000;
+
+
+
+
+
 
 
 
