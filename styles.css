@@ -832,7 +832,31 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
 .anomaly-popup.shock { border-color: #00e5ff; color: #00e5ff; box-shadow: 0 0 15px rgba(0,229,255,0.3); }
 .anomaly-popup.evil { border-color: #ff0000; color: #ff0000; background: rgba(50,0,0,0.9); }
 
+.anomaly-object {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, rgba(255,0,85,1) 0%, rgba(0,0,0,0) 70%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    cursor: pointer;
+    z-index: 9999; /* Por encima de todo */
+    animation: anomaly-float 2s infinite ease-in-out, anomaly-glow 0.5s infinite alternate;
+    user-select: none;
+}
 
+@keyframes anomaly-float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(20deg); }
+}
+
+@keyframes anomaly-glow {
+    from { filter: drop-shadow(0 0 5px #ff0055); }
+    to { filter: drop-shadow(0 0 20px #ff0055) scale(1.1); }
+}
 
 
 
@@ -1034,6 +1058,12 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
 .heaven-node.available { border-color: #ffd700; animation: pulseNode 1.5s infinite; }
 .heaven-node.locked { opacity: 0.3; filter: grayscale(1); cursor: not-allowed; }
 
+
+
+/* GLITCHES */
+
+
+
 @keyframes pulseNode { 0% { box-shadow: 0 0 5px #ffd700; } 50% { box-shadow: 0 0 20px #ffd700; } }
 @keyframes blue-glitch {
     0% { filter: hue-rotate(0deg) blur(0px); }
@@ -1046,6 +1076,29 @@ button.sys-btn:hover { background: #333; color: white; border-color: #555; }
 .blue-glitch {
     animation: blue-glitch 0.15s infinite;
     background: radial-gradient(circle at center, #00e5ff 0%, #000 100%) !important;
+}
+
+/* Efecto de flash rojo y distorsión al comprar Omega */
+.omega-buy-glitch {
+    animation: omega-flash 0.3s ease-out;
+    pointer-events: none; /* Evita que el usuario clickee nada durante el micro-segundo de glitch */
+}
+
+@keyframes omega-flash {
+    0% { 
+        filter: invert(0) contrast(1); 
+        background-color: transparent;
+    }
+    50% { 
+        filter: invert(1) sepia(1) saturate(10) hue-rotate(-50deg); 
+        background-color: rgba(255, 0, 0, 0.2);
+        transform: skewX(5deg);
+    }
+    100% { 
+        filter: invert(0) contrast(1);
+        background-color: transparent;
+        transform: skewX(0deg);
+    }
 }
 
 

@@ -897,39 +897,69 @@ function dispose3D(object) {
 // Variable global para evitar bucles dobles (si no la tienes declarada fuera)
 let isAnomalyLoopActive = false; 
 
+
+
+function collectAnomaly() {
+    sfxBuy(); // Reutilizamos sonido de compra o uno especial
+    
+    // Premio: 5 minutos de producción actual (por ejemplo)
+    const reward = getWps() * 300; 
+    game.cookies += reward;
+    game.anomaliesClicked = (game.anomaliesClicked || 0) + 1;
+
+    showNotification("👾 ANOMALÍA ESTABILIZADA", `+${formatNumber(reward)} Energía detectada`);
+    
+    // Efecto visual de partículas en la posición del ratón
+    createFloatingText(window.innerWidth/2, window.innerHeight/2, "¡ESTABLE!", true);
+    
+    updateUI();
+}
+
+
+
+
+
+
+
+
+
+
 function spawnAnomaly() {
     isAnomalyLoopActive = true;
 
     // ----------------------------------------------------
     // 1. ESCUDO DE INTRO (Protegemos el misterio)
     // ----------------------------------------------------
-    // Si la intro está activa, cancelamos inmediatamente.
-    if (typeof isIntroActive !== 'undefined' && isIntroActive) return;
-
-    // ----------------------------------------------------
-    // 2. ESCUDO DE TECNOLOGÍA (El Sensor)
-    // ----------------------------------------------------
-    // Si NO tienes la mejora 'unlock-anomalies' comprada, entramos en modo espera.
-    // Volvemos a comprobar en 5 segundos.
-    if (!game.upgrades.includes('unlock-anomalies')) {
-        setTimeout(spawnAnomaly, 5000);
+    if (typeof isIntroActive !== 'undefined' && isIntroActive) {
+        // Si la intro está activa, reintentamos en 10s para no perder el bucle
+        setTimeout(spawnAnomaly, 10000);
         return;
     }
 
     // ----------------------------------------------------
-    // 3. GENERACIÓN DE LA BOLA (Tu lógica original de recompensas)
+    // 2. CONFIGURACIÓN DE APARICIÓN (Desde el principio)
+    // ----------------------------------------------------
+    // He quitado el bloqueo de 'unlock-anomalies' para que salgan desde el inicio.
+    // Si quieres que vuelvan a requerir la mejora, descomenta las líneas de abajo:
+    /*
+    if (!game.upgrades.includes('unlock-anomalies')) {
+        setTimeout(spawnAnomaly, 5000);
+        return;
+    }
+    */
+
+    // ----------------------------------------------------
+    // 3. GENERACIÓN DE LA BOLA
     // ----------------------------------------------------
     const isCorrupt = isApocalypse && Math.random() < 0.3;
     const isTemporalEvent = !game.pearls.includes('blue') && (game.totalClicks >= 10000) && Math.random() < 0.3;
     
-    // Probabilidades ajustadas (Menos dinero directo, más buffs para compensar la rareza)
     const types = ['money', 'money', 'production', 'production', 'production', 'click', 'click']; 
     const type = types[Math.floor(Math.random() * types.length)];
     
     const orb = document.createElement('div');
     let icon = '⚛️'; let color = 'gold'; let size = '3.5rem';
      
-    // --- VISUALES ---
     if (isTemporalEvent) {
         icon = '⏳'; color = '#00e5ff'; orb.style.animation = 'pulseBlue 0.5s infinite alternate';
     } else if (isCorrupt) {
@@ -937,20 +967,18 @@ function spawnAnomaly() {
     } else if (type === 'production') {
         icon = '⚡'; color = '#ffaa00';
     } else if (type === 'click') {
-        icon = '🖱️'; color = '#00ff88';
+        icon = '鼠标'; color = '#00ff88';
     }
 
     orb.innerHTML = icon;
+    orb.className = 'anomaly-object'; // Asegúrate de tener el CSS para esta clase
     orb.style.cssText = `
         position: absolute; font-size: ${size}; cursor: pointer; z-index: 2000; 
         filter: drop-shadow(0 0 15px ${color}); 
         left: ${Math.random() * 80 + 10}%; top: ${Math.random() * 80 + 10}%;
         user-select: none; transition: transform 0.1s;
     `;
-    orb.onmouseover = () => orb.style.transform = "scale(1.2)";
-    orb.onmouseout = () => orb.style.transform = "scale(1.0)";
 
-    // --- CLICK ---
     orb.onclick = function(e) {
         e.stopPropagation(); 
         sfxAnomaly();
@@ -965,7 +993,7 @@ function spawnAnomaly() {
                 let loss = game.cookies * 0.05; game.cookies -= loss;
                 showAnomalyPopup(`📉 ENTROPÍA: -${formatNumber(loss)} Watts`, 'bad');
             } else {
-                let gain = getCPS() * 2000; // Premio GORDO por rareza
+                let gain = getCPS() * 2000; 
                 game.cookies += gain; game.totalCookiesEarned += gain;
                 showAnomalyPopup(`😈 CAOS: +${formatNumber(gain)} Watts`, 'good');
             }
@@ -974,14 +1002,11 @@ function spawnAnomaly() {
             let bonusMult = 1;
             if (game.helpers.includes('h_banker')) bonusMult *= 1.5;
             if (game.heavenlyUpgrades.includes('anomaly_nuke')) bonusMult *= 3.0;
-            
             let seconds = 600 + Math.random() * 1800; 
             let gain = (getCPS() * seconds) * bonusMult;
-            
-            let bankCap = game.cookies * 0.50; // Cap subido al 50%
+            let bankCap = game.cookies * 0.50; 
             if (gain > bankCap && bankCap > 0) gain = bankCap; 
             if (gain < 15) gain = 15;
-
             game.cookies += gain; game.totalCookiesEarned += gain;
             showAnomalyPopup(`💰 SURGE: +${formatNumber(gain)} Watts`);
         } 
@@ -1003,7 +1028,6 @@ function spawnAnomaly() {
 
     document.getElementById('game-area').appendChild(orb);
     
-    // Tiempo de vida en pantalla (ligeramente aumentado por rareza)
     let lifeTime = isCorrupt ? 8000 : 15000; 
     if (game.upgrades.includes('quantum-lens')) lifeTime += 4000;
     if (game.heavenlyUpgrades.includes('golden_duration')) lifeTime += 3000;
@@ -1016,22 +1040,24 @@ function spawnAnomaly() {
     }, lifeTime); 
 
     // ----------------------------------------------------
-    // 4. CÁLCULO DE TIEMPO (LENTO: 2 MINUTOS MÍNIMO)
+    // 4. CÁLCULO DE TIEMPO DINÁMICO (SISTEMA DE 60s)
     // ----------------------------------------------------
     const anomalyHelper = helpersConfig.find(h => h.effect === 'anomalyRate');
     
-    // TIEMPO BASE: 120 segundos (120,000 ms) + Variación de 0 a 60s
-    let baseTime = 120000 + Math.random() * 60000; 
+    // TIEMPO BASE: 60 segundos (60,000 ms)
+    let baseTime = 60000; 
     
-    // Modificadores de reducción
-    if (anomalyHelper && game.helpers.includes(anomalyHelper.id)) baseTime /= anomalyHelper.value;
-    if (game.upgrades.includes('entropy-antenna')) baseTime *= 0.8; 
-    if (game.heavenlyUpgrades.includes('lucky_star')) baseTime *= 0.85; 
+    // Aplicar reducciones de mejoras
+    if (anomalyHelper && game.helpers.includes(anomalyHelper.id)) baseTime /= anomalyHelper.value; // Ej: Dorian Nox / 2
+    if (game.upgrades.includes('entropy-antenna')) baseTime *= 0.8; // -20%
+    if (game.heavenlyUpgrades.includes('lucky_star')) baseTime *= 0.85; // -15%
+    if (comboMultiplier > 3.0) baseTime *= 0.8; // El combo alto atrae anomalías
 
-    if (comboMultiplier > 3.0) baseTime *= 0.8;
+    // Añadir una pequeña variación aleatoria para que no sea exacto (+/- 5 seg)
+    let finalWait = baseTime + (Math.random() - 0.5) * 10000;
 
-    // console.log(`Próxima anomalía en: ${Math.round(baseTime/1000)}s`); // Debug opcional
-    setTimeout(spawnAnomaly, baseTime);
+    // console.log("Siguiente anomalía en: " + (finalWait/1000).toFixed(1) + "s");
+    setTimeout(spawnAnomaly, Math.max(5000, finalWait)); // Mínimo 5 seg para evitar spam
 }
 
 
@@ -1367,17 +1393,33 @@ window.buyUpgrade = function(upgradeId, cost) {
 function executeUpgradePurchase(upgradeId, cost) {
     sfxBuy();
     game.cookies -= cost;
-    game.upgrades.push(upgradeId);
+    if (!game.upgrades.includes(upgradeId)) {
+        game.upgrades.push(upgradeId);
+    }
 
+    // --- NUEVA LÓGICA DE ANIMACIÓN PROGRESIVA ---
     if (upgradeId === 'omega-final') {
-        // En lugar de dar el mensaje directo, disparamos la animación épica
-        triggerOmegaFinalAnimation();
-    } else {
+        // La gran escena final que ya tenemos
+        triggerOmegaFinalAnimation(); 
+    } 
+    else if (upgradeId.includes('omega') || upgradeId === 'protocol-omega') {
+        // Para las fases 1, 2, 3 y 4 disparar el micro-glitch
+        triggerOmegaMinorGlitch();
+        
+        // Además, forzamos un recalcular para que el 3D 
+        // empiece a vibrar permanentemente (gracias a lo que añadimos en update3D)
+        recalculateStats();
+        renderStore();
+        updateUI();
+    } 
+    else {
         // Comportamiento normal para otras mejoras
         recalculateStats();
         renderStore();
         updateUI();
     }
+    
+    saveGame();
 }
 
 
@@ -2787,6 +2829,44 @@ function hideTooltip() {
 /// =========================================================
 /// PERLAS
 
+function triggerOmegaMinorGlitch() {
+    // 1. Sonido de error de sistema / estática
+    playTone(60, 'sawtooth', 0.1, 0.4);
+    setTimeout(() => playTone(40, 'square', 0.2, 0.3), 100);
+
+    // 2. Efecto visual en el DOM (Clase CSS)
+    document.body.classList.add('omega-buy-glitch');
+    
+    // 3. Reacción en Three.js
+    if (mainObject && glowMesh) {
+        // Un impulso repentino de luz y escala
+        const originalScale = mainObject.scale.x;
+        mainObject.scale.setScalar(originalScale * 1.5);
+        mainObject.material.emissiveIntensity = 5;
+        
+        // Pequeño desplazamiento aleatorio de cámara
+        const shakeX = (Math.random() - 0.5) * 2;
+        const shakeY = (Math.random() - 0.5) * 2;
+        camera.position.x += shakeX;
+        camera.position.y += shakeY;
+
+        // Resetear después de 300ms (el glitch es rápido)
+        setTimeout(() => {
+            mainObject.scale.setScalar(originalScale);
+            mainObject.material.emissiveIntensity = 0.6;
+            camera.position.x -= shakeX;
+            camera.position.y -= shakeY;
+            document.body.classList.remove('omega-buy-glitch');
+        }, 300);
+    }
+}
+
+
+
+
+
+
+
 // Desbloquear una perla (Ej: al comprar Omega)
 function unlockPearl(color) {
     if (!game.pearls.includes(color)) {
@@ -3072,15 +3152,16 @@ function renderHeavenTree() {
     const tooltip = document.getElementById('heaven-tooltip');
     const ctx = canvas.getContext('2d');
     
-    
-    // Configuración compacta
+    // Configuración
     const treeW = 800; const treeH = 600;
     canvas.width = treeW; canvas.height = treeH;
     container.style.width = treeW + 'px'; container.style.height = treeH + 'px';
     ctx.clearRect(0, 0, treeW, treeH);
     container.innerHTML = '';
 
-    // Actualizar cabecera con Nivel y Moneda
+    // Importante: El canvas debe dejar pasar los clics
+    canvas.style.pointerEvents = 'none';
+
     document.getElementById('heaven-antimatter').innerText = formatNumber(game.antimatter);
     document.getElementById('heaven-level').innerText = formatNumber(game.prestigeLevel);
 
@@ -3088,7 +3169,7 @@ function renderHeavenTree() {
         const isBought = game.heavenlyUpgrades.includes(node.id);
         const isAvailable = !isBought && (node.parents.length === 0 || node.parents.some(pid => game.heavenlyUpgrades.includes(pid)));
         
-        // DIBUJAR LÍNEAS
+        // --- DIBUJAR LÍNEAS ---
         if (node.parents.length > 0) {
             node.parents.forEach(pid => {
                 const parent = heavenlyConfig.find(p => p.id === pid);
@@ -3103,35 +3184,35 @@ function renderHeavenTree() {
             });
         }
 
-        // NODO
+        // --- CREAR NODO ---
         const div = document.createElement('div');
         div.className = `heaven-node ${isBought ? 'bought' : (isAvailable ? 'available' : 'locked')}`;
-        div.style.left = node.x + 'px'; div.style.top = node.y + 'px';
+        div.style.left = node.x + 'px'; 
+        div.style.top = node.y + 'px';
         div.innerHTML = node.icon;
         
-        // --- EVENTOS DEL TOOLTIP (SIN CSS) ---
+        // Tooltip logic
         div.onmouseenter = (e) => {
             const status = isBought ? "✅ COMPRADO" : (isAvailable ? `CLICK PARA COMPRAR` : "🔒 BLOQUEADO");
             const costTxt = isBought ? "" : `\nCoste: ${formatNumber(node.cost)} AM`;
-            
             tooltip.innerHTML = `<strong style="color:#b388ff">${node.name}</strong><br>${node.desc}<br><br><span style="color:${isAvailable?'#ffd700':'#888'}">${status}${costTxt}</span>`;
             tooltip.style.display = 'block';
             
-            // Posicionar tooltip cerca del ratón o del nodo (ajustado al contenedor padre modal-box)
             const boxRect = document.querySelector('.heaven-modal-box').getBoundingClientRect();
             const nodeRect = div.getBoundingClientRect();
-            
-            // Calculamos posición relativa a la caja modal
-            let top = nodeRect.bottom - boxRect.top + 10;
-            let left = nodeRect.left - boxRect.left - 100; // Centrado
-            
-            tooltip.style.top = top + 'px';
-            tooltip.style.left = left + 'px';
+            tooltip.style.top = (nodeRect.bottom - boxRect.top + 10) + 'px';
+            tooltip.style.left = (nodeRect.left - boxRect.left - 100) + 'px';
         };
 
         div.onmouseleave = () => { tooltip.style.display = 'none'; };
         
-        div.onclick = () => buyHeavenlyUpgrade(node);
+        // FIX DE CLIC: Asegurar que el evento se capture y no se propague
+        div.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            buyHeavenlyUpgrade(node);
+        };
+
         container.appendChild(div);
     });
 }
@@ -3140,22 +3221,33 @@ function renderHeavenTree() {
 
 
 function buyHeavenlyUpgrade(node) {
-    if (game.heavenlyUpgrades.includes(node.id)) return; // Ya comprado
+    // 1. Si ya está comprado, no hacer nada
+    if (game.heavenlyUpgrades.includes(node.id)) return;
     
-    // Chequear requisitos
+    // 2. Comprobar disponibilidad real
     const isAvailable = node.parents.length === 0 || node.parents.some(pid => game.heavenlyUpgrades.includes(pid));
-    if (!isAvailable) return;
+    
+    if (!isAvailable) {
+        showNotification("🔒 BLOQUEADO", "Necesitas las mejoras previas.");
+        return;
+    }
 
+    // 3. Comprobar saldo
     if (game.antimatter >= node.cost) {
         sfxBuy();
         game.antimatter -= node.cost;
         game.heavenlyUpgrades.push(node.id);
         
-        document.getElementById('heaven-antimatter').innerText = formatNumber(game.antimatter);
+        // Feedback visual
+        showNotification("✨ ACTIVADO", `${node.name} se ha fusionado con tu realidad.`);
+        
+        // RECALCULAR Y GUARDAR
+        recalculateStats(); // <--- Crucial para que el bono funcione al instante
         renderHeavenTree();
-        saveGame(); // Guardar progreso importante
+        saveGame();
+        updateUI();
     } else {
-        showSystemModal("ENERGÍA CÓSMICA INSUFICIENTE", "Necesitas más Antimateria para fusionar esta realidad.", false, null);
+        showSystemModal("ANTIMATERIA INSUFICIENTE", `Necesitas ${formatNumber(node.cost - game.antimatter)} más para esta fusión.`, false, null);
     }
 }
 
