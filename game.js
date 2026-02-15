@@ -4488,26 +4488,42 @@ window.toggleAchievements = function () {
     }
 };
 
+// Estado global del filtro (para persistir entre toggles de "Ocultar bloqueados")
+let currentAchFilter = 'all';
+
 window.filterAchievements = function (type) {
+    currentAchFilter = type;
     // Update tabs UI
     if (event && event.target) {
         document.querySelectorAll('.ach-tab').forEach(b => b.classList.remove('active'));
         event.target.classList.add('active');
     }
-    renderAchievements(type);
+    renderAchievements(); // Re-render con el nuevo filtro y el estado del checkbox
     sfxClick();
 };
 
 function renderAchievements(filterType) {
-    const grid = document.getElementById('achievements-grid');
-    if (!grid) return;
+    // Si se pasa argumento (ej: al abrir modal), actualizar global
+    if (filterType) currentAchFilter = filterType;
 
-    grid.innerHTML = ''; // Limpiar
+    const listContainer = document.getElementById('achievements-list');
+    if (!listContainer) return;
 
-    // 1. Filtrar lista
+    listContainer.innerHTML = ''; // Limpiar
+
+    const hideLocked = document.getElementById('ach-hide-locked')?.checked || false;
+
+    // 1. Filtrar lista (Tipo + Bloqueados)
     let list = achievementsConfig;
-    if (filterType !== 'all') {
-        list = list.filter(a => a.type === filterType);
+
+    // Filtro por Tab
+    if (currentAchFilter !== 'all') {
+        list = list.filter(a => a.type === currentAchFilter);
+    }
+
+    // Filtro "Ocultar Bloqueados"
+    if (hideLocked) {
+        list = list.filter(a => game.achievements.includes(a.id));
     }
 
     // 2. Ordenar: Desbloqueados primero
@@ -4519,53 +4535,66 @@ function renderAchievements(filterType) {
         return 0;
     });
 
-    // 3. Renderizar (Usando Fragment para rendimiento)
+    // 3. Renderizar listado vertical
     const fragment = document.createDocumentFragment();
-
-    // Limitar renderizado si son demasiados para evitar lag (mostrar max 500)
-    const renderLimit = 500;
+    const renderLimit = 100; // Límite razonable para scroll suave
     let renderedCount = 0;
 
     list.forEach(ach => {
         if (renderedCount >= renderLimit) return;
 
         const unlocked = game.achievements.includes(ach.id);
-        const card = document.createElement('div');
-        card.className = `achievement-card ${unlocked ? 'unlocked' : 'locked'}`;
+        const row = document.createElement('div');
+        row.className = `achievement-row ${unlocked ? 'unlocked' : 'locked'}`;
 
-        // Icono basado en tipo
+        // Icono
         let icon = '🏆';
         if (ach.type === 'energy') icon = '🔋';
         if (ach.type === 'click') icon = '👆';
         if (ach.type === 'building') icon = '🏗️';
         if (ach.type === 'cps') icon = '⚡';
-        if (ach.type === 'special') icon = '🌟';
-        if (ach.type === 'prestige') icon = '🌌';
 
-        card.textContent = icon;
+        // Si está bloqueado, forzar icono de candado
+        if (!unlocked) {
+            icon = '🔒';
+        }
 
-        // Tooltip (CSS content attr)
-        // Usamos caracteres ASCII para salto de línea si CSS white-space: pre-wrap está activo
-        const statusText = unlocked ? "✅ DESBLOQUEADO" : "🔒 BLOQUEADO";
-        card.setAttribute('data-tooltip', `${ach.name}\n\n${ach.desc}\n\nRecompensa: ${ach.reward}\n${statusText}`);
+        // Estructura de fila
+        const rewardHTML = unlocked ? `<div class="ach-reward">Recompensa: ${ach.reward}</div>` : '';
 
-        fragment.appendChild(card);
+        row.innerHTML = `
+            <div class="ach-icon">${icon}</div>
+            <div class="ach-info">
+                <div class="ach-title">${ach.name}</div>
+                <div class="ach-desc">${ach.desc}</div>
+                ${rewardHTML}
+            </div>
+            <div class="ach-status">${unlocked ? '✓' : ''}</div>
+        `;
+
+        fragment.appendChild(row);
         renderedCount++;
     });
 
-    // Si hay más, mostrar aviso? (Opcional)
+    // Botón "Cargar más" si hay muchos (simple aviso)
+    if (list.length > renderLimit) {
+        const more = document.createElement('div');
+        more.style.padding = '10px';
+        more.style.textAlign = 'center';
+        more.style.color = '#666';
+        more.innerText = `... y ${list.length - renderLimit} logros más ...`;
+        fragment.appendChild(more);
+    }
 
-    grid.appendChild(fragment);
+    listContainer.appendChild(fragment);
 
-    // 4. Actualizar Header Stats
+    // 4. Actualizar Stats
     const count = game.achievements.length;
     const total = achievementsConfig.length;
-    // Bonus actual: achievements * 1%
-    const bonus = count; // +1% per achievement
 
     const countEl = document.getElementById('ach-count');
     const bonusEl = document.getElementById('ach-bonus');
 
     if (countEl) countEl.innerText = `${count} / ${total}`;
-    if (bonusEl) bonusEl.innerText = `Bonus: +${bonus}%`;
+    if (bonusEl) bonusEl.innerText = `Bonus: +${count}%`;
 }

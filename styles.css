@@ -2733,3 +2733,44 @@ body.safe-no-ticker #news-content {
 .achievement-card::before {
     /* No usado aquí, el contenido ya está en data-tooltip formateado si es posible */
 }
+/* ==========================================
+   FIXES UI LOGROS (SOBREESCRIBE ANTERIORES)
+   ========================================== */
+.modal-box {
+    max-width: 900px !important;
+    width: 90% !important;
+    max-height: 85vh !important;
+    display: flex;
+    flex-direction: column;
+}
+
+#achievements-list {
+    flex-grow: 1;
+    max-height: none !important;
+    overflow-y: auto;
+    min-height: 50vh;
+}
+
+.achievement-row.locked {
+    background: rgba(10, 10, 10, 0.95) !important;
+    border: 1px solid #333 !important;
+    opacity: 1 !important; /* Reset opacity logic */
+}
+
+.achievement-row.locked .ach-title {
+    color: #555 !important;
+    text-shadow: none !important;
+}
+
+.achievement-row.locked .ach-desc {
+    color: #444 !important;
+}
+
+.achievement-row.locked .ach-icon {
+    opacity: 0.2 !important;
+    filter: grayscale(100%) !important;
+}
+
+.achievement-row.locked .ach-reward {
+    display: none !important;
+}

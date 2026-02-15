@@ -11,7 +11,10 @@
 ### 🏆 Feature: Sistema de Logros 2.0 (Procedural)
 *   **1000+ Logros**: Generados automáticamente (Energía, Clicks, Edificios, CPS).
 *   **Recompensas**: +1% Producción Global por logro (acumulativo).
-*   **UI Renovada**: Galería con pestañas (General, Edificios, Economía), grid responsivo (scrollable) y tooltips detallados.
+*   **UI Renovada**: Galería en formato de **Lista Vertical** (Icono, Título, Descripción, Recompensa) para mayor legibilidad.
+*   **Mejoras Visuales**: Ventana más grande y clara distinción de logros bloqueados (Icono 🔒, Texto Gris).
+*   **Filtros Avanzados**: Ahora puedes ocultar los logros bloqueados con un checkbox.
+*   **Mejor UX**: Cierra el modal de logros haciendo click fuera de la ventana.
 *   **Optimización**: Lógica de chequeo optimizada para no impactar el rendimiento.
 
 ### 🛡️ Feature: Modo Seguro Granular
