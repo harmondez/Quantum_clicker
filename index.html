@@ -119,7 +119,7 @@
         </div>
     </div>
 
-    <div id="modal-achievements" class="modal-overlay">
+    <div id="modal-achievements" class="modal-overlay" onclick="if(event.target === this) toggleAchievements()">
         <div class="modal-box">
             <div class="close-btn" onclick="toggleAchievements()">×</div>
             <div class="modal-header">
@@ -130,14 +130,20 @@
                 </div>
             </div>
             
-            <div class="ach-tabs">
-                <button class="ach-tab active" onclick="filterAchievements('all')">Todos</button>
-                <button class="ach-tab" onclick="filterAchievements('building')">Edificios</button>
-                <button class="ach-tab" onclick="filterAchievements('energy')">Economía</button>
-                <button class="ach-tab" onclick="filterAchievements('special')">Especiales</button>
+            <div class="ach-controls" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div class="ach-tabs" style="margin-bottom:0; border-bottom:none;">
+                    <button class="ach-tab active" onclick="filterAchievements('all')">Todos</button>
+                    <button class="ach-tab" onclick="filterAchievements('building')">Edificios</button>
+                    <button class="ach-tab" onclick="filterAchievements('energy')">Economía</button>
+                    <button class="ach-tab" onclick="filterAchievements('special')">Especiales</button>
+                </div>
+                <label style="color:#aaa; font-size:0.8rem; cursor:pointer; display:flex; align-items:center; gap:5px;">
+                    <input type="checkbox" id="ach-hide-locked" onchange="renderAchievements()"> 
+                    👁️ Ocultar Bloqueados
+                </label>
             </div>
 
-            <div id="achievements-grid" class="achievements-grid">
+            <div id="achievements-list" class="achievements-list">
                 <!-- Se rellena con JS -->
             </div>
         </div>
