@@ -941,6 +941,7 @@ const helpersConfig = [
         reqLevel: 5,
         effect: 'clickPower', value: 3
     },
+    
     {
         id: 'h_miner',
         quotes: ["He parcheado una fuga en el sector 4. La producción automática ha subido.", "¿Ves ese zumbido? Es el sonido de la eficiencia pura."],
@@ -1031,7 +1032,35 @@ const helpersConfig = [
         cost: 10000, icon: '👨‍💼',
         reqLevel: 100,
         effect: 'globalMultiplier', value: 2.0
+    },
+    {
+        id: 'h_scavenger',
+        name: '🔧 "Recio" Miller',
+        quotes: ["En el espacio, la basura de uno es mi tesoro... y tus monedas.", "He modificado tu mochila, ahora los imanes atraen mejor la chatarra."],
+        desc: 'Chatarrero Espacial. Optimización de desguace: +25% Valor de venta de ítems en GC.',
+        cost: 1200, icon: '🔧',
+        reqLevel: 50,
+        effect: 'itemValueBoost', value: 1.25
+    },
+    {
+        id: 'h_hunter',
+        name: '🏹 Kiana Vane',
+        quotes: ["Tengo a ese visitante en mi mira. No escapará.", "Sus escudos de plasma no son nada contra mis balas de neutrones."],
+        desc: 'Cazadora de Recompensas. Rastreo Alien: Los Aliens tardan +10s en huir y tienen +20% HP (pero dan x2 Watts).',
+        cost: 3000, icon: '🏹',
+        reqLevel: 70,
+        effect: 'alienMastery', value: 2.0
+    },
+    {
+        id: 'h_luck',
+        name: '🃏 Gambito Zero',
+        quotes: ["¿Quieres ver un truco? Mira como convierto este cobre en oro.", "La suerte es solo una variable que mi algoritmo puede manipular."],
+        desc: 'Manipulador Probabilístico. Suerte del Diablo: Duplica la probabilidad de encontrar ítems Épicos o superiores.',
+        cost: 7500, icon: '🃏',
+        reqLevel: 90,
+        effect: 'luckMultiplier', value: 2.0
     }
+
 ];
 
 const synergiesConfig = [
@@ -1271,6 +1300,11 @@ function spawnAlien() {
     if (document.getElementById('active-alien')) return;
     if (typeof isIntroActive !== 'undefined' && isIntroActive) return;
 
+    // --- BONIFICACIÓN DE KIANA VANE (Xeno-Cazadora) ---
+    const hasHunter = game.helpers.includes('h_hunter');
+    const hunterBonus = hasHunter ? 2 : 1;
+    const timeBonus = hasHunter ? 5000 : 0; // 5 segundos extra de margen
+
     // Seleccionar tipo según probabilidad
     const rand = Math.random();
     let type = 'green';
@@ -1319,7 +1353,7 @@ function spawnAlien() {
         // Sonido de impacto
         if (typeof playTone === 'function') playTone(200 + (clicksLeft * 20), 'sawtooth', 0.05, 0.2);
 
-        // Efecto visual de daño (sacudida y escala)
+        // Efecto visual de daño
         const icon = alien.querySelector('.alien-icon');
         icon.style.transform = `scale(0.8) rotate(${Math.random() * 30 - 15}deg)`;
         setTimeout(() => {
@@ -1334,14 +1368,14 @@ function spawnAlien() {
         if (clicksLeft <= 0) {
             clearInterval(moveInterval);
 
-            // Recompensa en Watts (CPS x Multiplicador config)
-            const reward = getCPS() * config.reward * 10;
+            // Recompensa aplicada con el multiplicador de la Cazadora (x2 si está contratada)
+            const reward = getCPS() * config.reward * 10 * hunterBonus;
             game.cookies += reward;
             game.totalCookiesEarned += reward;
 
             createFloatingText(e.clientX, e.clientY, `¡INTERCEPTADO! +${formatNumber(reward)}`, true);
 
-            // 🔥 NUEVO: DROP GARANTIZADO (Paso 3 del sistema de inventario)
+            // DROP GARANTIZADO (Se mantiene al 100%)
             if (typeof tryDropItem === 'function') {
                 tryDropItem('Alien', 100); 
             }
@@ -1351,16 +1385,16 @@ function spawnAlien() {
         }
     };
 
-    // Si no lo matas en 25 segundos, huye
+    // Si no lo matas en 25 segundos (+5 con Kiana), huye
     setTimeout(() => {
         if (alien.parentNode) {
             clearInterval(moveInterval);
             alien.style.opacity = '0';
-            alien.style.transform = 'scale(0) translateY(-100px)'; // Efecto de huida hacia arriba
+            alien.style.transform = 'scale(0) translateY(-100px)';
             setTimeout(() => alien.remove(), 500);
             showNotification("💨 ESCAPE", "El visitante ha escapado del sector.");
         }
-    }, 25000);
+    }, 25000 + timeBonus);
 }
 
 
@@ -1946,14 +1980,14 @@ function getMaxCombo() {
 
 function getCPS() {
     let cps = 0;
+    // Referencia rápida a los que están trabajando actualmente (Máximo 4)
+    const active = game.activeHelpers || []; 
 
     // 1. CÁLCULO BASE DE EDIFICIOS
     buildingsConfig.forEach(u => {
         if (u.type === 'auto') {
             let count = game.buildings[u.id] || 0;
             let bPower = count * u.currentPower;
-
-            // Sinergia: Red Neuronal
             if (u.id === 'mine' && game.upgrades?.includes('grandma-mine-synergy')) {
                 const grandmaCount = game.buildings['grandma'] || 0;
                 bPower *= (1 + (grandmaCount * 0.01));
@@ -1965,90 +1999,70 @@ function getCPS() {
     // 2. MULTIPLICADORES GLOBALES (PRESTIGIO)
     let total = cps * game.prestigeMult;
 
-    // 3. AYUDANTES Y ÉLITE
-    const prodHelper = helpersConfig.find(h => h.effect === 'cpsMultiplier');
-    if (prodHelper && game.helpers.includes(prodHelper.id)) total *= prodHelper.value;
-
-    const synergyHelper = helpersConfig.find(h => h.effect === 'buildingSynergy');
-    if (synergyHelper && game.helpers.includes(synergyHelper.id)) {
-        const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
-        total *= (1 + (totalBuildings * synergyHelper.value));
+    // 3. AYUDANTES ACTIVOS (Solo funcionan si están en los 4 slots)
+    
+    // Bonus de Producción (Marcus Voltz)
+    if (active.includes('h_miner')) {
+        const prodHelper = helpersConfig.find(h => h.id === 'h_miner');
+        total *= prodHelper.value;
     }
 
-    // Mejoras de Sincronía y Protocolo Maestro
+    // Bonus de Sinergia IA (Mente Enlazada)
+    if (active.includes('h_synergy')) {
+        const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
+        total *= (1 + (totalBuildings * 0.01));
+    }
+
+    // Protocolo Dios (Director Cipher)
+    if (active.includes('h_master')) {
+        total *= 2.0; 
+    }
+
+    // --- BUILDS Y SINERGIAS (Solo si ambos están activos simultáneamente) ---
+    
+    // Sinergia: CICLO CERRADO (Marcus + Sarah)
+    if (active.includes('h_miner') && active.includes('h_efficiency')) {
+        total *= 1.15; // Aumentado a 15% por la dificultad de slot
+    }
+
+    // Sinergia: MENTE DE COLMENA (IA + Director)
+    if (active.includes('h_synergy') && active.includes('h_master')) {
+        const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
+        total *= (1 + (totalBuildings * 0.02)); // Dobla el efecto de la IA
+    }
+
+    // Sinergia: HORIZONTE DE EVENTOS (Dorian + Silas)
+    if (active.includes('h_anomaly') && active.includes('h_discount')) {
+        total *= 1.10; 
+    }
+
+    // --- BONUS PASIVO POR COLECCIÓN (Incentivo para comprar todos) ---
+    // Este no requiere que estén activos, solo comprados en game.helpers
+    if (game.helpers.length > 0) {
+        total *= (1 + (game.helpers.length * 0.02)); // +2% por cada operador en la reserva
+    }
+    
+    // Bonus extra si tienes los 13 comprados
+    if (game.helpers.length >= 13) total *= 1.25;
+
+    // 4. CADENA OMEGA Y MEJORAS DE PODER
     game.helpers.forEach(helperId => {
-        if (game.upgrades.includes(`upg_power_${helperId}`)) total *= 1.25;
-        if (game.upgrades.includes(`upg_master_${helperId}`)) {
-            if (helperId === 'h_clicker') total *= 1.15;
-            if (helperId === 'h_miner') total *= 1.50;
-            if (helperId === 'h_discount') total *= 1.10;
-        }
+        if (game.upgrades.includes(`upg_power_${helperId}`)) total *= 1.05; // Bonus menor por estar en reserva
     });
 
-    // --- NUEVO: SISTEMA DE SINERGIAS DE STAFF (BUILDS) ---
-    // Sinergia: CICLO CERRADO (Marcus Voltz + Sarah Joule)
-    if (game.helpers.includes('h_miner') && game.helpers.includes('h_efficiency')) {
-        total *= 1.10; // +10% Producción por optimización de consumo
-    }
-
-    // Sinergia: MENTE DE COLMENA (IA Mente Enlazada + Director Cipher)
-    if (game.helpers.includes('h_synergy') && game.helpers.includes('h_master')) {
-        const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
-        // Potencia el bono de sinergia estructural de 1% a 2%
-        total *= (1 + (totalBuildings * 0.01)); 
-    }
-
-    // Sinergia: HORIZONTE DE EVENTOS (Dorian Nox + Silas Vane)
-    if (game.helpers.includes('h_anomaly') && game.helpers.includes('h_discount')) {
-        total *= 1.05; // Bono de estabilidad dimensional
-    }
-
-    // 4. CADENA OMEGA
     if (game.upgrades.includes('protocol-omega')) total *= 1.2;
-    if (game.upgrades.includes('omega-phase-2')) total *= 1.5;
-    if (game.upgrades.includes('omega-phase-3')) total *= 2.0;
-    if (game.upgrades.includes('omega-phase-4')) total *= 3.0;
     if (game.upgrades.includes('omega-final')) total *= 5.0;
 
-    // 5. ÁRBOL DE ASCENSIÓN (MEJORADO)
+    // 5. ÁRBOL DE ASCENSIÓN Y LOGROS
     if (game.heavenlyUpgrades.includes('perm_prod_1')) total *= 1.15;
+    if (game.achievements) total *= (1 + (game.achievements.length * 0.01));
 
-    // 6. BONUS DE LOGROS PROCEDURALES (+1% BASE)
-    if (game.achievements && game.achievements.length > 0) {
-        const baseArchBonus = 1 + (game.achievements.length * 0.01);
-        total *= baseArchBonus;
-    }
-
-    // Cerebro Galáctico: +2% por logro (ADICIONAL)
-    if (game.heavenlyUpgrades.includes('galaxy_brain')) {
-        const achievementBonus = 1 + (game.achievements.length * 0.02);
-        total *= achievementBonus;
-    }
-
-    // Sinergia Estructural
-    if (game.heavenlyUpgrades.includes('synergy_passive')) {
-        const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
-        const stacks = Math.floor(totalBuildings / 50);
-        if (stacks > 0) total *= (1 + (stacks * 0.10));
-    }
-
-    // Bonus de Singularidad
-    if (game.heavenlyUpgrades.includes('singularity')) {
-        total *= 1.5; 
-    }
-
-    if (game.heavenlyUpgrades.includes('dark_matter_engine')) total *= 2.0;
-    if (game.heavenlyUpgrades.includes('multiverse')) total *= 2.0;
-
-    // 6. MULTIPLICADORES TEMPORALES Y ÉLITE
+    // 6. MULTIPLICADORES DE EVENTO Y ANDRÓMEDA
     if (isOvercharged) total *= 5;
     if (game.activePearl === 'red') total *= 10;
     
     if (game.buildings.andromeda_dyson > 0) {
         total *= Math.pow(1.1, game.buildings.andromeda_dyson);
-    }
-    if (game.buildings.andromeda_bazar > 0) {
-        total *= (1 + (game.buildings.andromeda_bazar * 0.05));
     }
 
     return total * buffMultiplier;
@@ -2401,38 +2415,60 @@ function getIconForItem(rarity) {
     return '📦';
 }
 
-function tryDropItem(sourceName) {
-    const rand = Math.random() * 100;
-    let rarity = null;
+function tryDropItem(sourceName, dropChance) {
+    // 1. Tirada inicial para ver si hay drop (30% anomalía, 100% alien)
+    const luckRoll = Math.random() * 100;
+    if (luckRoll > dropChance) return;
 
-    if (rand < 0.1) rarity = 'mitico';      // 0.1%
-    else if (rand < 0.5) rarity = 'legendario'; // 0.4%
-    else if (rand < 2.0) rarity = 'epico';      // 1.5%
-    else if (rand < 7.0) rarity = 'raro';       // 5%
-    else if (rand < 15.0) rarity = 'poco_comun'; // 8%
-    else if (rand < 30.0) rarity = 'comun';      // 15%
-
-    if (rarity) {
-        if ((game.inventory || []).length >= 30) {
-            showNotification("🎒 INVENTARIO LLENO", "No hay espacio para más botín.", "#ff5252");
-            return;
-        }
-
-        const possibleNames = itemNames[rarity] || [`Fragmento de ${sourceName}`];
-        const selectedName = possibleNames[Math.floor(Math.random() * possibleNames.length)];
-
-        const newItem = {
-            id: Date.now() + Math.random(),
-            rarity: rarity,
-            name: selectedName,
-            value: itemRarezas[rarity].price
-        };
-
-        if (!game.inventory) game.inventory = [];
-        game.inventory.push(newItem);
-        showNotification("📦 OBJETO ENCONTRADO", `${selectedName} (${itemRarezas[rarity].label})`, itemRarezas[rarity].color);
-        saveGame();
+    // 2. Comprobar espacio en mochila
+    if ((game.inventory || []).length >= 30) {
+        showNotification("🎒 INVENTARIO LLENO", "No hay espacio para más botín.", "#ff5252");
+        return;
     }
+
+    // 3. Sistema de Suerte (Gambito Zero)
+    // Si tienes al operador h_luck, la probabilidad de items raros se duplica
+    const luckFactor = game.helpers.includes('h_luck') ? 2 : 1;
+
+    // 4. Tirada de Rareza (Sobre 100%)
+    const rarityRoll = Math.random() * 100;
+    let rarity = 'comun';
+
+    // Aplicamos tus porcentajes con el multiplicador de Gambito
+    if (rarityRoll < (1 * luckFactor)) rarity = 'mitico';           // 1% (base)
+    else if (rarityRoll < (4 * luckFactor)) rarity = 'legendario';  // 3% (base)
+    else if (rarityRoll < (11 * luckFactor)) rarity = 'epico';      // 7% (base)
+    else if (rarityRoll < 26) rarity = 'raro';                      // 15%
+    else if (rarityRoll < 55) rarity = 'poco_comun';                // 29%
+    else rarity = 'comun';                                          // 45%
+
+    // 5. Crear el objeto
+    const possibleNames = itemNames[rarity] || [`Fragmento de ${sourceName}`];
+    const selectedName = possibleNames[Math.floor(Math.random() * possibleNames.length)];
+
+    const newItem = {
+        id: Date.now() + Math.random(),
+        rarity: rarity,
+        name: selectedName,
+        value: itemRarezas[rarity].price
+    };
+
+    // 6. Guardado y Notificación
+    if (!game.inventory) game.inventory = [];
+    game.inventory.push(newItem);
+
+    showNotification(
+        "📦 OBJETO ENCONTRADO", 
+        `${selectedName} (${itemRarezas[rarity].label})`, 
+        itemRarezas[rarity].color
+    );
+
+    // Actualizar visualmente si la mochila está abierta
+    if (document.getElementById('modal-inventory').style.display === 'flex') {
+        renderInventory();
+    }
+
+    saveGame();
 }
 
 
@@ -2459,16 +2495,21 @@ window.toggleInventory = function() {
 };
 
 window.sellItem = function(itemId) {
-    const idx = game.inventory.findIndex(i => i.id === itemId);
+    const idx = game.inventory.findIndex(i => i.id == itemId);
     if (idx > -1) {
         const item = game.inventory[idx];
-        game.galacticoins += item.value;
+        
+        // --- NUEVO: Bonificación de Recio Miller ---
+        const sellMultiplier = game.helpers.includes('h_scavenger') ? 1.25 : 1;
+        const finalValue = Math.floor(item.value * sellMultiplier);
+        
+        game.galacticoins += finalValue;
         game.inventory.splice(idx, 1);
         
+        hideTooltip(); 
         if (typeof sfxBuy === 'function') sfxBuy();
         renderInventory();
         updateUI();
-        saveGame();
     }
 };
 
