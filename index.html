@@ -65,6 +65,10 @@
             <div id="score">0</div>
             <div id="cps-display">0.0 / seg</div>
             <div id="combo-display">COMBO x1.0</div>
+            
+            <div id="galacticoins-hud" style="display: none; background: rgba(0,0,0,0.7); border: 1px solid #ffd700; color: #ffd700; padding: 2px 8px; border-radius: 4px; font-size: 0.9rem; margin-top: 8px; width: fit-content; box-shadow: 0 0 10px rgba(255, 215, 0, 0.2); font-family: monospace; font-weight: bold; white-space: nowrap;">
+                🪙 <span id="gc-amount">0</span>
+            </div>
         </div>
 
         <div id="pearls-container">
@@ -101,6 +105,10 @@
         <div id="helpers-list" class="locked-section"></div>
 
         <div id="save-controls">
+            <button class="sys-btn" onclick="toggleInventory()" title="Mochila Espacial" style="flex: 0.4; background: #263238; border-color: #37474f; font-size: 1.2rem;">🎒</button>
+            
+            <button class="sys-btn" onclick="toggleCollection()" ...>📖</button>
+            <button id="btn-stats" ...>📊</button>
             <button class="sys-btn" onclick="toggleCollection()" title="Códice (Colección)" style="flex: 0.4; background: #3e2723; border-color: #5d4037; font-size: 1.2rem;">📖</button>
             <button id="btn-stats" class="sys-btn" onclick="openStats()">📊 Stats</button>
             <button class="sys-btn" onclick="toggleAchievements()" title="Logros" style="flex: 0.4; background: #004d40; border-color: #00695c; font-size: 1.2rem;">🏆</button>
@@ -339,5 +347,30 @@
     </div>
     </div>
     <div id="scene-blocker" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999; background:rgba(0,0,0,0.2);"></div>
+
+
+    <div id="modal-inventory" class="modal-overlay" style="display:none; z-index: 3000;">
+        <div class="modal-box" style="border-color: #ffd700; width: 420px; max-width: 95%;">
+            <div class="close-btn" onclick="toggleInventory()">×</div>
+            
+            <h2 style="color: #ffd700; border: none; margin-bottom: 10px; font-size: 1.2rem;">🎒 MOCHILA GALÁCTICA</h2>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 4px; border: 1px solid #333;">
+                <div style="color: #ffd700; font-weight: bold; font-size: 1.1rem; font-family: monospace;">
+                    🪙 <span id="gc-modal-amount">0</span> <small style="font-size: 0.7rem; color: #888;">GC</small>
+                </div>
+                <button onclick="sellAllTrash()" class="sys-btn" style="background: #1a1a1a; font-size: 0.6rem; padding: 4px 8px; color: #ff5252; border-color: #444;">
+                    VENDER CHATARRA
+                </button>
+            </div>
+
+            <div id="inventory-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; background: #000; padding: 8px; border-radius: 4px; border: 1px solid #222; min-height: 200px;">
+                </div>
+            
+            <div style="margin-top: 10px; text-align: right; font-size: 0.7rem; color: #555; font-family: monospace;">
+                CAPACIDAD: <span id="inv-usage">0</span> / 30
+            </div>
+        </div>
+    </div>
 </body>
 </html>

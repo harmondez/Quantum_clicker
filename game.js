@@ -12,6 +12,48 @@ const masterGain = audioCtx.createGain();
 masterGain.gain.value = 0.2;
 masterGain.connect(audioCtx.destination);
 
+
+let game = {
+    cookies: 0,
+    totalCookiesEarned: 0,
+    clickCount: 0,
+    totalClicks: 0,
+    anomaliesClicked: 0,
+    totalTimePlayed: 0,
+    prestigeMult: 1,
+    antimatter: 0,
+    prestigeLevel: 0,
+    buildings: {},
+    achievements: [],
+    upgrades: [],
+    heavenlyUpgrades: [],
+    pearls: [],
+    activePearl: null,
+    helpers: [],
+    // --- NUEVAS VARIABLES DE INVENTARIO ---
+    galacticoins: 0,    // Moneda especial para el mercado negro
+    inventory: []       // Array donde guardaremos los objetos (Máximo 30)
+};
+
+// Variables temporales (no se guardan)
+let buffMultiplier = 1; // Multiplicador global de producción
+let clickBuffMultiplier = 1; // Multiplicador de clicks
+let isApocalypse = false;
+// Añade esto junto a tus otras variables globales al principio de game.js
+const INTRO_TOTAL_CLICKS = 100; // Más largo, más épico
+let introParticlesMesh = null; // Para el efecto de polvo cósmico
+// ==========================================
+// 🌑 PROTOCOLO DE INICIO (INTRO NARRATIVA)
+// ==========================================
+let introStep = 0;
+let introClicks = 0;
+let isIntroActive = false;
+let buffEndTime = 0;
+let buffDuration = 0; // 10 segundos en milisegundos
+let anomalyTimeout = null; // Guardará el temporizador para poder limpiarlo
+let introDroneOscillator = null; // Zumbido del reactor
+let introDroneGain = null;
+
 // ==========================================
 // 0. SISTEMA DE MODO SEGURO (FOTOSENSIBILIDAD)
 // ==========================================
@@ -368,6 +410,31 @@ function sfxPrestige() {
 // ==========================================
 // 2. DATOS DEL JUEGO
 // ==========================================
+
+const itemRarezas = {
+    comun: { label: 'Común', color: '#888', price: 10 },
+    poco_comun: { label: 'Poco común', color: '#00ff44', price: 50 },
+    raro: { label: 'Raro', color: '#0077ff', price: 250 },
+    epico: { label: 'Épico', color: '#b388ff', price: 1000 },
+    legendario: { label: 'Legendario', color: '#ffd700', price: 5000 },
+    mitico: { label: 'Mítico', color: '#ff0000', price: 25000 }
+};
+
+const itemNames = {
+    comun: ["Chatarra de Satélite", "Tornillo de Titanio", "Cable de Cobre", "Panel Roto"],
+    poco_comun: ["Batería de Iones", "Lente de Enfoque", "Placa de Circuitos"],
+    raro: ["Célula de Energía Inestable", "Refrigerante Criogénico", "Chip de Memoria"],
+    epico: ["Procesador Cuántico", "Cristal de Enfoque", "Fluido de Vacío"],
+    legendario: ["Núcleo de Fusión", "Microchip de Mente de Colmena", "Materia Oscura"],
+    mitico: ["Singularidad Embotellada", "Corazón de Estrella", "Código Génesis"]
+};
+
+
+
+
+
+
+
 const buildingsConfig = [
     // TIER 1: MECÁNICO
     { id: 'cursor', name: 'Generador de Manivela', type: 'click', baseCost: 15, basePower: 1, desc: '+1 W por click (Manual)', icon: '👆' },
@@ -463,43 +530,7 @@ const alienTypes = {
 for (let i = 400; i <= 10000; i *= 2) milestones.push(i);
 const upgradeIcons = ["⚡", "🔋", "💾", "📡", "🧪", "☢️", "🌌", "🪐", "⚛️"];
 
-let game = {
-    cookies: 0,
-    totalCookiesEarned: 0,
-    clickCount: 0,
-    totalClicks: 0,
-    anomaliesClicked: 0,
-    totalTimePlayed: 0,
-    prestigeMult: 1,
-    antimatter: 0,
-    prestigeLevel: 0,
-    buildings: {},
-    achievements: [],
-    upgrades: [],
-    heavenlyUpgrades: [],
-    pearls: [],
-    activePearl: null,
-    helpers: []
-};
 
-// Variables temporales (no se guardan)
-let buffMultiplier = 1; // Multiplicador global de producción
-let clickBuffMultiplier = 1; // Multiplicador de clicks
-let isApocalypse = false;
-// Añade esto junto a tus otras variables globales al principio de game.js
-const INTRO_TOTAL_CLICKS = 100; // Más largo, más épico
-let introParticlesMesh = null; // Para el efecto de polvo cósmico
-// ==========================================
-// 🌑 PROTOCOLO DE INICIO (INTRO NARRATIVA)
-// ==========================================
-let introStep = 0;
-let introClicks = 0;
-let isIntroActive = false;
-let buffEndTime = 0;
-let buffDuration = 0; // 10 segundos en milisegundos
-let anomalyTimeout = null; // Guardará el temporizador para poder limpiarlo
-let introDroneOscillator = null; // Zumbido del reactor
-let introDroneGain = null;
 
 function startIntroSequence() {
     isIntroActive = true;
@@ -1233,20 +1264,16 @@ function applyHeavenlyUpgrades() {
 
 
 function spawnAlien() {
-    // 🛑 CORRECCIÓN CRÍTICA: Miramos 'heavenlyUpgrades', no 'upgrades' normales
-    // Y usamos el ID correcto: 'alien_contact'
+    // 🛑 REQUISITO: Mejora de ascensión 'alien_contact'
     if (!game.heavenlyUpgrades.includes('alien_contact')) return;
 
-    // Evitar duplicados
+    // Evitar duplicados y pausas durante la intro
     if (document.getElementById('active-alien')) return;
     if (typeof isIntroActive !== 'undefined' && isIntroActive) return;
 
     // Seleccionar tipo según probabilidad
     const rand = Math.random();
     let type = 'green';
-
-    // Solo salen los fuertes si tienes ciertas mejoras de tecnología alienígena (que crearemos luego)
-    // O si tienes mucha suerte base
     if (rand > 0.95) type = 'red';
     else if (rand > 0.8) type = 'yellow';
 
@@ -1258,17 +1285,17 @@ function spawnAlien() {
     alien.className = 'alien-invader';
     alien.innerHTML = `
         <div class="alien-icon" style="font-size: 4rem;">${config.icon}</div>
-        <div class="alien-hp-bar"><div class="alien-hp-fill"></div></div>
+        <div class="alien-hp-bar"><div class="alien-hp-fill" style="background: ${config.color}"></div></div>
     `;
 
-    // Posición inicial aleatoria
+    // Posición inicial aleatoria con transiciones suaves
     alien.style.cssText = `
         position: absolute; 
         left: ${Math.random() * 80 + 10}%; 
         top: ${Math.random() * 80 + 10}%; 
         z-index: 5000; 
-        transition: top 1s, left 1s; /* Movimiento suave */
-        filter: drop-shadow(0 0 10px ${config.color});
+        transition: all 1.2s ease-in-out; 
+        filter: drop-shadow(0 0 15px ${config.color});
         cursor: crosshair;
         user-select: none;
     `;
@@ -1278,45 +1305,45 @@ function spawnAlien() {
     // Sonido de llegada
     if (typeof sfxAnomaly === 'function') sfxAnomaly();
 
-    // Movimiento: El alien se mueve cada segundo
+    // Movimiento: El alien se reposiciona cada 1.5 segundos
     const moveInterval = setInterval(() => {
         if (!alien.parentNode) { clearInterval(moveInterval); return; }
         alien.style.left = `${Math.random() * 80 + 10}%`;
         alien.style.top = `${Math.random() * 80 + 10}%`;
-    }, 1000);
+    }, 1500);
 
     alien.onclick = (e) => {
         e.stopPropagation();
         clicksLeft--;
 
-        // Sonido de impacto diferente al click normal
+        // Sonido de impacto
         if (typeof playTone === 'function') playTone(200 + (clicksLeft * 20), 'sawtooth', 0.05, 0.2);
 
-        // Efecto visual de daño
-        alien.querySelector('.alien-icon').style.transform = `scale(0.9) rotate(${Math.random() * 20 - 10}deg)`;
+        // Efecto visual de daño (sacudida y escala)
+        const icon = alien.querySelector('.alien-icon');
+        icon.style.transform = `scale(0.8) rotate(${Math.random() * 30 - 15}deg)`;
         setTimeout(() => {
-            if (alien.parentNode) alien.querySelector('.alien-icon').style.transform = 'scale(1) rotate(0deg)';
-        }, 50);
+            if (alien.parentNode) icon.style.transform = 'scale(1) rotate(0deg)';
+        }, 60);
 
         // Actualizar barra de HP
         const fill = alien.querySelector('.alien-hp-fill');
         if (fill) fill.style.width = `${(clicksLeft / config.clicks) * 100}%`;
 
-        // MUERTE DEL ALIEN
+        // --- MUERTE DEL ALIEN ---
         if (clicksLeft <= 0) {
             clearInterval(moveInterval);
 
-            // Recompensa basada en tu producción actual (CPS)
-            const reward = getCPS() * config.reward * 10; // x10 para que valga la pena
+            // Recompensa en Watts (CPS x Multiplicador config)
+            const reward = getCPS() * config.reward * 10;
             game.cookies += reward;
             game.totalCookiesEarned += reward;
 
-            createFloatingText(e.clientX, e.clientY, `¡AMENAZA NEUTRALIZADA! +${formatNumber(reward)}`, true);
+            createFloatingText(e.clientX, e.clientY, `¡INTERCEPTADO! +${formatNumber(reward)}`, true);
 
-            // Posibilidad de soltar "Tecnología Alien" (Mejora gratis o descuento)
-            if (Math.random() < 0.3) {
-                showNotification("📦 DROP", "El alien dejó caer chatarra útil.");
-                // Aquí podrías dar un bono extra
+            // 🔥 NUEVO: DROP GARANTIZADO (Paso 3 del sistema de inventario)
+            if (typeof tryDropItem === 'function') {
+                tryDropItem('Alien', 100); 
             }
 
             alien.remove();
@@ -1329,11 +1356,13 @@ function spawnAlien() {
         if (alien.parentNode) {
             clearInterval(moveInterval);
             alien.style.opacity = '0';
+            alien.style.transform = 'scale(0) translateY(-100px)'; // Efecto de huida hacia arriba
             setTimeout(() => alien.remove(), 500);
-            showNotification("💨 ESCAPE", "El visitante ha escapado.");
+            showNotification("💨 ESCAPE", "El visitante ha escapado del sector.");
         }
     }, 25000);
 }
+
 
 
 
@@ -1684,10 +1713,10 @@ function collectAnomaly() {
 
 
 function spawnAnomaly() {
-    // 1. Limpiar cualquier temporizador anterior para evitar que se acumulen
+    // 1. Limpiar cualquier temporizador anterior
     if (anomalyTimeout) clearTimeout(anomalyTimeout);
 
-    // 2. Escudo de Intro (Si está en la intro, espera 5s y reintenta)
+    // 2. Escudo de Intro
     if (typeof isIntroActive !== 'undefined' && isIntroActive) {
         anomalyTimeout = setTimeout(spawnAnomaly, 5000);
         return;
@@ -1702,7 +1731,6 @@ function spawnAnomaly() {
     const types = ['money', 'money', 'production', 'production', 'production', 'click', 'click'];
     const type = types[Math.floor(Math.random() * types.length)];
     
-    // Si la Build está activa, isCorrupt siempre es false (estabilización dimensional)
     let isCorrupt = isApocalypse && Math.random() < 0.3;
     if (hasHorizonBuild) isCorrupt = false;
 
@@ -1710,11 +1738,9 @@ function spawnAnomaly() {
     const orb = document.createElement('div');
     let icon = '⚛️'; let color = 'gold';
 
-    // Estética visual de la Build
     if (isCorrupt) { 
         icon = '👁️'; color = '#ff0000'; 
     } else if (hasHorizonBuild) {
-        // Color púrpura/neón único para la Build Horizonte de Eventos
         icon = '🌀'; color = '#b388ff'; 
     } else if (type === 'production') { 
         icon = '⚡'; color = '#ffaa00'; 
@@ -1734,11 +1760,16 @@ function spawnAnomaly() {
     // --- CLICK EN LA ANOMALÍA ---
     orb.onclick = function (e) {
         e.stopPropagation();
-        sfxAnomaly();
+        if (typeof sfxAnomaly === 'function') sfxAnomaly();
 
-        // Mensaje especial de la Build si estaba corrupta
+        // 🔥 INTEGRACIÓN DE LOOT: Ahora con 30% de probabilidad (según tu nueva regla)
+        if (typeof tryDropItem === 'function') {
+            tryDropItem('Anomalía', 30); 
+        }
+
+        // Mensaje especial de la Build
         if (hasHorizonBuild && isApocalypse && Math.random() < 0.3) {
-            showAnomalyPopup(`🛡️ BUILD: ANOMALÍA ESTABILIZADA`);
+            showAnomalyPopup(`🛡️ BUILD: ESTABILIZADA`);
         }
 
         if (type === 'money' || isCorrupt) {
@@ -1766,7 +1797,6 @@ function spawnAnomaly() {
     setTimeout(() => { if (orb.parentNode) orb.remove(); }, 15000);
 
     // 5. PROGRAMAR SIGUIENTE APARICIÓN
-    // Si la Build está activa, el cooldown se reduce de 60s a 35s
     let nextSpawn = hasHorizonBuild ? 35000 : 60000;
     anomalyTimeout = setTimeout(spawnAnomaly, nextSpawn);
 }
@@ -2317,7 +2347,146 @@ function checkGreenPearlMission() {
 
 
 
+// --- TIENDA // GALACTICOINS ---
 
+
+
+
+
+
+window.renderInventory = function() {
+    const grid = document.getElementById('inventory-grid');
+    const usage = document.getElementById('inv-usage');
+    const modalGC = document.getElementById('gc-modal-amount');
+    
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    usage.innerText = (game.inventory || []).length;
+    modalGC.innerText = formatNumber(game.galacticoins || 0);
+
+    for (let i = 0; i < 30; i++) {
+        const slot = document.createElement('div');
+        const item = game.inventory ? game.inventory[i] : null;
+        
+        if (item) {
+            slot.className = `inv-slot-mini rarity-${item.rarity}`;
+            slot.innerHTML = getIconForItem(item.rarity);
+            
+            // ELIMINADO: slot.onclick (Ya no hace nada al pulsar)
+            // Solo dejamos efectos visuales de hover
+            slot.style.cursor = "default"; 
+
+            // Gestión del Tooltip mejorada
+            slot.onmouseenter = (e) => {
+                showTooltip(e, item.name, `Valor: ${item.value} GC`, `Rareza: ${item.rarity.toUpperCase()}`, true);
+            };
+            slot.onmouseleave = () => {
+                hideTooltip();
+            };
+            slot.onmousemove = (e) => moveTooltip(e);
+        } else {
+            slot.className = 'inv-slot-mini empty';
+        }
+        grid.appendChild(slot);
+    }
+};
+
+function getIconForItem(rarity) {
+    if (rarity === 'mitico') return '💎';
+    if (rarity === 'legendario') return '👑';
+    if (rarity === 'epico') return '🔮';
+    if (rarity === 'raro') return '🧪';
+    if (rarity === 'poco_comun') return '🔋';
+    return '📦';
+}
+
+function tryDropItem(sourceName) {
+    const rand = Math.random() * 100;
+    let rarity = null;
+
+    if (rand < 0.1) rarity = 'mitico';      // 0.1%
+    else if (rand < 0.5) rarity = 'legendario'; // 0.4%
+    else if (rand < 2.0) rarity = 'epico';      // 1.5%
+    else if (rand < 7.0) rarity = 'raro';       // 5%
+    else if (rand < 15.0) rarity = 'poco_comun'; // 8%
+    else if (rand < 30.0) rarity = 'comun';      // 15%
+
+    if (rarity) {
+        if ((game.inventory || []).length >= 30) {
+            showNotification("🎒 INVENTARIO LLENO", "No hay espacio para más botín.", "#ff5252");
+            return;
+        }
+
+        const possibleNames = itemNames[rarity] || [`Fragmento de ${sourceName}`];
+        const selectedName = possibleNames[Math.floor(Math.random() * possibleNames.length)];
+
+        const newItem = {
+            id: Date.now() + Math.random(),
+            rarity: rarity,
+            name: selectedName,
+            value: itemRarezas[rarity].price
+        };
+
+        if (!game.inventory) game.inventory = [];
+        game.inventory.push(newItem);
+        showNotification("📦 OBJETO ENCONTRADO", `${selectedName} (${itemRarezas[rarity].label})`, itemRarezas[rarity].color);
+        saveGame();
+    }
+}
+
+
+
+
+
+
+
+
+
+window.toggleInventory = function() {
+    const modal = document.getElementById('modal-inventory');
+    
+    // Forzamos que el tooltip desaparezca al abrir/cerrar para evitar fantasmas
+    if (typeof hideTooltip === 'function') hideTooltip();
+
+    if (modal.style.display === 'flex') {
+        modal.style.display = 'none';
+    } else {
+        renderInventory();
+        modal.style.display = 'flex';
+        if (typeof sfxClick === 'function') sfxClick();
+    }
+};
+
+window.sellItem = function(itemId) {
+    const idx = game.inventory.findIndex(i => i.id === itemId);
+    if (idx > -1) {
+        const item = game.inventory[idx];
+        game.galacticoins += item.value;
+        game.inventory.splice(idx, 1);
+        
+        if (typeof sfxBuy === 'function') sfxBuy();
+        renderInventory();
+        updateUI();
+        saveGame();
+    }
+};
+
+window.sellAllTrash = function() {
+    const trash = game.inventory.filter(i => i.rarity === 'comun' || i.rarity === 'poco_comun');
+    if (trash.length === 0) return;
+
+    trash.forEach(item => {
+        game.galacticoins += item.value;
+        const idx = game.inventory.indexOf(item);
+        game.inventory.splice(idx, 1);
+    });
+
+    if (typeof sfxBuy === 'function') sfxBuy();
+    renderInventory();
+    updateUI();
+    saveGame();
+};
 
 
 
@@ -2977,7 +3146,6 @@ function updateUI() {
     if (game.totalCookiesEarned >= PRESTIGE_BASE) {
         if (pBtn) {
             pBtn.style.display = 'block';
-
             const totalPotential = Math.floor(Math.cbrt(game.totalCookiesEarned / PRESTIGE_BASE));
             const currentLevel = game.prestigeLevel || 0;
             const gain = totalPotential - currentLevel;
@@ -2986,8 +3154,6 @@ function updateUI() {
                 pBtn.innerText = `ASCENDER (+${gain} Nivel)`;
                 pBtn.classList.add('available');
             } else {
-                const nextPointEnergy = Math.pow(currentLevel + 1, 3) * PRESTIGE_BASE;
-                const remaining = nextPointEnergy - game.totalCookiesEarned;
                 pBtn.innerText = `ASCENDER`;
                 pBtn.classList.remove('available');
             }
@@ -3004,15 +3170,11 @@ function updateUI() {
         if (prestigeDisp) prestigeDisp.innerText = `x${game.prestigeMult.toFixed(1)}`;
     }
 
-    // --- 6. NUEVO: RADAR DE COMERCIO DE ANDRÓMEDA ---
-    // Esto crea un indicador visual si tienes la mejora comprada
+    // 6. RADAR DE COMERCIO DE ANDRÓMEDA
     let radarEl = document.getElementById('trade-signal');
-
-    // Si no existe, lo creamos dinámicamente (Lazy creation)
     if (!radarEl) {
         radarEl = document.createElement('div');
         radarEl.id = 'trade-signal';
-        // Estilo: Arriba a la derecha, color violeta neón
         radarEl.style.cssText = `
             position: absolute; top: 15px; right: 15px; 
             color: #b388ff; font-size: 0.8rem; font-family: monospace;
@@ -3025,13 +3187,37 @@ function updateUI() {
         document.body.appendChild(radarEl);
     }
 
-    // Control de visibilidad
     if (game.heavenlyUpgrades.includes('andromeda_trade')) {
         radarEl.style.display = 'block';
-        // Efecto de parpadeo suave
         radarEl.style.opacity = 0.5 + Math.sin(Date.now() * 0.005) * 0.5;
     } else {
         radarEl.style.display = 'none';
+    }
+
+    // --- 7. NUEVO: SISTEMA DE ECONOMÍA GALÁCTICA ---
+    
+    // HUD de Monedas en pantalla principal
+    const gcHUD = document.getElementById('galacticoins-hud');
+    const gcAmount = document.getElementById('gc-amount');
+    
+    if (gcHUD && gcAmount) {
+        // Solo mostramos el contador si el jugador tiene monedas o ha tenido alguna vez
+        if (game.galacticoins > 0 || game.totalCookiesEarned > 1000000) {
+            gcHUD.style.display = 'block';
+            gcAmount.innerText = formatNumber(game.galacticoins || 0);
+        } else {
+            gcHUD.style.display = 'none';
+        }
+    }
+
+    // Actualización de textos dentro del modal de Inventario (si está abierto)
+    const invModal = document.getElementById('modal-inventory');
+    if (invModal && invModal.style.display === 'flex') {
+        const modalGC = document.getElementById('gc-modal-amount');
+        const usage = document.getElementById('inv-usage');
+        
+        if (modalGC) modalGC.innerText = formatNumber(game.galacticoins || 0);
+        if (usage) usage.innerText = (game.inventory || []).length;
     }
 }
 
