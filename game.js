@@ -1267,22 +1267,7 @@ function onCanvasClick(e) {
 
 
 
-function applyHeavenlyUpgrades() {
-    // 1. Mejora Génesis: Watts iniciales
-    if (game.heavenlyUpgrades.includes('genesis') && game.cookies < 100) {
-        game.cookies = 100;
-    }
 
-    // 2. Kit de Supervivencia: Edificios gratis al empezar
-    if (game.heavenlyUpgrades.includes('starter_kit') && !game.starterKitClaimed) {
-        game.buildings.h_hamster = (game.buildings.h_hamster || 0) + 5;
-        game.buildings.b_manual_gen = (game.buildings.b_manual_gen || 0) + 10;
-        game.starterKitClaimed = true; // Variable para que no se repita cada segundo
-    }
-
-    // 3. Eficiencia Industrial: Multiplicador permanente
-    // Esta se usa dentro de getCPS(), asegúrate de multiplicar el resultado por 1.15
-}
 
 
 
@@ -1756,16 +1741,25 @@ function spawnAnomaly() {
         return;
     }
 
-    // --- DETECCIÓN DE SINERGIAS (HORIZONTE DE EVENTOS) ---
-    const hasDorian = game.helpers.includes('h_anomaly');
-    const hasSilas = game.helpers.includes('h_discount');
+    // --- DETECCIÓN DE SINERGIAS ACTIVAS (Slots de Operadores) ---
+    const active = game.activeHelpers || [];
+    const hasDorian = active.includes('h_anomaly');
+    const hasSilas = active.includes('h_discount');
     const hasHorizonBuild = hasDorian && hasSilas;
 
     // 3. Lógica de selección de tipo
     const types = ['money', 'money', 'production', 'production', 'production', 'click', 'click'];
     const type = types[Math.floor(Math.random() * types.length)];
     
+    // Probabilidad de corrupción (Apocalipsis)
     let isCorrupt = isApocalypse && Math.random() < 0.3;
+    
+    // Mejora Celestial: Diplomacia del Vacío (Anomalías rojas fallan un 50% menos)
+    if (isCorrupt && game.heavenlyUpgrades.includes('wrath_control')) {
+        if (Math.random() < 0.5) isCorrupt = false;
+    }
+
+    // La Build Horizonte de Eventos estabiliza la realidad por completo
     if (hasHorizonBuild) isCorrupt = false;
 
     // 4. Crear el Orbe
@@ -1796,12 +1790,11 @@ function spawnAnomaly() {
         e.stopPropagation();
         if (typeof sfxAnomaly === 'function') sfxAnomaly();
 
-        // 🔥 INTEGRACIÓN DE LOOT: Ahora con 30% de probabilidad (según tu nueva regla)
+        // INTEGRACIÓN DE LOOT: 30% Probabilidad base
         if (typeof tryDropItem === 'function') {
             tryDropItem('Anomalía', 30); 
         }
 
-        // Mensaje especial de la Build
         if (hasHorizonBuild && isApocalypse && Math.random() < 0.3) {
             showAnomalyPopup(`🛡️ BUILD: ESTABILIZADA`);
         }
@@ -1813,12 +1806,13 @@ function spawnAnomaly() {
             showAnomalyPopup(`+${formatNumber(gain)} Watts`);
         }
         else if (type === 'production') {
+            // activateBuff ahora gestiona internamente el bonus de 'golden_duration' (+10s)
             activateBuff('production', 7, 10);
-            showAnomalyPopup(`⚡ SOBRECARGA: x7 (10s)`);
+            showAnomalyPopup(`⚡ SOBRECARGA: x7`);
         }
         else if (type === 'click') {
             activateBuff('click', 777, 7);
-            showAnomalyPopup(`🖱️ CLICKSTORM: x777 (7s)`);
+            showAnomalyPopup(`🖱️ CLICKSTORM: x777`);
         }
 
         this.remove();
@@ -1828,10 +1822,12 @@ function spawnAnomaly() {
     document.getElementById('game-area').appendChild(orb);
 
     // Desaparecer si no se clica en 15 segundos
+    // Sugerencia: La mejora 'quantum-lens' podría aumentar este tiempo a 17s
     setTimeout(() => { if (orb.parentNode) orb.remove(); }, 15000);
 
-    // 5. PROGRAMAR SIGUIENTE APARICIÓN
-    let nextSpawn = hasHorizonBuild ? 35000 : 60000;
+    // 5. PROGRAMAR SIGUIENTE APARICIÓN DINÁMICA
+    // Usa getAnomalyChance() que ya incluye 'lucky_star' y sinergias de Staff
+    let nextSpawn = getAnomalyChance(); 
     anomalyTimeout = setTimeout(spawnAnomaly, nextSpawn);
 }
 
@@ -1876,9 +1872,16 @@ let buffTimeout = null; // Para controlar si ya hay uno activo
 function activateBuff(type, amount, seconds) {
     if (buffTimeout) clearTimeout(buffTimeout);
 
-    // Guardamos cuándo terminará para la barra de progreso
-    buffDuration = seconds * 1000;
+    // --- INTEGRACIÓN CON ÁRBOL CELESTIAL ---
+    // Si tiene 'golden_duration', sumamos 10 segundos a la base
+    const extraTime = game.heavenlyUpgrades.includes('golden_duration') ? 10 : 0;
+    
+    // Guardamos la duración total (base + bono) en milisegundos
+    buffDuration = (seconds + extraTime) * 1000;
     buffEndTime = Date.now() + buffDuration;
+
+    // Reset visual preventivo antes de aplicar el nuevo
+    document.body.classList.remove('buff-active-prod', 'buff-active-click');
 
     if (type === 'production') {
         buffMultiplier = amount;
@@ -1888,22 +1891,29 @@ function activateBuff(type, amount, seconds) {
         document.body.classList.add('buff-active-click');
     }
 
-    // Efecto de impacto en la bola
-    if (mainObject) mainObject.scale.setScalar(2.5);
+    // Efecto de impacto visual en el núcleo 3D
+    if (mainObject) {
+        mainObject.scale.setScalar(2.5); // Expansión súbita por sobrecarga
+        // Pequeño flash de color según el tipo
+        mainObject.material.emissiveIntensity = 5; 
+    }
 
     buffTimeout = setTimeout(() => {
-        // RESET TOTAL
+        // RESET DE VALORES LÓGICOS
         buffMultiplier = 1;
         clickBuffMultiplier = 1;
         buffEndTime = 0;
 
-        // Quitar clases visuales
+        // LIMPIEZA VISUAL Y CSS
         document.body.classList.remove('buff-active-prod', 'buff-active-click');
         const gameArea = document.getElementById('game-area');
         if (gameArea) gameArea.style.boxShadow = "none";
 
-        // Forzar a la bola a volver al centro
-        if (mainObject) mainObject.position.set(0, 0, 0);
+        // Restauración suave de la posición y escala del núcleo
+        if (mainObject) {
+            mainObject.position.set(0, 0, 0);
+            mainObject.material.emissiveIntensity = 0.6; // Valor base de tu config
+        }
 
         updateUI();
         buffTimeout = null;
@@ -1980,14 +1990,15 @@ function getMaxCombo() {
 
 function getCPS() {
     let cps = 0;
-    // Referencia rápida a los que están trabajando actualmente (Máximo 4)
-    const active = game.activeHelpers || []; 
+    // Usamos game.helpers como la lista de operadores activos (máx 4)
+    const staff = game.helpers || []; 
 
     // 1. CÁLCULO BASE DE EDIFICIOS
     buildingsConfig.forEach(u => {
         if (u.type === 'auto') {
             let count = game.buildings[u.id] || 0;
             let bPower = count * u.currentPower;
+
             if (u.id === 'mine' && game.upgrades?.includes('grandma-mine-synergy')) {
                 const grandmaCount = game.buildings['grandma'] || 0;
                 bPower *= (1 + (grandmaCount * 0.01));
@@ -1996,74 +2007,37 @@ function getCPS() {
         }
     });
 
-    // 2. MULTIPLICADORES GLOBALES (PRESTIGIO)
+    // 2. MULTIPLICADORES GLOBALES (PRESTIGIO Y ÁRBOL)
     let total = cps * game.prestigeMult;
+    if (game.heavenlyUpgrades.includes('perm_prod_1')) total *= 1.15;
 
-    // 3. AYUDANTES ACTIVOS (Solo funcionan si están en los 4 slots)
-    
-    // Bonus de Producción (Marcus Voltz)
-    if (active.includes('h_miner')) {
-        const prodHelper = helpersConfig.find(h => h.id === 'h_miner');
-        total *= prodHelper.value;
-    }
+    // 3. EFECTOS DE OPERADORES (Solo si su habilidad es de producción)
+    // Dra. Thorne (h_clicker) NO suma nada aquí porque su bono es al click manual
+    if (staff.includes('h_miner')) total *= 1.50; // Marcus Voltz x1.5
+    if (staff.includes('h_master')) total *= 2.0; // Director Cipher x2.0
 
-    // Bonus de Sinergia IA (Mente Enlazada)
-    if (active.includes('h_synergy')) {
+    if (staff.includes('h_synergy')) {
         const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
-        total *= (1 + (totalBuildings * 0.01));
+        total *= (1 + (totalBuildings * 0.01)); // IA Mente Enlazada
     }
 
-    // Protocolo Dios (Director Cipher)
-    if (active.includes('h_master')) {
-        total *= 2.0; 
-    }
-
-    // --- BUILDS Y SINERGIAS (Solo si ambos están activos simultáneamente) ---
-    
-    // Sinergia: CICLO CERRADO (Marcus + Sarah)
-    if (active.includes('h_miner') && active.includes('h_efficiency')) {
-        total *= 1.15; // Aumentado a 15% por la dificultad de slot
-    }
-
-    // Sinergia: MENTE DE COLMENA (IA + Director)
-    if (active.includes('h_synergy') && active.includes('h_master')) {
+    // --- SINERGIAS DE EQUIPO (Solo activas si están en los slots) ---
+    if (staff.includes('h_miner') && staff.includes('h_efficiency')) total *= 1.15; 
+    if (staff.includes('h_synergy') && staff.includes('h_master')) {
         const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
-        total *= (1 + (totalBuildings * 0.02)); // Dobla el efecto de la IA
+        total *= (1 + (totalBuildings * 0.02)); 
     }
 
-    // Sinergia: HORIZONTE DE EVENTOS (Dorian + Silas)
-    if (active.includes('h_anomaly') && active.includes('h_discount')) {
-        total *= 1.10; 
-    }
-
-    // --- BONUS PASIVO POR COLECCIÓN (Incentivo para comprar todos) ---
-    // Este no requiere que estén activos, solo comprados en game.helpers
-    if (game.helpers.length > 0) {
-        total *= (1 + (game.helpers.length * 0.02)); // +2% por cada operador en la reserva
-    }
-    
-    // Bonus extra si tienes los 13 comprados
-    if (game.helpers.length >= 13) total *= 1.25;
-
-    // 4. CADENA OMEGA Y MEJORAS DE PODER
-    game.helpers.forEach(helperId => {
-        if (game.upgrades.includes(`upg_power_${helperId}`)) total *= 1.05; // Bonus menor por estar en reserva
-    });
-
+    // 4. CADENA OMEGA, LOGROS Y MEJORAS
     if (game.upgrades.includes('protocol-omega')) total *= 1.2;
     if (game.upgrades.includes('omega-final')) total *= 5.0;
+    if (game.achievements && game.achievements.length > 0) {
+        total *= (1 + (game.achievements.length * 0.01));
+    }
 
-    // 5. ÁRBOL DE ASCENSIÓN Y LOGROS
-    if (game.heavenlyUpgrades.includes('perm_prod_1')) total *= 1.15;
-    if (game.achievements) total *= (1 + (game.achievements.length * 0.01));
-
-    // 6. MULTIPLICADORES DE EVENTO Y ANDRÓMEDA
+    // 5. MULTIPLICADORES TEMPORALES
     if (isOvercharged) total *= 5;
     if (game.activePearl === 'red') total *= 10;
-    
-    if (game.buildings.andromeda_dyson > 0) {
-        total *= Math.pow(1.1, game.buildings.andromeda_dyson);
-    }
 
     return total * buffMultiplier;
 }
@@ -2080,18 +2054,34 @@ function getNetCPS() {
 
 function getHelpersCost() {
     let totalCost = 0;
-    game.helpers.forEach(id => {
+    
+    // 1. Ahora usamos 'game.helpers' directamente (los 4 slots de trabajo)
+    const staff = game.helpers || []; 
+    
+    staff.forEach(id => {
         const h = helpersConfig.find(x => x.id === id);
-        if (h) totalCost += h.cost;
+        if (h) {
+            let cost = h.cost;
+            // Aplicar Plan de Pensiones Galáctico (-10%) si está comprado
+            if (game.heavenlyUpgrades.includes('pension_plan')) {
+                cost *= 0.9;
+            }
+            totalCost += cost;
+        }
     });
-    // Aplicar Sinergia Ciclo Cerrado
-    if (game.helpers.includes('h_miner') && game.helpers.includes('h_efficiency')) {
-        totalCost *= 0.5; // El 50% de descuento prometido
-    } else if (game.helpers.includes('h_efficiency')) {
-        totalCost *= 0.6; // Descuento normal
+
+    // 2. Aplicar Sinergia Ciclo Cerrado (Marcus + Sarah activos)
+    if (staff.includes('h_miner') && staff.includes('h_efficiency')) {
+        totalCost *= 0.5; 
+    } 
+    // 3. Descuento individual de la Dra. Sarah Joule (Sarah activa)
+    else if (staff.includes('h_efficiency')) {
+        totalCost *= 0.6; 
     }
+
     return totalCost;
 }
+
 
 function getCost(id) {
     const item = buildingsConfig.find(u => u.id === id);
@@ -2530,69 +2520,77 @@ window.sellAllTrash = function() {
 };
 
 
+// Sonido de asignación (Slot ocupado) - Tono ascendente
+function sfxAssignHelper() {
+    playTone(600, 'sine', 0.1, 0.1);
+    setTimeout(() => playTone(900, 'sine', 0.1, 0.1), 50);
+}
 
+// Sonido de retiro (Slot liberado) - Tono descendente
+function sfxRemoveHelper() {
+    playTone(400, 'triangle', 0.1, 0.1);
+    setTimeout(() => playTone(250, 'triangle', 0.1, 0.1), 50);
+}
 
 
 window.toggleHelper = function (helperId) {
     const helper = helpersConfig.find(h => h.id === helperId);
     if (!helper) return;
+    
 
-    // Calcular nivel actual del jugador
+    // 1. REGLA DE NIVEL (Watts totales históricos)
     const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned));
-
     if (playerLevel < helper.reqLevel) return;
+
+    // Inicialización de seguridad
+    if (!game.helpers) game.helpers = [];
 
     const isActive = game.helpers.includes(helperId);
 
     if (isActive) {
-        // --- DESACTIVAR ---
+        // --- DESPEDIR OPERADOR ---
         game.helpers = game.helpers.filter(id => id !== helperId);
-        showNotification("❌ Ayudante Despedido", `${helper.name} ha vuelto a su planeta.`);
+        sfxRemoveHelper(); // Tu sonido de despedida
+        showNotification("❌ DESPEDIDO", `${helper.name} ha dejado su puesto.`);
     } else {
-        // --- ACTIVAR ---
+        // --- CONTRATAR OPERADOR ---
 
-        // 1. ¿Hay hueco?
+        // A. ¿Hay hueco en los 4 slots?
         if (game.helpers.length >= MAX_HELPERS) {
-            showSystemModal(
-                "NAVE LLENA",
-                `Solo tienes ${MAX_HELPERS} asientos disponibles.\nDebes despedir a alguien antes.`,
-                false
-            );
+            playTone(150, 'sawtooth', 0.2, 0.1);
+            showSystemModal("NAVE LLENA", `Solo tienes ${MAX_HELPERS} slots. Despide a alguien primero.`, false);
             return;
         }
 
-        // 2. ¿Puedes pagar su sueldo?
-        const currentCPS = getCPS();
-        const currentHelperCost = getHelpersCost();
+        // B. ¿Tienes Wps suficientes para mantenerlo?
+        // Calculamos la producción neta (Producción - Coste actual de otros helpers)
+        const currentNetWps = getCPS() - getHelpersCost();
+        
+        // Aplicamos el descuento del Plan de Pensiones si existe
+        let actualCost = helper.cost;
+        if (game.heavenlyUpgrades.includes('pension_plan')) {
+            actualCost *= 0.9;
+        }
 
-        if (currentCPS - currentHelperCost < helper.cost) {
-            showSystemModal(
-                "SIN FONDOS",
-                `Tu imperio no genera suficiente energía.\nCoste: ${helper.cost}/seg`,
-                false
-            );
+        if (currentNetWps < actualCost) {
+            showSystemModal("ENERGÍA INSUFICIENTE", `Tu red no puede mantener este sueldo.\nGeneración libre: ${formatNumber(currentNetWps)}/s\nRequerido: ${formatNumber(actualCost)}/s`, false);
             return;
         }
 
-        // ¡Contratado!
+        // ¡CONTRATADO Y ACTIVADO!
         game.helpers.push(helperId);
-
-        // --- COMPROBAR MISIÓN DE LA PERLA VERDE ---
-        checkGreenPearlMission(); 
-
-        sfxPrestige();
-        showNotification("✅ Ayudante Equipado", `${helper.name} se ha unido al equipo.`);
+        sfxAssignHelper(); // Tu sonido de contrato
+        showNotification("✅ CONTRATADO", `${helper.name} está operando.`);
+        
+        checkGreenPearlMission();
     }
 
-    // --- FINALIZAR ---
+    // --- ACTUALIZACIÓN TOTAL ---
     renderHelpers();
     updateUI();
     recalculateStats();
-
-    // 🔥 SINCRONIZACIÓN DE BUILDS: Actualiza el Staff Feed con los combos activos
-    if (typeof updateStaffSynergyUI === 'function') {
-        updateStaffSynergyUI();
-    }
+    if (typeof updateStaffSynergyUI === 'function') updateStaffSynergyUI();
+    saveGame();
 };
 
 
@@ -2792,85 +2790,78 @@ startStaffMessages();
 
 
 
-function renderHelpers() {
+window.renderHelpers = function() {
     const container = document.getElementById('helpers-list');
     if (!container) return;
 
     container.innerHTML = '';
+    const currentStaff = game.helpers || [];
 
-    // CABECERA
+    // Cabecera con el contador real
     const header = document.createElement('div');
-    const slotsColor = game.helpers.length >= MAX_HELPERS ? '#ff5252' : '#00ff88';
+    const slotsColor = currentStaff.length >= MAX_HELPERS ? '#ff5252' : '#00ff88';
     header.style.cssText = "padding: 10px; margin-bottom: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;";
     header.innerHTML = `
-        <span style="color:#aaa; font-size:0.9rem;">EQUIPO ACTIVO</span>
+        <div style="display:flex; flex-direction:column">
+            <span style="color:#aaa; font-size:0.7rem; text-transform:uppercase;">Estado del Staff</span>
+            <span style="color:#fff; font-size:0.9rem; font-weight:bold;">OPERADORES ACTIVOS</span>
+        </div>
         <span style="color: ${slotsColor}; font-weight: bold; font-size: 1.1rem;">
-            ${game.helpers.length} / ${MAX_HELPERS}
+            ${currentStaff.length} / ${MAX_HELPERS}
         </span>
     `;
     container.appendChild(header);
 
-    const currentCPS = getCPS();
-    const currentHelperCost = getHelpersCost();
     const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned));
 
     helpersConfig.forEach(helper => {
-        const isActive = game.helpers.includes(helper.id);
+        const isActive = currentStaff.includes(helper.id);
         const isLocked = playerLevel < helper.reqLevel;
 
         const div = document.createElement('div');
-        let classes = `helper-item ${isActive ? 'active' : ''}`;
-
-        if (isLocked) classes += ' locked';
-        else if (!isActive && (game.helpers.length >= MAX_HELPERS || currentCPS - currentHelperCost < helper.cost)) {
-            classes += ' disabled';
-        }
-
-        div.className = classes;
-
-        // --- CORRECCIÓN DEL CLICK ---
-        if (!isLocked) {
-            // Usamos onmousedown para que la respuesta sea INMEDIATA al pulsar, no al soltar
-            div.onmousedown = function (e) {
-                e.preventDefault(); // Evita selecciones de texto raras
+        div.className = `helper-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`;
+        
+        // --- BLOQUEO DE INTERACCIÓN ---
+        if (isLocked) {
+            div.style.cursor = "default";
+            div.style.pointerEvents = "none"; // Esto anula cualquier click a nivel de navegador
+            div.onmousedown = null; 
+        } else {
+            div.style.cursor = "pointer";
+            div.onmousedown = (e) => {
+                e.preventDefault();
                 toggleHelper(helper.id);
             };
         }
 
-        let btnContent = '';
-        let statusText = '';
-        let statusClass = '';
+        let statusText = "";
+        let btnContent = "";
 
         if (isLocked) {
-            statusText = `Nivel ${helper.reqLevel} Req.`;
-            statusClass = 'helper-locked-text';
-            btnContent = '🔒';
+            statusText = `REQUISITO: NIVEL ${helper.reqLevel}`;
+            btnContent = "🔒";
         } else if (isActive) {
-            statusText = '✓ EN EQUIPO';
-            statusClass = 'helper-active';
-            btnContent = '❌';
+            statusText = "⚡ OPERANDO";
+            btnContent = "❌";
         } else {
-            statusText = `Coste: ${helper.cost}/s`;
-            statusClass = 'helper-cost';
-            btnContent = game.helpers.length >= MAX_HELPERS ? '⛔' : '➕';
+            let visualCost = helper.cost;
+            if (game.heavenlyUpgrades.includes('pension_plan')) visualCost *= 0.9;
+            statusText = `Sueldo: ${formatNumber(visualCost)}/s`;
+            btnContent = "💰";
         }
 
-        // --- CAMBIO IMPORTANTE: Usamos DIV en vez de BUTTON para evitar doble click ---
         div.innerHTML = `
-            <div class="helper-icon" style="${isLocked ? 'filter:grayscale(1); opacity:0.5' : ''}">${helper.icon}</div>
+            <div class="helper-icon" style="${isLocked ? 'filter:grayscale(1); opacity:0.3' : ''}">${helper.icon}</div>
             <div class="helper-info">
-                <h4 style="${isLocked ? 'color:#666' : ''}">${isLocked ? '???' : helper.name}</h4>
-                <p>${isLocked ? 'Sigue acumulando energía.' : helper.desc}</p>
-                <div class="${statusClass}">${statusText}</div>
+                <h4 style="color: ${isLocked ? '#555' : '#fff'}">${isLocked ? 'Sujeto Clasificado' : helper.name}</h4>
+                <p style="font-size:0.75rem; color:${isLocked ? '#444' : '#bbb'}">${isLocked ? 'Aumenta tu producción para desbloquear contacto.' : helper.desc}</p>
+                <div style="font-family:monospace; font-size:0.7rem; margin-top:4px; color:${isLocked ? '#555' : 'var(--accent)'}">${statusText}</div>
             </div>
-            <div class="helper-toggle ${isActive ? 'active' : ''}">
-                ${btnContent}
-            </div>
+            <div class="helper-toggle ${isActive ? 'active' : ''}">${btnContent}</div>
         `;
-
         container.appendChild(div);
     });
-}
+};
 
 // --- BUCLE PRINCIPAL ---
 let lastTime = Date.now();
@@ -3265,31 +3256,27 @@ function updateUI() {
 
 
 
-function renderStore() {
+window.renderStore = function() {
     upgradesEl.innerHTML = '';
     buildingsEl.innerHTML = '';
     let anyUp = false;
 
     // 1. MEJORAS DE EDIFICIOS (MK-1, MK-2...)
     buildingsConfig.forEach(b => {
-        // --- FILTRO: Los edificios de Andrómeda no tienen mejoras MK normales ---
         if (b.isAndromeda) return;
-
         const count = game.buildings[b.id] || 0;
-        // Verificamos que milestones y upgradeIcons existan para evitar pantalla negra
-        if (typeof milestones !== 'undefined' && typeof upgradeIcons !== 'undefined') {
+        
+        if (typeof milestones !== 'undefined') {
             milestones.forEach((th, i) => {
                 const uid = `${b.id}-${th}`;
                 if (count >= th && !game.upgrades.includes(uid)) {
                     anyUp = true;
                     const cost = b.baseCost * 20 * (i + 1) * th;
-
                     const btn = document.createElement('div');
                     btn.className = 'upgrade-crate';
                     btn.innerHTML = upgradeIcons[i % upgradeIcons.length];
                     btn.dataset.cost = cost;
                     btn.setAttribute('data-tooltip', `${b.name} MK-${i + 1}\nx2 Producción\nCoste: ${formatNumber(cost)}`);
-
                     btn.onclick = () => window.buyUpgrade(uid, cost);
                     upgradesEl.appendChild(btn);
                 }
@@ -3297,68 +3284,44 @@ function renderStore() {
         }
     });
 
-    // 2. LISTA DE MEJORAS ESPECIALES
+    // 2. LISTA DE MEJORAS ESPECIALES (OMEGA, ALIEN, ETC.)
     const specials = [
-        // --- CADENA OMEGA ---
-        { id: 'protocol-omega', name: 'Protocolo Omega', icon: '⚠️', cost: 5000000, desc: 'Inicia el experimento prohibido.\nProducción Global x1.2', req: () => game.totalCookiesEarned > 2000000 && !game.upgrades.includes('protocol-omega') },
+        { id: 'protocol-omega', name: 'Protocolo Omega', icon: '⚠️', cost: 5000000, desc: 'Producción Global x1.2', req: () => game.totalCookiesEarned > 2000000 && !game.upgrades.includes('protocol-omega') },
         { id: 'omega-phase-2', name: 'Resonancia Oscura', icon: '🔉', cost: 25000000, desc: 'Producción Global x1.5', req: () => game.upgrades.includes('protocol-omega') && !game.upgrades.includes('omega-phase-2') },
         { id: 'omega-phase-3', name: 'Fisura Dimensional', icon: '🌀', cost: 150000000, desc: 'Producción Global x2.0', req: () => game.upgrades.includes('omega-phase-2') && !game.upgrades.includes('omega-phase-3') },
         { id: 'omega-phase-4', name: 'Fallo de Contención', icon: '🚨', cost: 1000000000, desc: 'Producción Global x3.0', req: () => game.upgrades.includes('omega-phase-3') && !game.upgrades.includes('omega-phase-4') },
-        { id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, desc: 'LIBERA AL VACÍO.\nProducción x5.0 + Perla Roja', req: () => game.upgrades.includes('omega-phase-4') && !game.upgrades.includes('omega-final') },
-
-        // --- MEJORAS DE ESCALA ---
-        { id: 'scaling_efficiency_1', name: 'Retroalimentación Positiva', icon: '📈', cost: 100000000, desc: 'Gana +1% de prod. extra por cada 10k W/s.', req: () => getCPS() > 50000 && !game.upgrades.includes('scaling_efficiency_1') },
-
-        // --- NUEVO: MEJORA DE ANDRÓMEDA ---
-        {
-            id: 'black_market_deal',
-            name: 'Contrabando de Andrómeda',
-            icon: '📦',
-            cost: 2500000000,
-            desc: 'Los comerciantes aparecen un 50% más seguido.',
-            req: () => game.heavenlyUpgrades.includes('andromeda_trade') && !game.upgrades.includes('black_market_deal')
-        },
-
-        // --- NUEVO: TECNOLOGÍA ALIENÍGENA (Se desbloquea tras Ascensión) ---
-        {
-            id: 'alien_tech_1',
-            name: 'Xenolingüística',
-            icon: '🗣️',
-            cost: 1000000,
-            desc: 'Entendemos sus insultos. Los aliens aparecen un 30% más rápido.',
-            req: () => game.heavenlyUpgrades.includes('alien_contact') && !game.upgrades.includes('alien_tech_1')
-        },
-        {
-            id: 'alien_tech_2',
-            name: 'Disección de Grises',
-            icon: '👽',
-            cost: 50000000,
-            desc: 'Estudiar su anatomía revela puntos débiles. Aliens tienen -20% de vida.',
-            req: () => game.upgrades.includes('alien_tech_1') && !game.upgrades.includes('alien_tech_2')
-        },
-        {
-            id: 'alien_tech_3',
-            name: 'Ingeniería Inversa',
-            icon: '🛸',
-            cost: 5000000000,
-            desc: 'Robamos su tecnología de fusión. Producción Global x1.5.',
-            req: () => game.upgrades.includes('alien_tech_2') && !game.upgrades.includes('alien_tech_3')
-        }
+        { id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, desc: 'LIBERA AL VACÍO.\nx5.0 + Perla Roja', req: () => game.upgrades.includes('omega-phase-4') && !game.upgrades.includes('omega-final') },
+        { id: 'scaling_efficiency_1', name: 'Retroalimentación Positiva', icon: '📈', cost: 100000000, desc: '+1% prod. extra por cada 10k W/s.', req: () => getCPS() > 50000 && !game.upgrades.includes('scaling_efficiency_1') },
+        { id: 'black_market_deal', name: 'Contrabando de Andrómeda', icon: '📦', cost: 2500000000, desc: 'Comerciantes +50% frecuencia.', req: () => game.heavenlyUpgrades.includes('andromeda_trade') && !game.upgrades.includes('black_market_deal') },
+        { id: 'alien_tech_1', name: 'Xenolingüística', icon: '🗣️', cost: 1000000, desc: 'Aliens +30% frecuencia.', req: () => game.heavenlyUpgrades.includes('alien_contact') && !game.upgrades.includes('alien_tech_1') },
+        { id: 'alien_tech_2', name: 'Disección de Grises', icon: '👽', cost: 50000000, desc: 'Aliens -20% Vida.', req: () => game.upgrades.includes('alien_tech_1') && !game.upgrades.includes('alien_tech_2') },
+        { id: 'alien_tech_3', name: 'Ingeniería Inversa', icon: '🛸', cost: 5000000000, desc: 'Producción Global x1.5.', req: () => game.upgrades.includes('alien_tech_2') && !game.upgrades.includes('alien_tech_3') }
     ];
 
-    // --- MEJORAS DINÁMICAS PARA AYUDANTES ---
+    // --- 3. MEJORAS DINÁMICAS DE OPERADORES (Precios Reajustados) ---
+    // Solo aparecen si el operador está actualmente TRABAJANDO (en game.helpers)
+    const currentStaff = game.helpers || [];
     helpersConfig.forEach(h => {
-        const isEquipped = game.helpers.includes(h.id);
+        const isEquipped = currentStaff.includes(h.id);
         const powerId = `upg_power_${h.id}`;
         const masterId = `upg_master_${h.id}`;
 
         if (isEquipped && !game.upgrades.includes(powerId)) {
+            // Precio aumentado a x2500 para evitar que sean triviales
+            const powerCost = h.cost * 2500; 
             specials.push({
-                id: powerId, name: `Sincronía: ${h.name}`, icon: '🔥', cost: h.cost * 50, desc: `Efectividad de ${h.icon} +50% y Producción Global +25%.`, req: () => true
+                id: powerId, 
+                name: `Sincronía: ${h.name}`, 
+                icon: '🔥', 
+                cost: powerCost, 
+                desc: `Efectividad de ${h.icon} +50% y Producción Global +25%.`, 
+                req: () => true
             });
         }
 
         if (isEquipped && game.upgrades.includes(powerId) && !game.upgrades.includes(masterId)) {
+            // Precio aumentado a x25000 (End-game estratégico)
+            const masterCost = h.cost * 25000;
             let masterDesc = "";
             switch (h.id) {
                 case 'h_clicker': masterDesc = "Dra. Thorne: +15% producción pasiva global."; break;
@@ -3370,7 +3333,7 @@ function renderStore() {
                 default: masterDesc = "Desbloquea el potencial oculto.";
             }
             specials.push({
-                id: masterId, name: `Protocolo Maestro: ${h.icon}`, icon: '👑', cost: h.cost * 500, desc: masterDesc, req: () => true
+                id: masterId, name: `Protocolo Maestro: ${h.icon}`, icon: '👑', cost: masterCost, desc: masterDesc, req: () => true
             });
         }
     });
@@ -3380,7 +3343,8 @@ function renderStore() {
         if (s.req()) {
             anyUp = true;
             const btn = document.createElement('div');
-            const isCritical = s.id.includes('omega') || s.id.includes('master') || s.id.includes('andromeda') || s.id.includes('alien_tech');
+            // Identificamos visualmente las mejoras caras
+            const isCritical = s.id.includes('omega') || s.id.includes('master') || s.id.includes('power') || s.id.includes('alien_tech');
             btn.className = `upgrade-crate ${isCritical ? 'special-upgrade' : ''}`;
             btn.innerHTML = s.icon;
             btn.dataset.cost = s.cost;
@@ -3392,12 +3356,10 @@ function renderStore() {
 
     if (!anyUp) upgradesEl.innerHTML = '<div style="color:#444; font-size:0.8rem; width:100%; text-align:center;">Juega más para desbloquear tecnología...</div>';
 
-    // 3. RENDERIZAR LISTA DE EDIFICIOS
+    // 4. RENDERIZAR LISTA DE EDIFICIOS
     let lockedShown = 0;
     for (let i = 0; i < buildingsConfig.length; i++) {
         const b = buildingsConfig[i];
-
-        // --- FILTRO: Si es un edificio de Andrómeda, NO se muestra en la tienda normal ---
         if (b.isAndromeda) continue;
 
         const count = game.buildings[b.id] || 0;
@@ -3432,11 +3394,7 @@ function renderStore() {
                 div.onclick = () => window.buyBuilding(b.id);
             }
             buildingsEl.appendChild(div);
-        } else {
-            // No hacemos break aquí para permitir que el bucle revise todos los edificios
-            // pero controlamos que solo se muestren 2 bloqueados máximo
-            if (lockedShown >= 2) break;
-        }
+        } else if (lockedShown >= 2) break;
     }
 }
 
@@ -3628,44 +3586,54 @@ const CURRENT_VERSION = 1.0; // Cambiaremos esto si añadimos mecánicas nuevas 
 
 
 window.saveGame = function () {
-    // Seguridad: inicializa campos críticos antes de guardar
+    // 1. SEGURIDAD: Inicializar campos críticos (Incluyendo mecánicas nuevas)
     if (!game.upgrades) game.upgrades = [];
     if (!game.achievements) game.achievements = [];
     if (!game.helpers) game.helpers = [];
+    if (!game.activeHelpers) game.activeHelpers = []; // Guardar quiénes están trabajando
     if (!game.heavenlyUpgrades) game.heavenlyUpgrades = [];
     if (!game.buildings) game.buildings = {};
     if (!game.pearls) game.pearls = [];
+    
+    // Seguridad para el sistema de Inventario
+    if (!game.inventory) game.inventory = [];
+    if (typeof game.galacticoins === 'undefined') game.galacticoins = 0;
+
+    // Campos de estadísticas
     if (typeof game.totalClicks === 'undefined') game.totalClicks = 0;
     if (typeof game.prestigeLevel === 'undefined') game.prestigeLevel = game.antimatter || 0;
 
+    // 2. REGISTRO DE ESTADOS TEMPORALES
     game.lastSaveTime = Date.now();
-    game.isApocalypse = isApocalypse; // Guardar estado visual
+    game.isApocalypse = isApocalypse; // Guardar el estado visual del núcleo
 
-    // Empaquetamos el juego con su versión
+    // 3. EMPAQUETADO Y PERSISTENCIA
     const savePackage = {
         version: CURRENT_VERSION,
         data: game
     };
 
-    localStorage.setItem('quantumClickerUlt', JSON.stringify(savePackage));
+    try {
+        localStorage.setItem('quantumClickerUlt', JSON.stringify(savePackage));
+    } catch (e) {
+        console.error("Error crítico al guardar en localStorage:", e);
+        showNotification("❌ ERROR DE GUARDADO", "Espacio insuficiente en el navegador.");
+    }
 
-    // Feedback visual en el botón
+    // 4. FEEDBACK VISUAL
     const btn = document.querySelector('button[onclick="saveGame()"]');
     if (btn) {
         const old = btn.innerText;
         btn.innerText = "💾 OK!";
         setTimeout(() => btn.innerText = old, 1000);
     }
-}
+};
 
 
 function loadGame() {
-    // 1. Cargar el string del almacenamiento
     const rawSave = localStorage.getItem('quantumClickerUlt');
 
-    // CASO A: SI EXISTE PARTIDA GUARDADA (Jugador que regresa)
     if (rawSave) {
-        // Aseguramos que NO se vea la intro, sino la interfaz completa
         document.body.classList.remove('intro-mode');
 
         let parsedSave;
@@ -3676,63 +3644,56 @@ function loadGame() {
             return;
         }
 
-        // 2. DETECTAR VERSIÓN Y EXTRAER DATOS
-        let loadedGame = {};
-        if (parsedSave.version) {
-            console.log(`Cargando versión ${parsedSave.version}...`);
-            loadedGame = parsedSave.data;
-        } else {
-            // OJO: Aquí NO ponemos startIntroSequence(). 
-            // Si es legacy, simplemente cargamos sus datos antiguos y le dejamos jugar.
-            console.log("Cargando versión Legacy...");
-            loadedGame = parsedSave;
-        }
+        let loadedGame = parsedSave.version ? parsedSave.data : parsedSave;
 
-        // 3. FUSIONAR DATOS (MERGE INTELIGENTE / DEEP MERGE)
-        // (Copiamos el bloque seguro que hicimos antes)
-
-        // A. Valores primitivos
+        // 1. FUSIONAR VALORES PRIMITIVOS
         for (const key in loadedGame) {
-            if (key !== 'buildings' && key !== 'upgrades' && key !== 'achievements' && key !== 'helpers' && key !== 'heavenlyUpgrades' && key !== 'pearls') {
+            if (!['buildings', 'upgrades', 'achievements', 'helpers', 'activeHelpers', 'heavenlyUpgrades', 'pearls', 'inventory'].includes(key)) {
                 game[key] = loadedGame[key];
             }
         }
 
-        // B. Arrays (Reemplazo directo)
+        // 2. RESTAURAR ARRAYS Y COLECCIONES
         if (loadedGame.upgrades) game.upgrades = loadedGame.upgrades;
         if (loadedGame.achievements) game.achievements = loadedGame.achievements;
         if (loadedGame.helpers) game.helpers = loadedGame.helpers;
+        if (loadedGame.activeHelpers) game.activeHelpers = loadedGame.activeHelpers; // Sincronizar slots activos
         if (loadedGame.heavenlyUpgrades) game.heavenlyUpgrades = loadedGame.heavenlyUpgrades;
         if (loadedGame.pearls) game.pearls = loadedGame.pearls;
+        if (loadedGame.inventory) game.inventory = loadedGame.inventory; // Restaurar Mochila
 
-        // C. Objetos complejos (Edificios - FUSIÓN PROFUNDA)
+        // 3. FUSIÓN DE EDIFICIOS
         if (loadedGame.buildings) {
             for (const bId in loadedGame.buildings) {
-                if (game.buildings.hasOwnProperty(bId)) {
-                    game.buildings[bId] = loadedGame.buildings[bId];
-                }
+                game.buildings[bId] = loadedGame.buildings[bId];
             }
         }
 
         // 4. LIMPIEZA Y SEGURIDAD (Valores por defecto)
-        if (typeof game.totalClicks === 'undefined') game.totalClicks = 0;
-        if (typeof game.prestigeLevel === 'undefined') game.prestigeLevel = game.antimatter || 0;
-        if (typeof game.anomaliesClicked === 'undefined') game.anomaliesClicked = 0;
-        if (typeof game.totalTimePlayed === 'undefined') game.totalTimePlayed = 0;
+        game.totalClicks = game.totalClicks || 0;
+        game.prestigeLevel = game.prestigeLevel || game.antimatter || 0;
+        game.galacticoins = game.galacticoins || 0;
+        game.inventory = game.inventory || [];
+        game.activeHelpers = game.activeHelpers || [];
 
         // Restaurar estado visual
-        if (typeof game.isApocalypse !== 'undefined') isApocalypse = game.isApocalypse;
-        else isApocalypse = false;
+        isApocalypse = !!game.isApocalypse;
 
-        // 5. MIGRACIONES Y ACTUALIZACIONES
+        // 5. MIGRACIONES Y REAPLICACIÓN DE BONOS
         if (game.upgrades.includes('omega-final') && !game.pearls.includes('red')) {
             game.pearls.push('red');
         }
 
+        // 🔥 CRÍTICO: Re-chequear el Kit de Supervivencia por si quedó pendiente
+        applyHeavenlyUpgrades(); 
+
         recalculateStats();
         renderPearls();
+        
+        // Sincronizar visualmente los Satélites si existen
+        if (typeof syncSatellites3D === 'function') syncSatellites3D();
 
-        // Restaurar sección de Ayudantes si corresponde
+        // Restaurar UI de Ayudantes
         if (game.totalCookiesEarned >= 150) {
             const hList = document.getElementById('helpers-list');
             if (hList) {
@@ -3741,39 +3702,37 @@ function loadGame() {
             }
         }
 
-        // 6. CÁLCULO OFFLINE (Igual que tenías)
+        // 6. CÁLCULO OFFLINE
         if (game.lastSaveTime) {
             const now = Date.now();
             const secondsOffline = (now - game.lastSaveTime) / 1000;
             if (secondsOffline > 60) {
-                let efficiency = 0.5;
-                if (game.heavenlyUpgrades.includes('offline_god')) efficiency = 1.0;
-
+                let efficiency = game.heavenlyUpgrades.includes('offline_god') ? 1.0 : 0.5;
                 const currentCPS = getCPS();
                 const offlineProduction = (currentCPS * secondsOffline) * efficiency;
 
                 if (offlineProduction > 0) {
                     game.cookies += offlineProduction;
                     game.totalCookiesEarned += offlineProduction;
+                    
+                    // Pequeño delay para que el modal no aparezca antes de que cargue la UI
                     setTimeout(() => {
                         showSystemModal(
                             "REGRESO AL UNIVERSO",
-                            `Has estado en estasis durante ${formatTime(secondsOffline)}.\n\nSistemas auxiliares generaron:\n<span style="color:#00ff88; font-size:1.2em">+${formatNumber(offlineProduction)} Watts</span>\n(Eficiencia: ${efficiency * 100}%)`,
+                            `Sistemas auxiliares generaron:\n<span style="color:#00ff88; font-size:1.2em">+${formatNumber(offlineProduction)} Watts</span>\n(Eficiencia: ${efficiency * 100}%)`,
                             false, null
                         );
-                    }, 1000);
+                    }, 1200);
                 }
             }
         }
-
-    }
-    // CASO B: NO EXISTE PARTIDA (JUGADOR NUEVO)
-    else {
+    } else {
         console.log("Iniciando Protocolo Génesis...");
-        startIntroSequence(); // <--- AQUÍ ES DONDE DEBE IR
-        // ... al final de loadGame o del archivo ...
-        startAlienLoop();
+        startIntroSequence();
     }
+    
+    // Iniciar bucles de eventos siempre al cargar
+    startAlienLoop();
 }
 
 
@@ -3802,21 +3761,49 @@ window.resetGame = function () {
 // --- AÑADIDOS V2.0 ---
 
 // En tu lógica de gestión de tiempos de eventos:
+
+function applyHeavenlyUpgrades() {
+    // 1. Mejora Génesis: Watts iniciales
+    if (game.heavenlyUpgrades.includes('genesis') && game.cookies < 100) {
+        game.cookies = 100;
+    }
+
+    // 2. Kit de Supervivencia: AHORA CHETADO (50 cursors, 25 grandmas)
+    // Usamos los IDs correctos: 'cursor' y 'grandma'
+    if (game.heavenlyUpgrades.includes('starter_kit') && !game.starterKitClaimed) {
+        game.buildings.cursor = (game.buildings.cursor || 0) + 50;
+        game.buildings.grandma = (game.buildings.grandma || 0) + 25;
+        
+        // Marcamos como reclamado para esta ascensión
+        game.starterKitClaimed = true; 
+        
+        // Refrescamos stats para que el CPS suba instantáneamente
+        recalculateStats();
+        updateUI();
+        console.log("📦 Kit de Supervivencia desplegado: 50 Cursors, 25 Hámsters.");
+    }
+}
+
 function getAnomalyChance() {
     let baseTime = 60000; // 60 segundos base
     
+    // --- MEJORAS CELESTIALES ---
+    if (game.heavenlyUpgrades.includes('lucky_star')) baseTime *= 0.85; // -15% tiempo
+
     // --- SINERGIA: HORIZONTE DE EVENTOS ---
     const hasDorian = game.helpers.includes('h_anomaly');
     const hasSilas = game.helpers.includes('h_discount');
     
     if (hasDorian && hasSilas) {
-        baseTime *= 0.6; // Aparecen un 40% más rápido
+        baseTime *= 0.6; // Mucho más rápido
     } else if (hasDorian) {
-        baseTime *= 0.85; // Bono normal de Dorian
+        baseTime *= 0.85;
     }
     
     return baseTime;
 }
+
+
 
 
 
@@ -4156,36 +4143,63 @@ window.confirmAscension = function () {
 
     sfxPrestige();
 
-    // 1. HARD RESET
+    // 1. HARD RESET LÓGICO Y VISUAL
     game.cookies = 0;
     game.buildings = {};
     game.upgrades = [];
     game.helpers = [];
+    game.activeHelpers = []; // Limpiamos también los slots activos
+    game.inventory = []; // Opcional: Decide si la mochila se limpia o es permanente
+    
     isApocalypse = false;
     comboMultiplier = 1.0;
     comboTimer = 0;
     buffMultiplier = 1;
     clickBuffMultiplier = 1;
-    currentCoreTier = -1; // Forzar re-evaluación visual del núcleo
-    if (orbitalRing) { scene.remove(orbitalRing); orbitalRing.geometry.dispose(); orbitalRing.material.dispose(); orbitalRing = null; }
+    currentCoreTier = -1; 
 
-    // 2. APLICAR RECOMPENSAS (ARREGLADO)
-    game.antimatter += gain;      // Moneda (+1)
-    game.prestigeLevel += gain;   // Nivel (+1) -> NUNCA BAJA
+    // Limpieza de objetos 3D residuales
+    if (orbitalRing) { 
+        scene.remove(orbitalRing); 
+        orbitalRing.geometry.dispose(); 
+        orbitalRing.material.dispose(); 
+        orbitalRing = null; 
+    }
 
-    // El multi se basa en el NIVEL, no en la moneda gastable
-    game.prestigeMult = 1 + (game.prestigeLevel * 0.1);
+    // 2. APLICAR RECOMPENSAS DE ASCENSIÓN
+    game.antimatter += gain;      
+    game.prestigeLevel += gain;   
 
-    // 3. Reiniciar configs
-    buildingsConfig.forEach(u => { game.buildings[u.id] = 0; u.currentPower = u.basePower; });
+    // Multiplicador de Prestigio (Efectivo según el nivel acumulado)
+    let effectiveLevel = game.prestigeLevel;
+    if (game.heavenlyUpgrades.includes('multiverse')) {
+        // Si tiene Multiverso, el bono por nivel es x0.2 en lugar de x0.1
+        game.prestigeMult = 1 + (effectiveLevel * 0.2);
+    } else {
+        game.prestigeMult = 1 + (effectiveLevel * 0.1);
+    }
 
-    // 4. Aplicar mejoras celestiales iniciales (Génesis, etc)
-    if (game.heavenlyUpgrades.includes('genesis')) game.cookies = 100;
-    if (game.heavenlyUpgrades.includes('starter_kit')) game.buildings['cursor'] = 10;
+    // 3. REINICIAR CONFIGURACIÓN DE EDIFICIOS
+    buildingsConfig.forEach(u => { 
+        game.buildings[u.id] = 0; 
+        u.currentPower = u.basePower; 
+    });
 
+    // 4. PROTOCOLO DE REINICIO CELESTIAL
+    // Reseteamos el flag para que el Kit de Supervivencia pueda ejecutarse de nuevo
+    game.starterKitClaimed = false; 
+
+    // Llamamos a la función centralizada que ahora te dará los 50 cursors y 25 hámsters
+    applyHeavenlyUpgrades();
+
+    // 5. FINALIZAR Y GUARDAR
     saveGame();
     closeAscension();
-    openHeavenTree(); // Abrimos el árbol
+    
+    // Pequeña pausa para el flash visual antes de abrir el árbol
+    setTimeout(() => {
+        openHeavenTree(); 
+    }, 500);
 };
 
 // ==========================================
@@ -4598,6 +4612,15 @@ const heavenlyConfig = [
         cost: 10, // Muy accesible en la primera ascensión
         x: 400, y: 200,
         parents: ['genesis']
+    },
+    {
+        id: 'pension_plan',
+        name: 'Plan de Pensiones Galáctico',
+        icon: '📜',
+        cost: 150,
+        x: 100, y: 300, // Situado a la izquierda de la rama de producción
+        desc: 'Los contratos a largo plazo dan sus frutos. Reduce el coste de mantenimiento de todos los operadores un 10% adicional.',
+        parents: ['perm_prod_1'] // Se desbloquea tras Eficiencia Industrial
     },
     {
         id: 'galaxy_brain', name: 'Cerebro Galáctico', icon: '🧠', cost: 30,

@@ -1118,6 +1118,14 @@ button.sys-btn:hover {
     border-bottom: 2px solid var(--accent);
 }
 
+
+
+.special-upgrade {
+    border: 1px solid var(--accent);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+}
+
 /* --- TOOLTIP GLOBAL FLOTANTE (ESTILO COOKIE CLICKER) --- */
 .global-tooltip {
     position: fixed;
