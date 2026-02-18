@@ -1799,6 +1799,21 @@ button.sys-btn:hover {
 }
 
 
+
+.synergy-active {
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    animation: synergyPulse 3s infinite alternate;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+@keyframes synergyPulse {
+    0% { color: #00ff88; filter: hue-rotate(0deg); }
+    100% { color: #b388ff; filter: hue-rotate(45deg); }
+}
+
+
 #buff-container {
     position: absolute;
     top: 20px;
@@ -2744,10 +2759,7 @@ body.safe-no-ticker #news-content {
     opacity: 1;
 }
 
-/* Título dentro del tooltip (hack para separarlo visualmente) */
-.achievement-card::before {
-    /* No usado aquí, el contenido ya está en data-tooltip formateado si es posible */
-}
+
 /* ==========================================
    FIXES UI LOGROS (SOBREESCRIBE ANTERIORES)
    ========================================== */

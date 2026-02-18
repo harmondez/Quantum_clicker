@@ -1003,6 +1003,23 @@ const helpersConfig = [
     }
 ];
 
+const synergiesConfig = [
+    {
+        name: "Protocolo de Campo",
+        ids: ['h_clicker', 'h_crit'],
+        check: (h) => h.includes('h_clicker') && h.includes('h_crit'),
+        apply: () => { /* Manejado en doClickLogic */ }
+    },
+    {
+        name: "Ciclo Cerrado",
+        ids: ['h_miner', 'h_efficiency'],
+        check: (h) => h.includes('h_miner') && h.includes('h_efficiency'),
+        apply: (stats) => { stats.cpsMult *= 1.10; stats.maintMult *= 0.5; }
+    }
+];
+
+
+
 // ==========================================
 // 3. MOTOR GRÁFICO (THREE.JS)
 // ==========================================
@@ -1333,6 +1350,117 @@ function spawnParticles(pos) {
     }
 }
 
+
+// 1. Asegúrate de declarar estas variables globales si no están
+let satelliteMeshes = []; 
+
+/**
+ * Crea la representación visual de un satélite
+ */
+function createSatelliteModel() {
+    const group = new THREE.Group();
+    
+    // Cuerpo central (Cubo metálico)
+    const bodyGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+    const bodyMat = new THREE.MeshStandardMaterial({ 
+        color: 0x888888, 
+        metalness: 1, 
+        roughness: 0.2 
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    group.add(body);
+
+    // Paneles solares (Finas láminas azules)
+    const panelGeo = new THREE.PlaneGeometry(0.5, 0.18);
+    const panelMat = new THREE.MeshStandardMaterial({ 
+        color: 0x0055ff, 
+        emissive: 0x001133,
+        side: THREE.DoubleSide,
+        metalness: 0.5,
+        roughness: 0.3
+    });
+
+    const leftPanel = new THREE.Mesh(panelGeo, panelMat);
+    leftPanel.position.x = -0.35;
+    group.add(leftPanel);
+
+    const rightPanel = new THREE.Mesh(panelGeo, panelMat);
+    rightPanel.position.x = 0.35;
+    group.add(rightPanel);
+
+    // Antena de comunicaciones
+    const antGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.2);
+    const ant = new THREE.Mesh(antGeo, bodyMat);
+    ant.position.y = 0.15;
+    group.add(ant);
+
+    return group;
+}
+
+/**
+ * Sincroniza los modelos 3D con la cantidad de edificios comprados
+ */
+window.syncSatellites3D = function() {
+    // Verificación de seguridad para evitar errores si Three.js no ha cargado
+    if (typeof scene === 'undefined' || !scene) return;
+
+    // Aseguramos que game.buildings exista
+    if (!game.buildings) game.buildings = {};
+
+    const targetCount = Math.min(game.buildings['sat_uplink'] || 0, 15);
+
+    // Crear nuevos satélites
+    while (satelliteMeshes.length < targetCount) {
+        const sat = createSatelliteModel();
+        
+        sat.userData = {
+            distance: 2.8 + Math.random() * 2.5,
+            speed: 0.3 + Math.random() * 0.7,
+            offset: Math.random() * Math.PI * 2,
+            yVar: (Math.random() - 0.5) * 2
+        };
+
+        sat.position.set(sat.userData.distance, 0, 0);
+        
+        scene.add(sat);
+        satelliteMeshes.push(sat);
+        console.log("🛰️ Satélite desplegado.");
+    }
+    
+    // Eliminar satélites si se reinicia o vende
+    while (satelliteMeshes.length > targetCount) {
+        const sat = satelliteMeshes.pop();
+        if (sat) {
+            scene.remove(sat);
+            // Si tienes la función dispose3D definida, úsala. 
+            // Si no, basta con scene.remove para quitarlo visualmente.
+            if (typeof dispose3D === 'function') {
+                dispose3D(sat);
+            }
+        }
+    }
+};
+
+function syncSatellites3D() {
+    const count = game.buildings['sat_uplink'] || 0;
+    
+    // Si hay más edificios que modelos, añadimos los que faltan
+    while (satelliteMeshes.length < count && satelliteMeshes.length < 10) { // Limitamos a 10 por rendimiento
+        const sat = createSatelliteModel();
+        // Asignamos órbitas aleatorias para que no colisionen
+        sat.userData = {
+            distance: 2.5 + Math.random() * 1.5,
+            speed: 0.5 + Math.random() * 1,
+            offset: Math.random() * Math.PI * 2,
+            axis: new THREE.Vector3(Math.random(), Math.random(), Math.random()).normalize()
+        };
+        scene.add(sat);
+        satelliteMeshes.push(sat);
+    }
+}
+
+
+
 function update3D() {
     const time = Date.now() * 0.002;
     const cps = getCPS();
@@ -1375,44 +1503,28 @@ function update3D() {
         let targetEmissive = new THREE.Color(0x004422);
         let targetGlow = new THREE.Color(0x7c4dff);
 
-        // Si NO hay buff activo, evolucionamos color por Watts
         if (buffMultiplier === 1 && clickBuffMultiplier === 1) {
-            if (totalWatts >= 1000) { // Kilowatt
-                targetColor.setHex(0xffaa00); targetEmissive.setHex(0xff4400); targetGlow.setHex(0xffcc00);
-            }
-            if (totalWatts >= 1000000) { // Megawatt
-                targetColor.setHex(0x00e5ff); targetEmissive.setHex(0x0044aa); targetGlow.setHex(0x00ffff);
-            }
-            if (totalWatts >= 1000000000) { // Gigawatt
-                targetColor.setHex(0x9900ff); targetEmissive.setHex(0x220044); targetGlow.setHex(0xff00ff);
-            }
+            if (totalWatts >= 1000) { targetColor.setHex(0xffaa00); targetEmissive.setHex(0xff4400); targetGlow.setHex(0xffcc00); }
+            if (totalWatts >= 1000000) { targetColor.setHex(0x00e5ff); targetEmissive.setHex(0x0044aa); targetGlow.setHex(0x00ffff); }
+            if (totalWatts >= 1000000000) { targetColor.setHex(0x9900ff); targetEmissive.setHex(0x220044); targetGlow.setHex(0xff00ff); }
         } else {
-            // MIENTRAS EL BUFF ESTÁ ACTIVO: Colores temáticos
-            if (buffMultiplier > 1) { // Producción (Naranja/Fuego)
-                targetColor.setHex(0xff5500); targetEmissive.setHex(0xff2200);
-            } else if (clickBuffMultiplier > 1) { // Clicks (Cian Eléctrico)
-                targetColor.setHex(0x00ffff); targetEmissive.setHex(0x0088ff);
-            }
+            if (buffMultiplier > 1) { targetColor.setHex(0xff5500); targetEmissive.setHex(0xff2200); } 
+            else if (clickBuffMultiplier > 1) { targetColor.setHex(0x00ffff); targetEmissive.setHex(0x0088ff); }
         }
 
-        // Aplicamos los colores suavemente con LERP
         mainObject.material.color.lerp(targetColor, 0.05);
         mainObject.material.emissive.lerp(targetEmissive, 0.05);
         glowMesh.material.color.lerp(targetGlow, 0.05);
 
-        // Suavizar escala de vuelta a la normalidad (Latido)
         const pulse = 1 + Math.sin(time * 2) * 0.03;
         mainObject.scale.lerp(new THREE.Vector3(pulse, pulse, pulse), 0.1);
-
         if (scene.fog) scene.fog.color.lerp(new THREE.Color(0x000000), 0.1);
-    } // <-- Aquí se cierra correctamente el bloque Else de Apocalipsis
+    }
 
     // --- C. FONDO DE ESTRELLAS (HIPERESPACIO) ---
     if (starMesh && starMesh.geometry) {
         const positions = starMesh.geometry.attributes.position.array;
         let starSpeed = isApocalypse ? 0.5 : 0.05 + Math.min(1.5, cps * 0.0005);
-
-        // Aceleración por Buff
         if (buffMultiplier > 1 || clickBuffMultiplier > 1) starSpeed += 0.8;
 
         for (let i = 0; i < positions.length; i += 3) {
@@ -1428,6 +1540,26 @@ function update3D() {
         }
         starMesh.geometry.attributes.position.needsUpdate = true;
     }
+
+    // --- D. SATÉLITES ORBITALES ---
+    const hasHorizon = game.helpers.includes('h_anomaly') && game.helpers.includes('h_discount');
+    
+    satelliteMeshes.forEach((sat) => {
+        const d = sat.userData;
+        const orbitTime = time * d.speed + d.offset;
+        
+        // Movimiento en órbita circular con ligera inclinación en Y
+        sat.position.x = Math.cos(orbitTime) * d.distance;
+        sat.position.z = Math.sin(orbitTime) * d.distance;
+        sat.position.y = Math.sin(orbitTime * 0.5) * (d.distance * 0.3);
+        
+        sat.lookAt(0, 0, 0); // Siempre orientados al núcleo
+
+        // Si la Build Horizonte de Eventos está activa, los satélites dejan estela
+        if (hasHorizon && Math.random() > 0.8) {
+            spawnParticles(sat.position); 
+        }
+    });
 
     // --- ANILLO ORBITAL (Evolución del núcleo) ---
     if (orbitalRing) {
@@ -1457,10 +1589,11 @@ function update3D() {
     }
 
     updateParticles();
-    // Suavizado de cámara general
     camera.position.lerp(new THREE.Vector3(0, 0, 8), 0.05);
     composer.render();
 }
+
+
 
 
 // Función auxiliar para limpiar el código (Pon esto fuera)
@@ -1526,11 +1659,11 @@ let isAnomalyLoopActive = false;
 
 
 function collectAnomaly() {
-    sfxBuy(); // Reutilizamos sonido de compra o uno especial
-
-    // Premio: 5 minutos de producción actual (por ejemplo)
-    const reward = getWps() * 300;
+    sfxBuy(); 
+    // ERROR CORREGIDO: getWps -> getCPS
+    const reward = getCPS() * 300; 
     game.cookies += reward;
+    
     game.anomaliesClicked = (game.anomaliesClicked || 0) + 1;
 
     showNotification("👾 ANOMALÍA ESTABILIZADA", `+${formatNumber(reward)} Energía detectada`);
@@ -1560,24 +1693,40 @@ function spawnAnomaly() {
         return;
     }
 
+    // --- DETECCIÓN DE SINERGIAS (HORIZONTE DE EVENTOS) ---
+    const hasDorian = game.helpers.includes('h_anomaly');
+    const hasSilas = game.helpers.includes('h_discount');
+    const hasHorizonBuild = hasDorian && hasSilas;
+
     // 3. Lógica de selección de tipo
     const types = ['money', 'money', 'production', 'production', 'production', 'click', 'click'];
     const type = types[Math.floor(Math.random() * types.length)];
-    const isCorrupt = isApocalypse && Math.random() < 0.3;
+    
+    // Si la Build está activa, isCorrupt siempre es false (estabilización dimensional)
+    let isCorrupt = isApocalypse && Math.random() < 0.3;
+    if (hasHorizonBuild) isCorrupt = false;
 
     // 4. Crear el Orbe
     const orb = document.createElement('div');
     let icon = '⚛️'; let color = 'gold';
 
-    if (isCorrupt) { icon = '👁️'; color = '#ff0000'; }
-    else if (type === 'production') { icon = '⚡'; color = '#ffaa00'; }
-    else if (type === 'click') { icon = '🖱️'; color = '#00ff88'; }
+    // Estética visual de la Build
+    if (isCorrupt) { 
+        icon = '👁️'; color = '#ff0000'; 
+    } else if (hasHorizonBuild) {
+        // Color púrpura/neón único para la Build Horizonte de Eventos
+        icon = '🌀'; color = '#b388ff'; 
+    } else if (type === 'production') { 
+        icon = '⚡'; color = '#ffaa00'; 
+    } else if (type === 'click') { 
+        icon = '🖱️'; color = '#00ff88'; 
+    }
 
     orb.className = 'anomaly-object';
     orb.innerHTML = icon;
     orb.style.cssText = `
         position: absolute; font-size: 3.5rem; cursor: pointer; z-index: 2000; 
-        filter: drop-shadow(0 0 15px ${color}); 
+        filter: drop-shadow(0 0 20px ${color}); 
         left: ${Math.random() * 80 + 10}%; top: ${Math.random() * 80 + 10}%;
         user-select: none; transition: opacity 0.5s;
     `;
@@ -1587,19 +1736,22 @@ function spawnAnomaly() {
         e.stopPropagation();
         sfxAnomaly();
 
+        // Mensaje especial de la Build si estaba corrupta
+        if (hasHorizonBuild && isApocalypse && Math.random() < 0.3) {
+            showAnomalyPopup(`🛡️ BUILD: ANOMALÍA ESTABILIZADA`);
+        }
+
         if (type === 'money' || isCorrupt) {
-            // Lógica de dinero normal o corrupto (se mantiene igual)
             let gain = getCPS() * 1200;
             game.cookies += gain;
+            game.totalCookiesEarned += gain;
             showAnomalyPopup(`+${formatNumber(gain)} Watts`);
         }
         else if (type === 'production') {
-            // X7 DURANTE 10 SEGUNDOS
             activateBuff('production', 7, 10);
             showAnomalyPopup(`⚡ SOBRECARGA: x7 (10s)`);
         }
         else if (type === 'click') {
-            // X777 DURANTE 7 SEGUNDOS
             activateBuff('click', 777, 7);
             showAnomalyPopup(`🖱️ CLICKSTORM: x777 (7s)`);
         }
@@ -1613,10 +1765,13 @@ function spawnAnomaly() {
     // Desaparecer si no se clica en 15 segundos
     setTimeout(() => { if (orb.parentNode) orb.remove(); }, 15000);
 
-    // 5. PROGRAMAR SIGUIENTE APARICIÓN: EXACTAMENTE 60 SEGUNDOS
-    // Usamos la variable global para que no se dupliquen hilos
-    anomalyTimeout = setTimeout(spawnAnomaly, 60000);
+    // 5. PROGRAMAR SIGUIENTE APARICIÓN
+    // Si la Build está activa, el cooldown se reduce de 60s a 35s
+    let nextSpawn = hasHorizonBuild ? 35000 : 60000;
+    anomalyTimeout = setTimeout(spawnAnomaly, nextSpawn);
 }
+
+
 
 
 
@@ -1800,6 +1955,24 @@ function getCPS() {
         }
     });
 
+    // --- NUEVO: SISTEMA DE SINERGIAS DE STAFF (BUILDS) ---
+    // Sinergia: CICLO CERRADO (Marcus Voltz + Sarah Joule)
+    if (game.helpers.includes('h_miner') && game.helpers.includes('h_efficiency')) {
+        total *= 1.10; // +10% Producción por optimización de consumo
+    }
+
+    // Sinergia: MENTE DE COLMENA (IA Mente Enlazada + Director Cipher)
+    if (game.helpers.includes('h_synergy') && game.helpers.includes('h_master')) {
+        const totalBuildings = Object.values(game.buildings).reduce((a, b) => a + b, 0);
+        // Potencia el bono de sinergia estructural de 1% a 2%
+        total *= (1 + (totalBuildings * 0.01)); 
+    }
+
+    // Sinergia: HORIZONTE DE EVENTOS (Dorian Nox + Silas Vane)
+    if (game.helpers.includes('h_anomaly') && game.helpers.includes('h_discount')) {
+        total *= 1.05; // Bono de estabilidad dimensional
+    }
+
     // 4. CADENA OMEGA
     if (game.upgrades.includes('protocol-omega')) total *= 1.2;
     if (game.upgrades.includes('omega-phase-2')) total *= 1.5;
@@ -1829,18 +2002,18 @@ function getCPS() {
         if (stacks > 0) total *= (1 + (stacks * 0.10));
     }
 
-    // NUEVO: Bonus de Singularidad (Multiplicador por Aliens capturados)
+    // Bonus de Singularidad
     if (game.heavenlyUpgrades.includes('singularity')) {
-        total *= 1.5; // Bonus fijo por alcanzar el fin del árbol
+        total *= 1.5; 
     }
 
     if (game.heavenlyUpgrades.includes('dark_matter_engine')) total *= 2.0;
     if (game.heavenlyUpgrades.includes('multiverse')) total *= 2.0;
 
-    // 6. MULTIPLICADORES TEMPORALES
+    // 6. MULTIPLICADORES TEMPORALES Y ÉLITE
     if (isOvercharged) total *= 5;
     if (game.activePearl === 'red') total *= 10;
-    // Añade esto al final de getCPS antes del return
+    
     if (game.buildings.andromeda_dyson > 0) {
         total *= Math.pow(1.1, game.buildings.andromeda_dyson);
     }
@@ -1863,17 +2036,16 @@ function getNetCPS() {
 
 function getHelpersCost() {
     let totalCost = 0;
-    game.helpers.forEach(helperId => {
-        const helper = helpersConfig.find(h => h.id === helperId);
-        if (helper) totalCost += helper.cost;
+    game.helpers.forEach(id => {
+        const h = helpersConfig.find(x => x.id === id);
+        if (h) totalCost += h.cost;
     });
-
-    // --- NUEVA LÓGICA DE DESCUENTO ---
-    const efficiencyHelper = helpersConfig.find(h => h.effect === 'helperMaintenance');
-    if (efficiencyHelper && game.helpers.includes(efficiencyHelper.id)) {
-        totalCost *= efficiencyHelper.value; // Multiplica por 0.6 (descuento del 40%)
+    // Aplicar Sinergia Ciclo Cerrado
+    if (game.helpers.includes('h_miner') && game.helpers.includes('h_efficiency')) {
+        totalCost *= 0.5; // El 50% de descuento prometido
+    } else if (game.helpers.includes('h_efficiency')) {
+        totalCost *= 0.6; // Descuento normal
     }
-
     return totalCost;
 }
 
@@ -2147,6 +2319,10 @@ function checkGreenPearlMission() {
 
 
 
+
+
+
+
 window.toggleHelper = function (helperId) {
     const helper = helpersConfig.find(h => h.id === helperId);
     if (!helper) return;
@@ -2160,7 +2336,6 @@ window.toggleHelper = function (helperId) {
 
     if (isActive) {
         // --- DESACTIVAR ---
-        // Usamos filter para quitarlo de la lista
         game.helpers = game.helpers.filter(id => id !== helperId);
         showNotification("❌ Ayudante Despedido", `${helper.name} ha vuelto a su planeta.`);
     } else {
@@ -2177,7 +2352,6 @@ window.toggleHelper = function (helperId) {
         }
 
         // 2. ¿Puedes pagar su sueldo?
-        // (Asumimos que los ayudantes restan CPS o requieren un flujo positivo)
         const currentCPS = getCPS();
         const currentHelperCost = getHelpersCost();
 
@@ -2193,9 +2367,8 @@ window.toggleHelper = function (helperId) {
         // ¡Contratado!
         game.helpers.push(helperId);
 
-        // --- AQUÍ COMPROBAMOS LA MISIÓN DE LA PERLA VERDE ---
-        checkGreenPearlMission(); // <--- IMPORTANTE: Chequear si ya tienes los 4 últimos
-        // ----------------------------------------------------
+        // --- COMPROBAR MISIÓN DE LA PERLA VERDE ---
+        checkGreenPearlMission(); 
 
         sfxPrestige();
         showNotification("✅ Ayudante Equipado", `${helper.name} se ha unido al equipo.`);
@@ -2204,12 +2377,13 @@ window.toggleHelper = function (helperId) {
     // --- FINALIZAR ---
     renderHelpers();
     updateUI();
+    recalculateStats();
 
-    // --- IMPORTANTE: RECALCULAR ESTADÍSTICAS ---
-    // Si no pones esto, el CPS no cambiará hasta que compres un edificio o hagas click.
-    recalculateStats(); // <--- IMPRESCINDIBLE
+    // 🔥 SINCRONIZACIÓN DE BUILDS: Actualiza el Staff Feed con los combos activos
+    if (typeof updateStaffSynergyUI === 'function') {
+        updateStaffSynergyUI();
+    }
 };
-
 
 
 
@@ -3132,22 +3306,32 @@ function doClickLogic(cx, cy) {
     let critChance = 0;
     if (game.heavenlyUpgrades.includes('crit_master')) critChance += 0.05;
 
+    // Lógica de mejoras de ayudantes individuales
     if (game.upgrades.includes('upg_master_h_crit')) {
         critChance = 0.25;
     } else if (game.helpers.includes('h_crit')) {
         critChance += 0.10;
     }
 
+    // --- SINERGIA: PROTOCOLO DE CAMPO (Thorne + Kael) ---
+    const hasThorne = game.helpers.includes('h_clicker');
+    const hasKael = game.helpers.includes('h_crit');
+    let critMult = 10; // Multiplicador base de crítico
+
+    if (hasThorne && hasKael) {
+        critChance += 0.15; // +15% de probabilidad extra por Build
+        critMult = 15;      // Los críticos ahora son x15
+    }
+
     if (Math.random() < critChance) {
         isCrit = true;
-        val *= 10;
-
-        // --- 🔇 SONIDO ELIMINADO ---
-        // playTone(600, 'square', 0.1, 0.2); // <--- ESTA LÍNEA CAUSABA EL RUIDO MOLESTO
+        val *= critMult;
 
         // Mantenemos el temblor de cámara para que se sienta el impacto
-        camera.position.x += (Math.random() - 0.5) * 0.5;
-        camera.position.y += (Math.random() - 0.5) * 0.5;
+        // Si hay sinergia activa, el temblor es un poco más intenso
+        const shakePower = (hasThorne && hasKael) ? 0.8 : 0.5;
+        camera.position.x += (Math.random() - 0.5) * shakePower;
+        camera.position.y += (Math.random() - 0.5) * shakePower;
     }
 
     // 3. APLICAR RESULTADO
@@ -3172,7 +3356,8 @@ function doClickLogic(cx, cy) {
 
     // 4. TEXTO FLOTANTE
     if (isCrit) {
-        createFloatingText(cx, cy, `¡CRÍTICO! +${formatNumber(val)}`, true);
+        const critText = (hasThorne && hasKael) ? `¡GOLPE MAESTRO! +${formatNumber(val)}` : `¡CRÍTICO! +${formatNumber(val)}`;
+        createFloatingText(cx, cy, critText, true);
     } else {
         createFloatingText(cx, cy, `+${formatNumber(val)}`, false);
     }
@@ -3383,6 +3568,76 @@ window.resetGame = function () {
         }
     );
 };
+
+
+
+
+// --- AÑADIDOS V2.0 ---
+
+// En tu lógica de gestión de tiempos de eventos:
+function getAnomalyChance() {
+    let baseTime = 60000; // 60 segundos base
+    
+    // --- SINERGIA: HORIZONTE DE EVENTOS ---
+    const hasDorian = game.helpers.includes('h_anomaly');
+    const hasSilas = game.helpers.includes('h_discount');
+    
+    if (hasDorian && hasSilas) {
+        baseTime *= 0.6; // Aparecen un 40% más rápido
+    } else if (hasDorian) {
+        baseTime *= 0.85; // Bono normal de Dorian
+    }
+    
+    return baseTime;
+}
+
+
+
+
+window.updateStaffSynergyUI = function() {
+    const feedEl = document.getElementById('staff-feed');
+    if (!feedEl) return;
+
+    const activeSynergies = [];
+    const helpers = game.helpers;
+
+    // Mapeo de Sinergias (Builds)
+    if (helpers.includes('h_clicker') && helpers.includes('h_crit')) 
+        activeSynergies.push("PROTOCOLO DE CAMPO");
+    
+    if (helpers.includes('h_miner') && helpers.includes('h_efficiency')) 
+        activeSynergies.push("CICLO CERRADO");
+    
+    if (helpers.includes('h_anomaly') && helpers.includes('h_discount')) 
+        activeSynergies.push("HORIZONTE DE EVENTOS");
+    
+    if (helpers.includes('h_synergy') && helpers.includes('h_master')) 
+        activeSynergies.push("MENTE DE COLMENA");
+
+    // Actualización del DOM
+    if (activeSynergies.length > 0) {
+        // Estilo neón con iconos de cadena para feedback visual de conexión
+        feedEl.innerHTML = `<span class="synergy-active">🔗 BUILDS: ${activeSynergies.join(" + ")} 🔗</span>`;
+        feedEl.style.opacity = 1;
+    } else {
+        // Si el jugador desequipa el combo, restauramos el feed para mensajes normales
+        if (feedEl.innerHTML.includes("BUILDS:")) {
+            feedEl.innerHTML = "Esperando sincronización de equipo...";
+        }
+    }
+};
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // --- CONFIG LOGROS ---
