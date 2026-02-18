@@ -384,13 +384,25 @@ const buildingsConfig = [
     // TIER 4: CUÁNTICO
     { id: 'temple', name: 'Reactor de Fusión', type: 'auto', baseCost: 20000000, basePower: 7800, desc: '+7.8 kW/s (Fusión)', icon: '⚛️' },
     { id: 'portal', name: 'Matriz de Dyson', type: 'auto', baseCost: 330000000, basePower: 44000, desc: '+44 kW/s (Estelar)', icon: '🛰️' },
+    
+    // TIER DE COMUNICACIONES
+    {
+        id: 'sat_uplink',
+        name: 'Enlace Satelital',
+        type: 'auto',
+        baseCost: 750000,
+        basePower: 500,
+        desc: 'Establece una red orbital. Desbloquea Nodos de Sincronía en el núcleo.',
+        icon: '📡',
+        isSatellite: true
+    }, // <--- LA COMA QUE FALTABA ESTABA AQUÍ
 
     // --- TIER ÉLITE: ANDRÓMEDA (Solo vía Comerciantes) ---
     {
         id: 'andromeda_siphon',
         name: 'Sifón de Vacío',
         type: 'auto',
-        baseCost: 5000000000, // 5 Billones
+        baseCost: 5000000000,
         basePower: 1000000,
         desc: 'Extrae energía del tejido espacial. Produce 1 MW/s.',
         icon: '🕳️',
@@ -400,7 +412,7 @@ const buildingsConfig = [
         id: 'andromeda_bazar',
         name: 'Bazar Galáctico',
         type: 'auto',
-        baseCost: 25000000000, // 25 Billones
+        baseCost: 25000000000,
         basePower: 5000000,
         desc: 'Sinergia comercial: +5% producción global por unidad.',
         icon: '🏪',
@@ -410,7 +422,7 @@ const buildingsConfig = [
         id: 'andromeda_dyson',
         name: 'Esfera Dyson Enana',
         type: 'auto',
-        baseCost: 100000000000, // 100 Billones
+        baseCost: 100000000000,
         basePower: 25000000,
         desc: 'Multiplica el poder de tu Prestigio por 1.1x.',
         icon: '🌟',
@@ -541,6 +553,49 @@ function startIntroSequence() {
 }
 
 startMerchantLoop();
+
+
+
+let activeNodes = [];
+
+window.spawnSignalNode = function() {
+    if ((game.buildings['sat_uplink'] || 0) <= 0) return;
+    
+    // Crear un nodo visual en una posición aleatoria alrededor del núcleo
+    const node = document.createElement('div');
+    node.className = 'signal-node';
+    node.innerHTML = '🎯';
+    node.style.cssText = `
+        position: absolute;
+        left: ${Math.random() * 60 + 20}%;
+        top: ${Math.random() * 60 + 20}%;
+        cursor: pointer;
+        z-index: 2000;
+        animation: pulseNode 2s infinite;
+        filter: drop-shadow(0 0 10px #00ff88);
+    `;
+
+    node.onclick = (e) => {
+        e.stopPropagation();
+        activateSyncBoost();
+        node.remove();
+    };
+
+    document.getElementById('game-area').appendChild(node);
+    setTimeout(() => { if(node.parentNode) node.remove(); }, 4000);
+};
+
+// Multiplicador temporal por click de precisión
+function activateSyncBoost() {
+    sfxClick();
+    const boost = 1.25; // +25% de producción total
+    activateBuff('production', boost, 5); // Reutilizamos tu sistema de buffs
+    showAnomalyPopup("🛰️ SEÑAL SINCRONIZADA: +25% CPS", 'good');
+}
+
+
+
+
 
 function handleIntroClick() {
     // Si ya hemos llegado al final, IGNORAR clicks extra para no romper la cinemática
