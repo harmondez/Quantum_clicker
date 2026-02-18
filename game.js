@@ -13,6 +13,8 @@ masterGain.gain.value = 0.2;
 masterGain.connect(audioCtx.destination);
 
 
+
+
 let game = {
     cookies: 0,
     totalCookiesEarned: 0,
@@ -39,6 +41,8 @@ let game = {
 
 };
 
+
+
 // Variables temporales (no se guardan)
 let buffMultiplier = 1; // Multiplicador global de producción
 let clickBuffMultiplier = 1; // Multiplicador de clicks
@@ -57,6 +61,8 @@ let buffDuration = 0; // 10 segundos en milisegundos
 let anomalyTimeout = null; // Guardará el temporizador para poder limpiarlo
 let introDroneOscillator = null; // Zumbido del reactor
 let introDroneGain = null;
+let globalExpRate = 2.5; // Ajusta este valor para acelerar el juego
+
 
 // ==========================================
 // 0. SISTEMA DE MODO SEGURO (FOTOSENSIBILIDAD)
@@ -264,7 +270,9 @@ function doClickLogic(cx, cy) {
 
     // 5. TEXTO FLOTANTE DE WATTS
     if (isCrit) {
-        const critText = (hasThorne && hasKael) ? `¡GOLPE MAESTRO! +${formatNumber(val)}` : `¡CRÍTICO! +${formatNumber(val)}`;
+        const critWord = `<span style="color: #ff0000; font-weight: bold;">CRIT</span>`;
+        const critWordAlt = `<span style="color: #ff0000; font-weight: bold;">¡CRÍTICO!</span>`;
+        const critText = (hasThorne && hasKael) ? `CRIT ${formatNumber(val)}` : `¡CRÍTICO! +${formatNumber(val)}`;
         createFloatingText(cx, cy, critText, true);
     } else {
         createFloatingText(cx, cy, `+${formatNumber(val)}`, false);
@@ -1819,12 +1827,18 @@ function getPlayerLevel() {
     return Math.floor(Math.cbrt(game.totalCookiesEarned / 100)) + 1;
 }
 
+// Puedes poner esto cerca de tus variables globales (como buffMultiplier)
+
+
 window.gainExp = function(amount) {
     if (isNaN(amount) || amount <= 0) return;
 
-    game.exp += amount;
+    // Aplicamos el multiplicador global a cualquier cantidad recibida
+    const finalAmount = amount * (globalExpRate || 1);
 
-    // Fórmula: Nivel = sqrt(exp / 100) + 1
+    game.exp += finalAmount;
+
+    // Mantener la fórmula suave: Nivel = sqrt(exp / 100) + 1
     const newLevel = Math.floor(Math.sqrt(game.exp / 100)) + 1;
 
     if (newLevel > game.level) {
@@ -1833,18 +1847,44 @@ window.gainExp = function(amount) {
         handleLevelUp(oldLevel, newLevel);
     }
     
-    // Actualización inmediata de la barra de nivel
     if (typeof updateLevelUI === 'function') updateLevelUI();
 };
+// --- LÓGICA DE EXPERIENCIA PASIVA (Pon esto al final de game.js) ---
+setInterval(() => {
+    if (typeof gainExp === 'function' && !isIntroActive) {
+        // Ahora damos 5 de base, que con el multiplicador x2.5 serán 12.5 EXP/seg
+        gainExp(5); 
+    }
+}, 1000);
 
 
+function handleLevelUp(oldLvl, newLvl) {
+    // 1. Notificación visual y sonora
+    showNotification("🆙 RANGO AUMENTADO", `¡Has alcanzado el Nivel ${newLvl}!`);
+    
+    if (typeof sfxLevelUp === 'function') {
+        sfxLevelUp();
+    } else {
+        // Sonido de respaldo si no tienes el archivo de audio
+        playTone(600, 'square', 0.3, 0.1); 
+    }
 
+    // 2. RECOMPENSA: Bono de Galacticoins por ascenso
+    // Damos 10 GC por cada nivel subido (útil para el Mercado Negro)
+    const gcBonus = 10;
+    game.galacticoins = (game.galacticoins || 0) + gcBonus;
+    showNotification("💰 BONO DE RANGO", `+${gcBonus} Galacticoins concedidos.`);
 
-function handleLevelUp() {
-    showNotification("🆙 NIVEL ALCANZADO", `¡Eres Nivel ${game.level}! Nuevos operadores disponibles.`);
-    sfxLevelUp(); // Si tienes un sonido de nivel
+    // 3. Actualización de lógica y staff
     recalculateStats();
-    renderHelpers(); // Para desbloquear las tarjetas de staff al instante
+    
+    // Esto es vital para que las tarjetas "Clasificadas" se revelen al instante
+    if (typeof renderHelpers === 'function') {
+        renderHelpers(); 
+    }
+
+    // 4. Guardado automático (Hito importante)
+    saveGame();
 }
 
 
@@ -2649,19 +2689,16 @@ window.toggleHelper = function (helperId) {
     const helper = helpersConfig.find(h => h.id === helperId);
     if (!helper) return;
 
-    // 1. REGLA DE NIVEL (Calculado sobre Watts totales / 100)
-    // El +1 asegura que empezamos en Nivel 1 y no en Nivel 0
-    const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned / 100)) + 1;
+    // 1. REGLA DE NIVEL (Sincronizada con game.level)
+    const playerLevel = game.level || 1; 
     
     if (playerLevel < helper.reqLevel) {
-        // Bloqueo silencioso o con aviso, según prefieras
         showNotification("🔒 NIVEL BAJO", `Necesitas ser Nivel ${helper.reqLevel} para este operador.`);
         return;
     }
 
     // Inicialización de seguridad
     if (!game.helpers) game.helpers = [];
-
     const isActive = game.helpers.includes(helperId);
 
     if (isActive) {
@@ -2671,40 +2708,30 @@ window.toggleHelper = function (helperId) {
         showNotification("❌ DESPEDIDO", `${helper.name} ha dejado su puesto.`);
     } else {
         // --- CONTRATAR OPERADOR ---
-
-        // A. ¿Hay hueco en los 4 slots?
         if (game.helpers.length >= MAX_HELPERS) {
             playTone(150, 'sawtooth', 0.2, 0.1);
-            showSystemModal("NAVE LLENA", `Solo tienes ${MAX_HELPERS} slots. Despide a alguien primero.`, false);
+            showSystemModal("NAVE LLENA", `Solo tienes ${MAX_HELPERS} slots.`, false);
             return;
         }
 
-        // B. ¿Tienes Wps suficientes para mantenerlo?
         const currentNetWps = getCPS() - getHelpersCost();
-        
         let actualCost = helper.cost;
-        if (game.heavenlyUpgrades.includes('pension_plan')) {
-            actualCost *= 0.9;
-        }
+        if (game.heavenlyUpgrades.includes('pension_plan')) actualCost *= 0.9;
 
         if (currentNetWps < actualCost) {
-            showSystemModal("ENERGÍA INSUFICIENTE", `Tu red no puede mantener este sueldo.\nGeneración libre: ${formatNumber(currentNetWps)}/s\nRequerido: ${formatNumber(actualCost)}/s`, false);
+            showSystemModal("ENERGÍA INSUFICIENTE", `Generación libre: ${formatNumber(currentNetWps)}/s\nRequerido: ${formatNumber(actualCost)}/s`, false);
             return;
         }
 
-        // ¡CONTRATADO Y ACTIVADO!
         game.helpers.push(helperId);
         sfxAssignHelper();
         showNotification("✅ CONTRATADO", `${helper.name} está operando.`);
-        
         checkGreenPearlMission();
     }
 
-    // --- ACTUALIZACIÓN TOTAL ---
     renderHelpers();
     updateUI();
     recalculateStats();
-    if (typeof updateStaffSynergyUI === 'function') updateStaffSynergyUI();
     saveGame();
 };
 
@@ -2821,37 +2848,26 @@ function finishBlueScene() {
 let alienLoopTimeout = null;
 
 function startAlienLoop() {
-    // 1. Limpiamos cualquier temporizador anterior para evitar duplicados
     if (alienLoopTimeout) clearTimeout(alienLoopTimeout);
 
-    // 2. Definimos el rango de tiempo (en milisegundos)
-    // Por defecto: Entre 1.5 y 2.5 minutos (Promedio: 2 minutos)
-    let minTime = 90000;  // 90 segundos
-    let maxTime = 150000; // 150 segundos
+    let minTime = 90000; 
+    let maxTime = 150000;
 
-    // 3. Si tienes la mejora 'Tecnología de Rapto', aparecen más seguido (Promedio: 1 min)
     if (game.heavenlyUpgrades.includes('abduction_tech')) {
-        minTime = 45000; // 45 segundos
-        maxTime = 75000; // 75 segundos
+        minTime = 45000;
+        maxTime = 75000;
     }
 
-    // 4. Calculamos el tiempo aleatorio para ESTA aparición
     const randomDelay = Math.floor(Math.random() * (maxTime - minTime + 1) + minTime);
 
-    // console.log(`👽 Próximo alien en: ${Math.round(randomDelay/1000)}s`); 
-
-    // 5. Programamos la aparición
     alienLoopTimeout = setTimeout(() => {
-        // Solo si tenemos la mejora de Primer Contacto comprada
+        // 🔥 CAMBIO: Solo spawnea si tiene la mejora, pero SIEMPRE reinicia el ciclo
         if (game.heavenlyUpgrades.includes('alien_contact')) {
             spawnAlien();
         }
-
-        // Reiniciamos el ciclo para el siguiente alien
-        startAlienLoop();
+        startAlienLoop(); 
     }, randomDelay);
 }
-
 
 
 // Función que se ejecuta al hacer click en la esfera central
@@ -2909,111 +2925,97 @@ window.renderHelpers = function() {
 
     container.innerHTML = '';
     const currentStaff = game.helpers || [];
-    // Calculamos nivel real: raíz cúbica del total/100 + 1
     const playerLevel = game.level || 1;
 
-
-setInterval(() => {
-    // Si el juego no está en pausa/intro, gana 1 de EXP por segundo
-    if (typeof gainExp === 'function' && !isIntroActive) {
-        gainExp(1);
-    }
-}, 1000);
-
-
-    // --- 1. CABECERA ---
+    // --- 1. CABECERA DE SLOTS ---
     const header = document.createElement('div');
     const slotsColor = currentStaff.length >= MAX_HELPERS ? '#ff5252' : '#00ff88';
     header.style.cssText = "padding: 10px; margin-bottom: 5px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;";
     header.innerHTML = `
         <div style="display:flex; flex-direction:column">
-            <span style="color:#aaa; font-size:0.6rem; text-transform:uppercase; letter-spacing:1px;">Fuerza Operativa</span>
+            <span style="color:#aaa; font-size:0.6rem; text-transform:uppercase;">Fuerza Operativa</span>
             <span style="color:#fff; font-size:0.85rem; font-weight:bold;">SISTEMA DE SLOTS</span>
         </div>
-        <span style="color: ${slotsColor}; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 10px ${slotsColor}44;">
+        <span style="color: ${slotsColor}; font-weight: bold; font-size: 1.1rem;">
             ${currentStaff.length} / ${MAX_HELPERS}
         </span>
     `;
     container.appendChild(header);
 
-    // --- 2. ÁRBOL VISUAL DE RECLUTAMIENTO (Miniaturas) ---
+    // --- 2. ÁRBOL DE MINIATURAS (Referencia rápida arriba) ---
     const treeContainer = document.createElement('div');
     treeContainer.style.cssText = "display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 15px; border: 1px solid #222;";
     
     helpersConfig.forEach(helper => {
         const isHired = currentStaff.includes(helper.id);
         const isLocked = playerLevel < helper.reqLevel;
-        
         const dot = document.createElement('div');
         dot.style.cssText = `
             width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
             font-size: 1.1rem; border: 1px solid ${isHired ? 'var(--accent)' : '#333'};
             background: ${isLocked ? '#111' : (isHired ? 'rgba(0,255,136,0.1)' : '#222')};
-            opacity: ${isLocked ? '0.3' : '1'}; position: relative; cursor: help;
+            opacity: ${isLocked ? '0.3' : '1'}; position: relative;
         `;
         dot.innerHTML = isLocked ? '?' : helper.icon;
-        dot.setAttribute('data-tooltip', isLocked ? `Bloqueado: Nivel ${helper.reqLevel}` : helper.name);
-        
-        // Indicador de nivel pequeño
-        const lvlTag = document.createElement('span');
-        lvlTag.style.cssText = "position: absolute; bottom: -2px; right: -2px; font-size: 0.5rem; color: #666; background: #000; padding: 0 2px; border-radius: 2px;";
-        lvlTag.innerText = helper.reqLevel;
-        dot.appendChild(lvlTag);
-        
         treeContainer.appendChild(dot);
     });
     container.appendChild(treeContainer);
 
-    // --- 3. LISTA DE TARJETAS DETALLADAS ---
-    helpersConfig.forEach(helper => {
+    // --- 3. LISTA DETALLADA (EL FILTRO REAL) ---
+    
+    // Usamos un bucle "for...of" porque permite usar la instrucción "break"
+    // para detener el renderizado por completo.
+    for (const helper of helpersConfig) {
         const isActive = currentStaff.includes(helper.id);
         const isLocked = playerLevel < helper.reqLevel;
 
-        // Solo mostramos tarjetas de los que NO están bloqueados O del próximo a desbloquear
-        // Esto evita llenar la lista de "Sujetos Clasificados" innecesariamente
-        const nextToUnlock = helpersConfig.find(h => playerLevel < h.reqLevel);
-        if (isLocked && helper.id !== nextToUnlock?.id) return;
-
-        const div = document.createElement('div');
-        div.className = `helper-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`;
-        
         if (isLocked) {
-            div.style.pointerEvents = "none";
-            div.style.filter = "grayscale(1) brightness(0.7)";
+            // Este es el PRÓXIMO OBJETIVO
+            const div = document.createElement('div');
+            div.className = 'helper-item locked';
+            div.style.cssText = "pointer-events: none; filter: grayscale(1) opacity(0.7); cursor: default;";
+            
+            div.innerHTML = `
+                <div class="helper-icon">🔒</div>
+                <div class="helper-info">
+                    <h4 style="color: #666">PRÓXIMO OBJETIVO</h4>
+                    <p style="font-size:0.7rem; color:#444">Sigue operando para desbloquear este contacto.</p>
+                    <div style="font-family:monospace; font-size:0.65rem; margin-top:4px; color:#ff5252; font-weight:bold;">
+                        REQUISITO: NIVEL ${helper.reqLevel}
+                    </div>
+                </div>
+                <div class="helper-toggle">🔒</div>
+            `;
+            container.appendChild(div);
+
+            // 🛑 ¡ESTA ES LA CLAVE! 
+            // Al encontrar el primer bloqueado, lo dibujamos y salimos del bucle.
+            // No se procesará ningún operador más (ni nivel 30, ni 50, ni 100).
+            break; 
+
         } else {
+            // OPERADOR DESBLOQUEADO (Se muestra normal)
+            const div = document.createElement('div');
+            div.className = `helper-item ${isActive ? 'active' : ''}`;
             div.style.cursor = "pointer";
             div.onmousedown = (e) => { e.preventDefault(); toggleHelper(helper.id); };
+
+            let statusText = isActive ? "⚡ EN LÍNEA" : `Sueldo: ${formatNumber(helper.cost)}/s`;
+            
+            div.innerHTML = `
+                <div class="helper-icon">${helper.icon}</div>
+                <div class="helper-info">
+                    <h4 style="color: #fff">${helper.name}</h4>
+                    <p style="font-size:0.7rem; color:#bbb">${helper.desc}</p>
+                    <div style="font-family:monospace; font-size:0.65rem; margin-top:4px; color:var(--accent); font-weight:bold;">
+                        ${statusText}
+                    </div>
+                </div>
+                <div class="helper-toggle ${isActive ? 'active' : ''}">${isActive ? '❌' : '➕'}</div>
+            `;
+            container.appendChild(div);
         }
-
-        let statusText = "";
-        let btnContent = "";
-        let accentColor = "var(--accent)";
-
-        if (isLocked) {
-            statusText = `REQUISITO: NIVEL ${helper.reqLevel}`;
-            btnContent = "🔒";
-            accentColor = "#ff5252";
-        } else if (isActive) {
-            statusText = "⚡ EN LÍNEA";
-            btnContent = "❌";
-        } else {
-            let visualCost = helper.cost;
-            if (game.heavenlyUpgrades.includes('pension_plan')) visualCost *= 0.9;
-            statusText = `Coste: ${formatNumber(visualCost)}/s`;
-            btnContent = "➕";
-        }
-
-        div.innerHTML = `
-            <div class="helper-icon" style="${isLocked ? 'opacity:0.2' : ''}">${helper.icon}</div>
-            <div class="helper-info">
-                <h4 style="color: ${isLocked ? '#666' : '#fff'}">${isLocked ? 'PRÓXIMO OBJETIVO' : helper.name}</h4>
-                <p style="font-size:0.7rem; color:${isLocked ? '#444' : '#bbb'}">${isLocked ? `Sigue operando hasta el nivel ${helper.reqLevel}.` : helper.desc}</p>
-                <div style="font-family:monospace; font-size:0.65rem; margin-top:4px; color:${accentColor}; font-weight:bold;">${statusText}</div>
-            </div>
-            <div class="helper-toggle ${isActive ? 'active' : ''}">${btnContent}</div>
-        `;
-        container.appendChild(div);
-    });
+    }
 };
 
 
@@ -3263,11 +3265,11 @@ function openMerchantMenu() {
     const availableBuildings = buildingsConfig.filter(b => b.isAndromeda);
     const offer = availableBuildings[Math.floor(Math.random() * availableBuildings.length)];
 
-    // Precio inicial (Precio base con el escalado de cuántos tienes)
+    // 2. Cálculo del precio inicial
     const currentCount = game.buildings[offer.id] || 0;
     let currentPrice = Math.floor(offer.baseCost * Math.pow(1.15, currentCount));
 
-    // Crear el contenedor del menú
+    // 3. Crear el contenedor del menú (Overlay)
     const overlay = document.createElement('div');
     overlay.id = 'merchant-overlay';
     overlay.style.cssText = `
@@ -3282,81 +3284,120 @@ function openMerchantMenu() {
         background: #0a0514; border: 2px solid #b388ff; padding: 30px;
         border-radius: 15px; text-align: center; color: white;
         box-shadow: 0 0 50px rgba(179, 136, 255, 0.3); max-width: 450px;
+        position: relative; animation: modalIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
     `;
 
     content.innerHTML = `
-        <h2 style="color: #b388ff; text-shadow: 0 0 10px #b388ff;">📡 MERCADO NEGRO DE ANDRÓMEDA</h2>
-        <p style="font-size: 0.9rem; color: #aaa;">"Tengo algo que hará que tu red cuántica parezca un juguete..."</p>
+        <h2 style="color: #b388ff; text-shadow: 0 0 10px #b388ff; margin-top: 0;">📡 MERCADO NEGRO DE ANDRÓMEDA</h2>
+        <p style="font-size: 0.9rem; color: #aaa; font-style: italic;">"Tengo algo que hará que tu red cuántica parezca un juguete..."</p>
         
-        <div style="background: rgba(179, 136, 255, 0.1); padding: 15px; border-radius: 10px; margin: 20px 0;">
-            <div style="font-size: 3rem; margin-bottom: 10px;">${offer.icon}</div>
-            <h3 style="margin: 0;">${offer.name}</h3>
-            <p style="font-size: 0.8rem; margin: 5px 0 15px 0;">${offer.desc}</p>
-            <div id="merchant-price-display" style="font-size: 1.2rem; color: #00ff88; font-weight: bold;">
+        <div style="background: rgba(179, 136, 255, 0.1); padding: 15px; border-radius: 10px; margin: 20px 0; border: 1px solid rgba(179, 136, 255, 0.2);">
+            <div id="merchant-icon" style="font-size: 3.5rem; margin-bottom: 10px; transition: transform 0.2s;">${offer.icon}</div>
+            <h3 style="margin: 0; letter-spacing: 1px;">${offer.name}</h3>
+            <p style="font-size: 0.8rem; margin: 8px 0 15px 0; color: #bbb; line-height: 1.4;">${offer.desc}</p>
+            <div id="merchant-price-display" style="font-size: 1.4rem; color: #00ff88; font-weight: bold; text-shadow: 0 0 10px rgba(0,255,136,0.3);">
                 ⚡ ${formatNumber(currentPrice)} Watts
             </div>
         </div>
 
-        <div id="merchant-actions" style="display: flex; flex-direction: column; gap: 10px;">
-            <button id="btn-buy-merchant" style="background: #00ff88; color: black; border: none; padding: 12px; cursor: pointer; font-weight: bold; border-radius: 5px;">
+        <div id="merchant-actions" style="display: flex; flex-direction: column; gap: 12px;">
+            <button id="btn-buy-merchant" style="background: #00ff88; color: black; border: none; padding: 14px; cursor: pointer; font-weight: bold; border-radius: 5px; text-transform: uppercase; letter-spacing: 1px;">
                 ADQUIRIR TECNOLOGÍA
             </button>
             
-            <button id="btn-haggle-merchant" style="background: transparent; color: #b388ff; border: 1px solid #b388ff; padding: 10px; cursor: pointer; border-radius: 5px;">
-                REGATEAR (-20% precio)
+            <button id="btn-haggle-merchant" style="background: transparent; color: #b388ff; border: 1px solid #b388ff; padding: 10px; cursor: pointer; border-radius: 5px; font-weight: bold; transition: all 0.2s;">
+                REGATEAR (Probabilidad basada en Nivel)
             </button>
             
-            <button onclick="document.getElementById('merchant-overlay').remove()" style="background: none; border: none; color: #666; cursor: pointer; font-size: 0.8rem; margin-top: 10px;">
+            <button id="btn-decline-merchant" style="background: none; border: none; color: #666; cursor: pointer; font-size: 0.8rem; margin-top: 5px;">
                 [ DECLINAR OFERTA ]
             </button>
         </div>
-        <p id="merchant-msg" style="font-size: 0.75rem; color: #ffaa00; margin-top: 15px; min-height: 1em;"></p>
+        <p id="merchant-msg" style="font-size: 0.8rem; color: #ffaa00; margin-top: 15px; min-height: 1.2em; font-weight: bold;"></p>
     `;
 
     overlay.appendChild(content);
     document.body.appendChild(overlay);
 
-    // --- LÓGICA DE LOS BOTONES ---
+    // --- VARIABLES DE ESTADO LOCAL ---
+    let haggleAttempts = 0;
 
-    // Botón de Comprar
+    // --- LÓGICA DE BOTONES ---
+
+    // 1. Botón de Comprar
     document.getElementById('btn-buy-merchant').onclick = () => {
         if (game.cookies >= currentPrice) {
             game.cookies -= currentPrice;
             game.buildings[offer.id] = (game.buildings[offer.id] || 0) + 1;
-            showNotification("CONTRATO FIRMADO", `${offer.name} añadido a la flota.`);
+            
+            if (typeof sfxBuy === 'function') sfxBuy();
+            showNotification("CONTRATO FIRMADO", `${offer.name} añadido a la flota.`, "#b388ff");
+            
             overlay.remove();
+            recalculateStats();
             updateUI();
         } else {
-            document.getElementById('merchant-msg').innerText = "❌ No tienes suficiente energía.";
+            const msg = document.getElementById('merchant-msg');
+            msg.innerText = "❌ Energía insuficiente para la transacción.";
+            msg.style.color = "#ff4444";
+            msg.style.animation = "shake 0.3s ease";
+            setTimeout(() => { msg.style.animation = ""; }, 300);
         }
     };
 
-    // Botón de Regatear
-    let haggleCount = 0;
-    document.getElementById('btn-haggle-merchant').onclick = () => {
-        haggleCount++;
+    // 2. Botón de Regatear
+    document.getElementById('btn-haggle-merchant').onclick = function() {
+        haggleAttempts++;
         const msg = document.getElementById('merchant-msg');
         const priceDisplay = document.getElementById('merchant-price-display');
+        const icon = document.getElementById('merchant-icon');
 
-        // Probabilidad de éxito (50% el primer intento, 25% el segundo...)
-        const successChance = 0.5 / haggleCount;
+        // Lógica de probabilidad: El nivel del jugador ayuda a que no baje tan rápido
+        const levelBonus = (game.level || 1) * 0.005; 
+        const successChance = (0.5 / haggleAttempts) + levelBonus;
+        const roll = Math.random();
 
-        if (Math.random() < successChance) {
+        if (roll < successChance) {
+            // ✅ ÉXITO
             currentPrice = Math.floor(currentPrice * 0.8);
             priceDisplay.innerText = `⚡ ${formatNumber(currentPrice)} Watts`;
             priceDisplay.style.color = "#00ff88";
-            msg.innerText = "✅ El comerciante acepta... de mala gana.";
+            
+            msg.innerText = "✅ El comerciante cede. ¡Precio rebajado!";
             msg.style.color = "#00ff88";
-            // Animación de brillo verde
-            priceDisplay.style.animation = "pulseGreen 0.5s ease";
+            
+            // Animación visual de éxito
+            icon.style.transform = "scale(1.2) rotate(5deg)";
+            setTimeout(() => { icon.style.transform = "scale(1)"; }, 200);
+            
+            priceDisplay.style.animation = "none";
+            setTimeout(() => { priceDisplay.style.animation = "pulseGreen 0.5s ease"; }, 10);
         } else {
-            // FRACASO: El comerciante se ofende
-            msg.innerText = "💢 ¡INSULTANTE! El comerciante se retira.";
+            // ❌ FRACASO: Fin de la negociación
+            this.disabled = true;
+            msg.innerText = "💢 ¡Suficiente! No toleraré más insultos.";
+            msg.style.color = "#ff4444";
+            
             document.getElementById('merchant-actions').innerHTML = `
-                <p style="color: #ff4444; font-weight: bold;">NEGOCIACIÓN FALLIDA</p>
+                <div style="padding: 15px; border: 1px solid #ff4444; color: #ff4444; font-weight: bold; border-radius: 5px; background: rgba(255,0,0,0.1); text-transform: uppercase;">
+                    Negociación Fallida
+                </div>
             `;
-            setTimeout(() => overlay.remove(), 2000);
+            
+            // Cerrar después de un momento
+            setTimeout(() => {
+                if (overlay && overlay.parentNode) {
+                    overlay.style.opacity = "0";
+                    overlay.style.transition = "opacity 0.5s ease";
+                    setTimeout(() => overlay.remove(), 500);
+                }
+            }, 1500);
         }
+    };
+
+    // 3. Botón de Declinar
+    document.getElementById('btn-decline-merchant').onclick = () => {
+        overlay.remove();
     };
 }
 
@@ -3374,14 +3415,17 @@ function buyAndromedaBuilding(id, price) {
 }
 
 function startMerchantLoop() {
-    // Intentar aparecer cada 5-10 minutos
-    const waitTime = 300000 + (Math.random() * 300000);
+    // TEST: Aparecer entre 10 y 20 segundos
+    const waitTime = 30000 + (Math.random() * 30000); 
 
     setTimeout(() => {
+        // Asegúrate de que tienes la mejora 'andromeda_trade' comprada en el Árbol Celestial
         if (game.heavenlyUpgrades.includes('andromeda_trade')) {
             spawnMerchant();
+        } else {
+            console.log("Comerciante bloqueado: Falta 'andromeda_trade'");
         }
-        startMerchantLoop(); // Re-programar siguiente visita
+        startMerchantLoop(); 
     }, waitTime);
 }
 
@@ -3956,8 +4000,10 @@ function loadGame() {
         startIntroSequence();
     }
     
-    // Iniciar bucles de eventos siempre al cargar
+    // 🔥 CORRECCIÓN: Iniciar AMBOS bucles siempre al cargar
     startAlienLoop();
+    startMerchantLoop(); // <--- AÑADE ESTA LÍNEA AQUÍ
+    if (typeof startMerchantLoop === 'function') startMerchantLoop();
 }
 
 
@@ -4368,14 +4414,21 @@ window.confirmAscension = function () {
 
     sfxPrestige();
 
-    // 1. HARD RESET LÓGICO Y VISUAL
+    // 1. HARD RESET LÓGICO Y VISUAL (MODIFICADO)
     game.cookies = 0;
     game.buildings = {};
     game.upgrades = [];
     game.helpers = [];
-    game.activeHelpers = []; // Limpiamos también los slots activos
-    game.inventory = []; // Opcional: Decide si la mochila se limpia o es permanente
+    game.activeHelpers = []; 
     
+    // game.inventory = []; // 🛑 ELIMINADO: Ahora el inventario persiste entre ascensiones.
+    // game.galacticoins = game.galacticoins; // Las monedas también se mantienen.
+
+    // Reseteo de nivel de EXP si quieres que la progresión de nivel sea por prestigio
+    // Si prefieres que el Nivel de Comandante sea permanente, comenta las siguientes 2 líneas:
+    game.exp = 0;
+    game.level = 1;
+
     isApocalypse = false;
     comboMultiplier = 1.0;
     comboTimer = 0;
@@ -4395,10 +4448,9 @@ window.confirmAscension = function () {
     game.antimatter += gain;      
     game.prestigeLevel += gain;   
 
-    // Multiplicador de Prestigio (Efectivo según el nivel acumulado)
+    // Multiplicador de Prestigio
     let effectiveLevel = game.prestigeLevel;
     if (game.heavenlyUpgrades.includes('multiverse')) {
-        // Si tiene Multiverso, el bono por nivel es x0.2 en lugar de x0.1
         game.prestigeMult = 1 + (effectiveLevel * 0.2);
     } else {
         game.prestigeMult = 1 + (effectiveLevel * 0.1);
@@ -4411,17 +4463,13 @@ window.confirmAscension = function () {
     });
 
     // 4. PROTOCOLO DE REINICIO CELESTIAL
-    // Reseteamos el flag para que el Kit de Supervivencia pueda ejecutarse de nuevo
     game.starterKitClaimed = false; 
-
-    // Llamamos a la función centralizada que ahora te dará los 50 cursors y 25 hámsters
     applyHeavenlyUpgrades();
 
     // 5. FINALIZAR Y GUARDAR
     saveGame();
     closeAscension();
     
-    // Pequeña pausa para el flash visual antes de abrir el árbol
     setTimeout(() => {
         openHeavenTree(); 
     }, 500);
