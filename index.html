@@ -86,6 +86,19 @@
                 <div class="pearl-icon">🟢</div>
                 <div class="pearl-tooltip">PERLA VERDE<br>Vacía</div>
             </div>
+            
+            <div class="level-system" style="padding: 15px; background: rgba(0,0,0,0.3); border-bottom: 1px solid #333;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="color: var(--accent); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; font-weight: bold;">Rango de Comandante</span>
+                        <span id="player-level-text" style="color: #fff; font-size: 1.2rem; font-weight: 900; font-family: 'Orbitron', sans-serif;">NIVEL 1</span>
+                    </div>
+                    <span id="level-percentage" style="color: #888; font-size: 0.75rem; font-family: monospace;">0%</span>
+                </div>
+                <div class="progress-bg" style="width: 100%; height: 6px; background: #1a1a1a; border-radius: 10px; overflow: hidden; border: 1px solid #333;">
+                    <div id="level-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00ff88, #00bd65); box-shadow: 0 0 10px rgba(0,255,136,0.5); transition: width 0.3s ease;"></div>
+                </div>
+            </div>
         </div>
     </div>
 

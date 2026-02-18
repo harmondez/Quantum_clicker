@@ -32,7 +32,11 @@ let game = {
     helpers: [],
     // --- NUEVAS VARIABLES DE INVENTARIO ---
     galacticoins: 0,    // Moneda especial para el mercado negro
-    inventory: []       // Array donde guardaremos los objetos (Máximo 30)
+    inventory: [],       // Array donde guardaremos los objetos (Máximo 30)
+    // --- SISTEMA DE NIVELES ---
+    level: 1,           // El nivel actual del comandante
+    exp: 0,             // Progreso visual (opcional si usamos totalCookiesEarned)
+
 };
 
 // Variables temporales (no se guardan)
@@ -189,6 +193,88 @@ window.toggleSafeSetting = function (key) {
     isSafeMode = safeSettingsKeys.every(k => safeSettings[k]);
     saveSafeSettings();
 };
+
+
+function doClickLogic(cx, cy) {
+    sfxClick(); 
+
+    // 1. GESTIÓN DE COMBO
+    const maxCombo = game.upgrades.includes('upg_master_h_combo') ? 10.0 : 5.0;
+    comboMultiplier += 0.05;
+    if (comboMultiplier > maxCombo) comboMultiplier = maxCombo;
+    comboTimer = 2.0;
+
+    const comboEl = document.getElementById('combo-display');
+    if (comboEl) {
+        comboEl.style.opacity = 1;
+        comboEl.style.transform = `scale(${1 + comboMultiplier / 10})`;
+        comboEl.innerText = `COMBO x${comboMultiplier.toFixed(2)}`;
+    }
+
+    // 2. CÁLCULO DE PODER DE PULSO
+    let val = getClickPower();
+    let isCrit = false;
+
+    // --- PROBABILIDAD DE CRÍTICO ---
+    let critChance = 0;
+    if (game.heavenlyUpgrades.includes('crit_master')) critChance += 0.05;
+
+    if (game.upgrades.includes('upg_master_h_crit')) {
+        critChance = 0.25;
+    } else if (game.helpers.includes('h_crit')) {
+        critChance += 0.10;
+    }
+
+    // Sinergia: PROTOCOLO DE CAMPO (Thorne + Kael)
+    const hasThorne = game.helpers.includes('h_clicker');
+    const hasKael = game.helpers.includes('h_crit');
+    let critMult = 10; 
+
+    if (hasThorne && hasKael) {
+        critChance += 0.15; 
+        critMult = 15;      
+    }
+
+    if (Math.random() < critChance) {
+        isCrit = true;
+        val *= critMult;
+        // Sacudida extra por impacto crítico
+        const shakePower = (hasThorne && hasKael) ? 0.8 : 0.5;
+        camera.position.x += (Math.random() - 0.5) * shakePower;
+        camera.position.y += (Math.random() - 0.5) * shakePower;
+    }
+
+    // 3. APLICAR RESULTADOS (Watts y EXP)
+    game.cookies += val;
+    game.totalCookiesEarned += val;
+    game.totalClicks++;
+    game.clickCount++;
+
+    // --- 🆙 NUEVO: GANAR EXPERIENCIA POR CLICK ---
+    if (typeof gainExp === 'function') {
+        gainExp(2); // 2 de EXP por click manual
+    }
+
+    // 4. HITO PERLA AZUL
+    if (game.totalClicks >= 10000 && !game.pearls.includes('blue')) {
+        epicBluePearlScene();
+        unlockPearl('blue');
+        showSystemModal("🔵 HITO ALCANZADO", "10,000 Clicks: Has desbloqueado la Perla del Cronos.", false, null);
+    }
+
+    // 5. TEXTO FLOTANTE DE WATTS
+    if (isCrit) {
+        const critText = (hasThorne && hasKael) ? `¡GOLPE MAESTRO! +${formatNumber(val)}` : `¡CRÍTICO! +${formatNumber(val)}`;
+        createFloatingText(cx, cy, critText, true);
+    } else {
+        createFloatingText(cx, cy, `+${formatNumber(val)}`, false);
+    }
+
+    updateUI();
+}
+
+
+
 
 
 // ==========================================
@@ -931,136 +1017,132 @@ function finishOmegaEvent() {
 const MAX_HELPERS = 4; // Solo 4 huecos
 
 const helpersConfig = [
-    // TIER 1 (PRINCIPIANTE - INFRAESTRUCTURA)
+    // TIER 1 (PRINCIPIANTE - NIVEL 1-10)
     {
         id: 'h_clicker',
-        quotes: ["La transferencia cinética es estable. Sigue pulsando, cada Watt cuenta.", "He ajustado los condensadores manuales. ¡Siento el flujo!"],
         name: '👩‍🔬 Dra. Aris Thorne',
+        quotes: ["La transferencia cinética es estable. Sigue pulsando.", "He ajustado los condensadores manuales."],
         desc: 'Teórica de Campos. Optimiza la transferencia cinética: Pulsos manuales +300%.',
         cost: 15, icon: '👩‍🔬',
-        reqLevel: 5,
+        reqLevel: 1, // Desbloqueo inmediato para empezar
         effect: 'clickPower', value: 3
     },
-    
+    {
+        id: 'h_crit',
+        name: '👮‍♂️ Sargento Kael',
+        quotes: ["¡Fuego a discreción!", "Golpea en el ángulo de 45 grados."],
+        desc: 'Seguridad de Red. Protocolos de choque: 10% probabilidad de Pulso Crítico (x10).',
+        cost: 800, icon: '👮‍♂️',
+        reqLevel: 5, // Introducción temprana al crítico
+        effect: 'critChance', value: 0.1
+    },
     {
         id: 'h_miner',
-        quotes: ["He parcheado una fuga en el sector 4. La producción automática ha subido.", "¿Ves ese zumbido? Es el sonido de la eficiencia pura."],
         name: '👨‍💻 Ing. Marcus Voltz',
+        quotes: ["He parcheado una fuga. La producción ha subido.", "¿Ves ese zumbido? Eficiencia pura."],
         desc: 'Arquitecto de Red. Maximiza el flujo constante de los generadores automáticos (+50% W/s).',
         cost: 50, icon: '👨‍💻',
-        reqLevel: 10,
+        reqLevel: 10, // Primer gran salto de W/s
         effect: 'cpsMultiplier', value: 1.5
     },
 
-    // TIER 2 (INTERMEDIO - LOGÍSTICA)
+    // TIER 2 (INTERMEDIO - NIVEL 11-25)
     {
-        id: 'h_discount',
-        quotes: ["He conseguido materiales de grafeno a mitad de precio. Es hora de construir.", "La logística galáctica es un arte. Hoy los reactores salen baratos."],
-        name: '👔 Silas Vane',
-        desc: 'Logista Cuántico. Negocia contratos de suministros: Estructuras -10% de coste.',
-        cost: 100, icon: '👔',
-        reqLevel: 15,
-        effect: 'costReduction', value: 0.9
+        id: 'h_efficiency',
+        name: '🔬 Dra. Sarah Joule',
+        quotes: ["He optimizado los disipadores.", "La entropía es nuestra enemiga."],
+        desc: 'Termodinámica Sénior. Disipación de calor: Mantenimiento del Staff -40% Watts.',
+        cost: 1500, icon: '🔬',
+        reqLevel: 15, // Necesaria cuando el staff empieza a ser caro
+        effect: 'helperMaintenance', value: 0.6
     },
     {
         id: 'h_combo',
-        quotes: ["He estabilizado el campo temporal. El combo no se irá a ninguna parte.", "Mantén el ritmo, estoy desviando el exceso de calor para alargar el pico."],
         name: '👩‍⚡ Dra. Elena Flux',
+        quotes: ["He estabilizado el campo temporal.", "Mantén el ritmo, desviando el exceso de calor."],
         desc: 'Especialista en Transitorios. Estabiliza picos de energía: Combos duran x2 tiempo.',
         cost: 200, icon: '👩‍⚡',
         reqLevel: 20,
         effect: 'comboTime', value: 2
     },
+    {
+        id: 'h_discount',
+        name: '👔 Silas Vane',
+        quotes: ["Materiales de grafeno a mitad de precio.", "Hoy los reactores salen baratos."],
+        desc: 'Logista Cuántico. Negocia contratos de suministros: Estructuras -10% de coste.',
+        cost: 100, icon: '👔',
+        reqLevel: 25,
+        effect: 'costReduction', value: 0.9
+    },
 
-    // TIER 3 (AVANZADO - INVESTIGACIÓN)
+    // TIER 3 (AVANZADO - NIVEL 30-50)
     {
         id: 'h_anomaly',
-        quotes: ["Mis escáneres detectan una fluctuación cuántica inminente... ¡atento!", "El vacío nos está susurrando. Una anomalía está a punto de cruzar."],
         name: '🕵️‍♂️ Dorian Nox',
+        quotes: ["Mis escáneres detectan una fluctuación...", "El vacío nos está susurrando."],
         desc: 'Analista de Vacío. Sensores de largo alcance: Anomalías aparecen x2 rápido.',
         cost: 500, icon: '🕵️‍♂️',
         reqLevel: 30,
         effect: 'anomalyRate', value: 2
     },
     {
-        id: 'h_crit',
-        quotes: ["¡Fuego a discreción! He cargado el núcleo con munición de alto impacto.", "Si golpeas en el ángulo de 45 grados, la energía se multiplica por diez."],
-        name: '👮‍♂️ Sargento Kael',
-        desc: 'Seguridad de Red. Protocolos de choque: 10% probabilidad de Pulso Crítico (x10).',
-        cost: 800, icon: '👮‍♂️',
+        id: 'h_scavenger',
+        name: '🔧 "Recio" Miller',
+        quotes: ["La basura de uno es mi tesoro...", "He modificado tu mochila."],
+        desc: 'Chatarrero Espacial. Optimización de desguace: +25% Valor de venta de ítems en Galacticoins.',
+        cost: 1200, icon: '🔧',
         reqLevel: 40,
-        effect: 'critChance', value: 0.1
-    },
-
-    // TIER 4 (EXPERTO - GESTIÓN)
-    {
-        id: 'h_efficiency',
-        quotes: ["He optimizado los disipadores. El equipo puede trabajar más por menos.", "La entropía es nuestra enemiga, pero mis cálculos la mantienen a raya."],
-        name: '🔬 Dra. Sarah Joule',
-        desc: 'Termodinámica Sénior. Disipación de calor: Mantenimiento del Staff -40% Watts.',
-        cost: 1500,
-        icon: '🔬',
-        reqLevel: 60,
-        effect: 'helperMaintenance',
-        value: 0.6
+        effect: 'itemValueBoost', value: 1.25
     },
     {
         id: 'h_banker',
-        quotes: ["El mercado energético está al alza. Es el momento de captar anomalías.", "He vendido el excedente de Watts en el mercado negro. ¡Más capital para ti!"],
         name: '📉 Victor "Broker" Ray',
+        quotes: ["El mercado energético está al alza.", "He vendido el excedente en el mercado negro."],
         desc: 'Especulador Energético. Arbitraje de mercado: Anomalías de capital dan +50%.',
         cost: 2000, icon: '📉',
-        reqLevel: 65,
+        reqLevel: 50,
         effect: 'goldenCookieBuff', value: 1.5
     },
 
-    // TIER 5 (MAESTRO - INTELIGENCIA ARTIFICIAL)
+    // TIER 4 (EXPERTO - NIVEL 60-80)
     {
         id: 'h_synergy',
-        quotes: ["Análisis completado: Cada estructura añadida mejora mi capacidad de cálculo.", "Unidad detectada. Integrando eficiencia estructural en el sistema central."],
         name: '🤖 IA "Mente Enlazada"',
+        quotes: ["Análisis completado.", "Integrando eficiencia estructural."],
         desc: 'Integración Sintética. Gestión total: +1% W/s por cada estructura desplegada.',
         cost: 5000, icon: '🤖',
-        reqLevel: 80,
+        reqLevel: 60,
         effect: 'buildingSynergy', value: 0.01
-    },
-    {
-        id: 'h_master',
-        name: '👨‍💼 Director Cipher',
-        quotes: ["Protocolo Maestro activado. La producción global se ha duplicado.", "Director Cipher reportando. Todos los sistemas bajo control absoluto."],
-        desc: 'Administrador General. Ejecuta el Protocolo Dios: Potencia Global x2.0.',
-        cost: 10000, icon: '👨‍💼',
-        reqLevel: 100,
-        effect: 'globalMultiplier', value: 2.0
-    },
-    {
-        id: 'h_scavenger',
-        name: '🔧 "Recio" Miller',
-        quotes: ["En el espacio, la basura de uno es mi tesoro... y tus monedas.", "He modificado tu mochila, ahora los imanes atraen mejor la chatarra."],
-        desc: 'Chatarrero Espacial. Optimización de desguace: +25% Valor de venta de ítems en GC.',
-        cost: 1200, icon: '🔧',
-        reqLevel: 50,
-        effect: 'itemValueBoost', value: 1.25
     },
     {
         id: 'h_hunter',
         name: '🏹 Kiana Vane',
-        quotes: ["Tengo a ese visitante en mi mira. No escapará.", "Sus escudos de plasma no son nada contra mis balas de neutrones."],
-        desc: 'Cazadora de Recompensas. Rastreo Alien: Los Aliens tardan +10s en huir y tienen +20% HP (pero dan x2 Watts).',
+        quotes: ["Tengo a ese visitante en mi mira.", "Sus escudos no son nada contra mis balas."],
+        desc: 'Cazadora de Recompensas. Rastreo Alien: Los Aliens tardan +10s en huir (dan x2 Watts).',
         cost: 3000, icon: '🏹',
-        reqLevel: 70,
+        reqLevel: 75,
         effect: 'alienMastery', value: 2.0
     },
+
+    // TIER 5 (MAESTRO - NIVEL 90-100)
     {
         id: 'h_luck',
         name: '🃏 Gambito Zero',
-        quotes: ["¿Quieres ver un truco? Mira como convierto este cobre en oro.", "La suerte es solo una variable que mi algoritmo puede manipular."],
-        desc: 'Manipulador Probabilístico. Suerte del Diablo: Duplica la probabilidad de encontrar ítems Épicos o superiores.',
+        quotes: ["¿Quieres ver un truco?", "La suerte es solo una variable."],
+        desc: 'Manipulador Probabilístico. Suerte del Diablo: Duplica la probabilidad de encontrar ítems Épicos.',
         cost: 7500, icon: '🃏',
         reqLevel: 90,
         effect: 'luckMultiplier', value: 2.0
+    },
+    {
+        id: 'h_master',
+        name: '👨‍💼 Director Cipher',
+        quotes: ["Protocolo Maestro activado.", "Todos los sistemas bajo control absoluto."],
+        desc: 'Administrador General. Ejecuta el Protocolo Dios: Potencia Global x2.0.',
+        cost: 10000, icon: '👨‍💼',
+        reqLevel: 100,
+        effect: 'globalMultiplier', value: 2.0
     }
-
 ];
 
 const synergiesConfig = [
@@ -1219,47 +1301,46 @@ function onCanvasClick(e) {
     // 1. Activar audio si es el primer click
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
-    // 2. Calcular posición del ratón para Raycaster (3D)
+    // 2. Calcular posición del ratón para Raycaster
     const rect = renderer.domElement.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
 
-    // 3. Comprobar si ha tocado la esfera
+    // 3. Comprobar colisión con el núcleo
     const intersects = raycaster.intersectObject(mainObject);
 
     if (intersects.length > 0) {
-
         // --- 🛑 INTERCEPCIÓN DEL MODO INTRO ---
         if (isIntroActive) {
-            handleIntroClick(); // Avanza la historia
-
-            // Efecto visual sutil (solo partículas, sin sacudida fuerte)
+            handleIntroClick(); 
             spawnParticles(intersects[0].point);
             sfxClick();
-
-            // IMPORTANTE: 'return' para que NO ejecute la lógica normal de dinero
-            return;
+            return; 
         }
-        // ---------------------------------------
 
         // 4. LÓGICA DE JUEGO NORMAL
         doClickLogic(e.clientX, e.clientY);
 
-        // Efecto Shake (Temblor de cámara)
-        camera.position.x = (Math.random() - 0.5) * 0.2;
-        camera.position.y = (Math.random() - 0.5) * 0.2;
+        // --- 💓 EFECTO DE LATIDO (PULSO FÍSICO) ---
+        
+        // A. Sacudida de cámara muy sutil
+        camera.position.x += (Math.random() - 0.5) * 0.15;
+        camera.position.y += (Math.random() - 0.5) * 0.15;
 
-        // Efecto Latido (La bola se encoge)
-        mainObject.scale.setScalar(0.9);
-        glowMesh.scale.setScalar(0.95);
+        // B. Expansión instantánea (El "golpe" del latido)
+        // Escalamos un 10% hacia afuera para simular el pulso
+        mainObject.scale.setScalar(1.1); 
+        glowMesh.scale.setScalar(1.15);
 
+        // C. Retorno elástico rápido
+        // Reducimos el tiempo a 70ms para que sea un movimiento seco y reactivo
         setTimeout(() => {
-            mainObject.scale.setScalar(1);
-            glowMesh.scale.setScalar(1);
-        }, 80);
+            if (mainObject) mainObject.scale.setScalar(1);
+            if (glowMesh) glowMesh.scale.setScalar(1);
+        }, 70);
 
-        // Partículas
+        // Partículas en el punto de impacto
         spawnParticles(intersects[0].point);
     }
 }
@@ -1353,19 +1434,28 @@ function spawnAlien() {
         if (clicksLeft <= 0) {
             clearInterval(moveInterval);
 
-            // Recompensa aplicada con el multiplicador de la Cazadora (x2 si está contratada)
+            // 🆙 RECOMPENSA DE EXPERIENCIA
+            if (typeof gainExp === 'function') {
+                gainExp(250); 
+                if (typeof spawnExpText === 'function') {
+                    spawnExpText(250, e.clientX, e.clientY);
+                }
+            }
+
+            // Recompensa de energía aplicada con el multiplicador de la Cazadora
             const reward = getCPS() * config.reward * 10 * hunterBonus;
             game.cookies += reward;
             game.totalCookiesEarned += reward;
 
             createFloatingText(e.clientX, e.clientY, `¡INTERCEPTADO! +${formatNumber(reward)}`, true);
 
-            // DROP GARANTIZADO (Se mantiene al 100%)
+            // DROP GARANTIZADO
             if (typeof tryDropItem === 'function') {
                 tryDropItem('Alien', 100); 
             }
 
             alien.remove();
+            showNotification("🛸 AMENAZA ELIMINADA", "+250 EXP");
             updateUI();
         }
     };
@@ -1723,46 +1813,67 @@ function collectAnomaly() {
 }
 
 
+function getPlayerLevel() {
+    // Usamos la raíz cúbica: cada nivel pide exponencialmente más Watts
+    // El "100" es el factor de dificultad, puedes subirlo a 500 si subes muy rápido
+    return Math.floor(Math.cbrt(game.totalCookiesEarned / 100)) + 1;
+}
+
+window.gainExp = function(amount) {
+    if (isNaN(amount) || amount <= 0) return;
+
+    game.exp += amount;
+
+    // Fórmula: Nivel = sqrt(exp / 100) + 1
+    const newLevel = Math.floor(Math.sqrt(game.exp / 100)) + 1;
+
+    if (newLevel > game.level) {
+        const oldLevel = game.level;
+        game.level = newLevel;
+        handleLevelUp(oldLevel, newLevel);
+    }
+    
+    // Actualización inmediata de la barra de nivel
+    if (typeof updateLevelUI === 'function') updateLevelUI();
+};
 
 
 
+
+function handleLevelUp() {
+    showNotification("🆙 NIVEL ALCANZADO", `¡Eres Nivel ${game.level}! Nuevos operadores disponibles.`);
+    sfxLevelUp(); // Si tienes un sonido de nivel
+    recalculateStats();
+    renderHelpers(); // Para desbloquear las tarjetas de staff al instante
+}
 
 
 
 
 
 function spawnAnomaly() {
-    // 1. Limpiar cualquier temporizador anterior
     if (anomalyTimeout) clearTimeout(anomalyTimeout);
 
-    // 2. Escudo de Intro
     if (typeof isIntroActive !== 'undefined' && isIntroActive) {
         anomalyTimeout = setTimeout(spawnAnomaly, 5000);
         return;
     }
 
-    // --- DETECCIÓN DE SINERGIAS ACTIVAS (Slots de Operadores) ---
     const active = game.activeHelpers || [];
     const hasDorian = active.includes('h_anomaly');
     const hasSilas = active.includes('h_discount');
     const hasHorizonBuild = hasDorian && hasSilas;
 
-    // 3. Lógica de selección de tipo
     const types = ['money', 'money', 'production', 'production', 'production', 'click', 'click'];
     const type = types[Math.floor(Math.random() * types.length)];
     
-    // Probabilidad de corrupción (Apocalipsis)
     let isCorrupt = isApocalypse && Math.random() < 0.3;
-    
-    // Mejora Celestial: Diplomacia del Vacío (Anomalías rojas fallan un 50% menos)
     if (isCorrupt && game.heavenlyUpgrades.includes('wrath_control')) {
         if (Math.random() < 0.5) isCorrupt = false;
     }
 
-    // La Build Horizonte de Eventos estabiliza la realidad por completo
     if (hasHorizonBuild) isCorrupt = false;
 
-    // 4. Crear el Orbe
     const orb = document.createElement('div');
     let icon = '⚛️'; let color = 'gold';
 
@@ -1785,12 +1896,18 @@ function spawnAnomaly() {
         user-select: none; transition: opacity 0.5s;
     `;
 
-    // --- CLICK EN LA ANOMALÍA ---
     orb.onclick = function (e) {
         e.stopPropagation();
         if (typeof sfxAnomaly === 'function') sfxAnomaly();
 
-        // INTEGRACIÓN DE LOOT: 30% Probabilidad base
+        // --- 🆙 NUEVO: RECOMPENSA DE EXPERIENCIA ---
+        if (typeof gainExp === 'function') {
+            gainExp(100); 
+            if (typeof spawnExpText === 'function') {
+                spawnExpText(100, e.clientX, e.clientY);
+            }
+        }
+
         if (typeof tryDropItem === 'function') {
             tryDropItem('Anomalía', 30); 
         }
@@ -1806,7 +1923,6 @@ function spawnAnomaly() {
             showAnomalyPopup(`+${formatNumber(gain)} Watts`);
         }
         else if (type === 'production') {
-            // activateBuff ahora gestiona internamente el bonus de 'golden_duration' (+10s)
             activateBuff('production', 7, 10);
             showAnomalyPopup(`⚡ SOBRECARGA: x7`);
         }
@@ -1821,12 +1937,8 @@ function spawnAnomaly() {
 
     document.getElementById('game-area').appendChild(orb);
 
-    // Desaparecer si no se clica en 15 segundos
-    // Sugerencia: La mejora 'quantum-lens' podría aumentar este tiempo a 17s
     setTimeout(() => { if (orb.parentNode) orb.remove(); }, 15000);
 
-    // 5. PROGRAMAR SIGUIENTE APARICIÓN DINÁMICA
-    // Usa getAnomalyChance() que ya incluye 'lucky_star' y sinergias de Staff
     let nextSpawn = getAnomalyChance(); 
     anomalyTimeout = setTimeout(spawnAnomaly, nextSpawn);
 }
@@ -2536,11 +2648,16 @@ function sfxRemoveHelper() {
 window.toggleHelper = function (helperId) {
     const helper = helpersConfig.find(h => h.id === helperId);
     if (!helper) return;
-    
 
-    // 1. REGLA DE NIVEL (Watts totales históricos)
-    const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned));
-    if (playerLevel < helper.reqLevel) return;
+    // 1. REGLA DE NIVEL (Calculado sobre Watts totales / 100)
+    // El +1 asegura que empezamos en Nivel 1 y no en Nivel 0
+    const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned / 100)) + 1;
+    
+    if (playerLevel < helper.reqLevel) {
+        // Bloqueo silencioso o con aviso, según prefieras
+        showNotification("🔒 NIVEL BAJO", `Necesitas ser Nivel ${helper.reqLevel} para este operador.`);
+        return;
+    }
 
     // Inicialización de seguridad
     if (!game.helpers) game.helpers = [];
@@ -2550,7 +2667,7 @@ window.toggleHelper = function (helperId) {
     if (isActive) {
         // --- DESPEDIR OPERADOR ---
         game.helpers = game.helpers.filter(id => id !== helperId);
-        sfxRemoveHelper(); // Tu sonido de despedida
+        sfxRemoveHelper();
         showNotification("❌ DESPEDIDO", `${helper.name} ha dejado su puesto.`);
     } else {
         // --- CONTRATAR OPERADOR ---
@@ -2563,10 +2680,8 @@ window.toggleHelper = function (helperId) {
         }
 
         // B. ¿Tienes Wps suficientes para mantenerlo?
-        // Calculamos la producción neta (Producción - Coste actual de otros helpers)
         const currentNetWps = getCPS() - getHelpersCost();
         
-        // Aplicamos el descuento del Plan de Pensiones si existe
         let actualCost = helper.cost;
         if (game.heavenlyUpgrades.includes('pension_plan')) {
             actualCost *= 0.9;
@@ -2579,7 +2694,7 @@ window.toggleHelper = function (helperId) {
 
         // ¡CONTRATADO Y ACTIVADO!
         game.helpers.push(helperId);
-        sfxAssignHelper(); // Tu sonido de contrato
+        sfxAssignHelper();
         showNotification("✅ CONTRATADO", `${helper.name} está operando.`);
         
         checkGreenPearlMission();
@@ -2788,6 +2903,120 @@ function startStaffMessages() {
 startStaffMessages();
 
 
+window.renderHelpers = function() {
+    const container = document.getElementById('helpers-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+    const currentStaff = game.helpers || [];
+    // Calculamos nivel real: raíz cúbica del total/100 + 1
+    const playerLevel = game.level || 1;
+
+
+setInterval(() => {
+    // Si el juego no está en pausa/intro, gana 1 de EXP por segundo
+    if (typeof gainExp === 'function' && !isIntroActive) {
+        gainExp(1);
+    }
+}, 1000);
+
+
+    // --- 1. CABECERA ---
+    const header = document.createElement('div');
+    const slotsColor = currentStaff.length >= MAX_HELPERS ? '#ff5252' : '#00ff88';
+    header.style.cssText = "padding: 10px; margin-bottom: 5px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;";
+    header.innerHTML = `
+        <div style="display:flex; flex-direction:column">
+            <span style="color:#aaa; font-size:0.6rem; text-transform:uppercase; letter-spacing:1px;">Fuerza Operativa</span>
+            <span style="color:#fff; font-size:0.85rem; font-weight:bold;">SISTEMA DE SLOTS</span>
+        </div>
+        <span style="color: ${slotsColor}; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 10px ${slotsColor}44;">
+            ${currentStaff.length} / ${MAX_HELPERS}
+        </span>
+    `;
+    container.appendChild(header);
+
+    // --- 2. ÁRBOL VISUAL DE RECLUTAMIENTO (Miniaturas) ---
+    const treeContainer = document.createElement('div');
+    treeContainer.style.cssText = "display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 15px; border: 1px solid #222;";
+    
+    helpersConfig.forEach(helper => {
+        const isHired = currentStaff.includes(helper.id);
+        const isLocked = playerLevel < helper.reqLevel;
+        
+        const dot = document.createElement('div');
+        dot.style.cssText = `
+            width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; border: 1px solid ${isHired ? 'var(--accent)' : '#333'};
+            background: ${isLocked ? '#111' : (isHired ? 'rgba(0,255,136,0.1)' : '#222')};
+            opacity: ${isLocked ? '0.3' : '1'}; position: relative; cursor: help;
+        `;
+        dot.innerHTML = isLocked ? '?' : helper.icon;
+        dot.setAttribute('data-tooltip', isLocked ? `Bloqueado: Nivel ${helper.reqLevel}` : helper.name);
+        
+        // Indicador de nivel pequeño
+        const lvlTag = document.createElement('span');
+        lvlTag.style.cssText = "position: absolute; bottom: -2px; right: -2px; font-size: 0.5rem; color: #666; background: #000; padding: 0 2px; border-radius: 2px;";
+        lvlTag.innerText = helper.reqLevel;
+        dot.appendChild(lvlTag);
+        
+        treeContainer.appendChild(dot);
+    });
+    container.appendChild(treeContainer);
+
+    // --- 3. LISTA DE TARJETAS DETALLADAS ---
+    helpersConfig.forEach(helper => {
+        const isActive = currentStaff.includes(helper.id);
+        const isLocked = playerLevel < helper.reqLevel;
+
+        // Solo mostramos tarjetas de los que NO están bloqueados O del próximo a desbloquear
+        // Esto evita llenar la lista de "Sujetos Clasificados" innecesariamente
+        const nextToUnlock = helpersConfig.find(h => playerLevel < h.reqLevel);
+        if (isLocked && helper.id !== nextToUnlock?.id) return;
+
+        const div = document.createElement('div');
+        div.className = `helper-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`;
+        
+        if (isLocked) {
+            div.style.pointerEvents = "none";
+            div.style.filter = "grayscale(1) brightness(0.7)";
+        } else {
+            div.style.cursor = "pointer";
+            div.onmousedown = (e) => { e.preventDefault(); toggleHelper(helper.id); };
+        }
+
+        let statusText = "";
+        let btnContent = "";
+        let accentColor = "var(--accent)";
+
+        if (isLocked) {
+            statusText = `REQUISITO: NIVEL ${helper.reqLevel}`;
+            btnContent = "🔒";
+            accentColor = "#ff5252";
+        } else if (isActive) {
+            statusText = "⚡ EN LÍNEA";
+            btnContent = "❌";
+        } else {
+            let visualCost = helper.cost;
+            if (game.heavenlyUpgrades.includes('pension_plan')) visualCost *= 0.9;
+            statusText = `Coste: ${formatNumber(visualCost)}/s`;
+            btnContent = "➕";
+        }
+
+        div.innerHTML = `
+            <div class="helper-icon" style="${isLocked ? 'opacity:0.2' : ''}">${helper.icon}</div>
+            <div class="helper-info">
+                <h4 style="color: ${isLocked ? '#666' : '#fff'}">${isLocked ? 'PRÓXIMO OBJETIVO' : helper.name}</h4>
+                <p style="font-size:0.7rem; color:${isLocked ? '#444' : '#bbb'}">${isLocked ? `Sigue operando hasta el nivel ${helper.reqLevel}.` : helper.desc}</p>
+                <div style="font-family:monospace; font-size:0.65rem; margin-top:4px; color:${accentColor}; font-weight:bold;">${statusText}</div>
+            </div>
+            <div class="helper-toggle ${isActive ? 'active' : ''}">${btnContent}</div>
+        `;
+        container.appendChild(div);
+    });
+};
+
+
 
 
 window.renderHelpers = function() {
@@ -2796,66 +3025,97 @@ window.renderHelpers = function() {
 
     container.innerHTML = '';
     const currentStaff = game.helpers || [];
+    // Calculamos nivel real: raíz cúbica del total/100 + 1
+    const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned / 100)) + 1;
 
-    // Cabecera con el contador real
+    // --- 1. CABECERA ---
     const header = document.createElement('div');
     const slotsColor = currentStaff.length >= MAX_HELPERS ? '#ff5252' : '#00ff88';
-    header.style.cssText = "padding: 10px; margin-bottom: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;";
+    header.style.cssText = "padding: 10px; margin-bottom: 5px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;";
     header.innerHTML = `
         <div style="display:flex; flex-direction:column">
-            <span style="color:#aaa; font-size:0.7rem; text-transform:uppercase;">Estado del Staff</span>
-            <span style="color:#fff; font-size:0.9rem; font-weight:bold;">OPERADORES ACTIVOS</span>
+            <span style="color:#aaa; font-size:0.6rem; text-transform:uppercase; letter-spacing:1px;">Fuerza Operativa</span>
+            <span style="color:#fff; font-size:0.85rem; font-weight:bold;">SISTEMA DE SLOTS</span>
         </div>
-        <span style="color: ${slotsColor}; font-weight: bold; font-size: 1.1rem;">
+        <span style="color: ${slotsColor}; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 10px ${slotsColor}44;">
             ${currentStaff.length} / ${MAX_HELPERS}
         </span>
     `;
     container.appendChild(header);
 
-    const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned));
+    // --- 2. ÁRBOL VISUAL DE RECLUTAMIENTO (Miniaturas) ---
+    const treeContainer = document.createElement('div');
+    treeContainer.style.cssText = "display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 15px; border: 1px solid #222;";
+    
+    helpersConfig.forEach(helper => {
+        const isHired = currentStaff.includes(helper.id);
+        const isLocked = playerLevel < helper.reqLevel;
+        
+        const dot = document.createElement('div');
+        dot.style.cssText = `
+            width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; border: 1px solid ${isHired ? 'var(--accent)' : '#333'};
+            background: ${isLocked ? '#111' : (isHired ? 'rgba(0,255,136,0.1)' : '#222')};
+            opacity: ${isLocked ? '0.3' : '1'}; position: relative; cursor: help;
+        `;
+        dot.innerHTML = isLocked ? '?' : helper.icon;
+        dot.setAttribute('data-tooltip', isLocked ? `Bloqueado: Nivel ${helper.reqLevel}` : helper.name);
+        
+        // Indicador de nivel pequeño
+        const lvlTag = document.createElement('span');
+        lvlTag.style.cssText = "position: absolute; bottom: -2px; right: -2px; font-size: 0.5rem; color: #666; background: #000; padding: 0 2px; border-radius: 2px;";
+        lvlTag.innerText = helper.reqLevel;
+        dot.appendChild(lvlTag);
+        
+        treeContainer.appendChild(dot);
+    });
+    container.appendChild(treeContainer);
 
+    // --- 3. LISTA DE TARJETAS DETALLADAS ---
     helpersConfig.forEach(helper => {
         const isActive = currentStaff.includes(helper.id);
         const isLocked = playerLevel < helper.reqLevel;
 
+        // Solo mostramos tarjetas de los que NO están bloqueados O del próximo a desbloquear
+        // Esto evita llenar la lista de "Sujetos Clasificados" innecesariamente
+        const nextToUnlock = helpersConfig.find(h => playerLevel < h.reqLevel);
+        if (isLocked && helper.id !== nextToUnlock?.id) return;
+
         const div = document.createElement('div');
         div.className = `helper-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`;
         
-        // --- BLOQUEO DE INTERACCIÓN ---
         if (isLocked) {
-            div.style.cursor = "default";
-            div.style.pointerEvents = "none"; // Esto anula cualquier click a nivel de navegador
-            div.onmousedown = null; 
+            div.style.pointerEvents = "none";
+            div.style.filter = "grayscale(1) brightness(0.7)";
         } else {
             div.style.cursor = "pointer";
-            div.onmousedown = (e) => {
-                e.preventDefault();
-                toggleHelper(helper.id);
-            };
+            div.onmousedown = (e) => { e.preventDefault(); toggleHelper(helper.id); };
         }
 
         let statusText = "";
         let btnContent = "";
+        let accentColor = "var(--accent)";
 
         if (isLocked) {
             statusText = `REQUISITO: NIVEL ${helper.reqLevel}`;
             btnContent = "🔒";
+            accentColor = "#ff5252";
         } else if (isActive) {
-            statusText = "⚡ OPERANDO";
+            statusText = "⚡ EN LÍNEA";
             btnContent = "❌";
         } else {
             let visualCost = helper.cost;
             if (game.heavenlyUpgrades.includes('pension_plan')) visualCost *= 0.9;
-            statusText = `Sueldo: ${formatNumber(visualCost)}/s`;
-            btnContent = "💰";
+            statusText = `Coste: ${formatNumber(visualCost)}/s`;
+            btnContent = "➕";
         }
 
         div.innerHTML = `
-            <div class="helper-icon" style="${isLocked ? 'filter:grayscale(1); opacity:0.3' : ''}">${helper.icon}</div>
+            <div class="helper-icon" style="${isLocked ? 'opacity:0.2' : ''}">${helper.icon}</div>
             <div class="helper-info">
-                <h4 style="color: ${isLocked ? '#555' : '#fff'}">${isLocked ? 'Sujeto Clasificado' : helper.name}</h4>
-                <p style="font-size:0.75rem; color:${isLocked ? '#444' : '#bbb'}">${isLocked ? 'Aumenta tu producción para desbloquear contacto.' : helper.desc}</p>
-                <div style="font-family:monospace; font-size:0.7rem; margin-top:4px; color:${isLocked ? '#555' : 'var(--accent)'}">${statusText}</div>
+                <h4 style="color: ${isLocked ? '#666' : '#fff'}">${isLocked ? 'PRÓXIMO OBJETIVO' : helper.name}</h4>
+                <p style="font-size:0.7rem; color:${isLocked ? '#444' : '#bbb'}">${isLocked ? `Sigue operando hasta el nivel ${helper.reqLevel}.` : helper.desc}</p>
+                <div style="font-family:monospace; font-size:0.65rem; margin-top:4px; color:${accentColor}; font-weight:bold;">${statusText}</div>
             </div>
             <div class="helper-toggle ${isActive ? 'active' : ''}">${btnContent}</div>
         `;
@@ -3147,7 +3407,7 @@ function updateUI() {
         document.title = `${formatNumber(currentCookies)} - Quantum Grid`;
     }
 
-    // 2. Cálculo de producción con optimización de DOM
+    // 2. Cálculo de producción neta
     const grossCPS = getCPS();
     const helperCost = getHelpersCost();
     const netCPS = getNetCPS();
@@ -3164,14 +3424,32 @@ function updateUI() {
         }
     }
 
-    // 3. Sistema de Nivel de Energía
-    const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned));
-    const levelEl = document.getElementById('player-level-display');
-    if (levelEl) {
-        levelEl.innerText = `NIVEL: ${playerLevel}`;
+    // --- 3. NUEVO SISTEMA DE RANGO DE COMANDANTE (EXP) ---
+    const lvlText = document.getElementById('player-level-text');
+    const lvlBar = document.getElementById('level-bar-fill');
+    const lvlPercent = document.getElementById('level-percentage');
+
+    if (lvlText && lvlBar) {
+        // Usamos la fórmula de EXP: Nivel = sqrt(exp / 100) + 1
+        const currentLevel = Math.floor(Math.sqrt(game.exp / 100)) + 1;
+        
+        // Hitos de EXP para el nivel actual y el siguiente
+        const expForCurrent = Math.pow(currentLevel - 1, 2) * 100;
+        const expForNext = Math.pow(currentLevel, 2) * 100;
+        
+        // Cálculo de porcentaje
+        const progress = ((game.exp - expForCurrent) / (expForNext - expForCurrent)) * 100;
+        
+        // Actualización visual
+        lvlText.innerText = `NIVEL ${currentLevel}`;
+        lvlBar.style.width = `${Math.min(100, progress)}%`;
+        if (lvlPercent) lvlPercent.innerText = `${Math.floor(Math.min(100, progress))}%`;
+        
+        // Sincronizar el nivel en el objeto global
+        game.level = currentLevel;
     }
 
-    // 4. Lógica del Botón de Ascensión
+    // 4. Lógica del Botón de Ascensión (Prestigio)
     const pBtn = document.getElementById('btn-prestige');
     const PRESTIGE_BASE = 1000000;
 
@@ -3179,8 +3457,8 @@ function updateUI() {
         if (pBtn) {
             pBtn.style.display = 'block';
             const totalPotential = Math.floor(Math.cbrt(game.totalCookiesEarned / PRESTIGE_BASE));
-            const currentLevel = game.prestigeLevel || 0;
-            const gain = totalPotential - currentLevel;
+            const currentPLevel = game.prestigeLevel || 0;
+            const gain = totalPotential - currentPLevel;
 
             if (gain > 0) {
                 pBtn.innerText = `ASCENDER (+${gain} Nivel)`;
@@ -3226,14 +3504,11 @@ function updateUI() {
         radarEl.style.display = 'none';
     }
 
-    // --- 7. NUEVO: SISTEMA DE ECONOMÍA GALÁCTICA ---
-    
-    // HUD de Monedas en pantalla principal
+    // 7. SISTEMA DE ECONOMÍA GALÁCTICA
     const gcHUD = document.getElementById('galacticoins-hud');
     const gcAmount = document.getElementById('gc-amount');
     
     if (gcHUD && gcAmount) {
-        // Solo mostramos el contador si el jugador tiene monedas o ha tenido alguna vez
         if (game.galacticoins > 0 || game.totalCookiesEarned > 1000000) {
             gcHUD.style.display = 'block';
             gcAmount.innerText = formatNumber(game.galacticoins || 0);
@@ -3242,12 +3517,11 @@ function updateUI() {
         }
     }
 
-    // Actualización de textos dentro del modal de Inventario (si está abierto)
+    // Sincronización del modal de Inventario
     const invModal = document.getElementById('modal-inventory');
     if (invModal && invModal.style.display === 'flex') {
         const modalGC = document.getElementById('gc-modal-amount');
         const usage = document.getElementById('inv-usage');
-        
         if (modalGC) modalGC.innerText = formatNumber(game.galacticoins || 0);
         if (usage) usage.innerText = (game.inventory || []).length;
     }
@@ -3256,27 +3530,31 @@ function updateUI() {
 
 
 
-window.renderStore = function() {
+function renderStore() {
     upgradesEl.innerHTML = '';
     buildingsEl.innerHTML = '';
     let anyUp = false;
 
     // 1. MEJORAS DE EDIFICIOS (MK-1, MK-2...)
     buildingsConfig.forEach(b => {
+        // --- FILTRO: Los edificios de Andrómeda no tienen mejoras MK normales ---
         if (b.isAndromeda) return;
+
         const count = game.buildings[b.id] || 0;
-        
-        if (typeof milestones !== 'undefined') {
+        // Verificamos que milestones y upgradeIcons existan para evitar pantalla negra
+        if (typeof milestones !== 'undefined' && typeof upgradeIcons !== 'undefined') {
             milestones.forEach((th, i) => {
                 const uid = `${b.id}-${th}`;
                 if (count >= th && !game.upgrades.includes(uid)) {
                     anyUp = true;
                     const cost = b.baseCost * 20 * (i + 1) * th;
+
                     const btn = document.createElement('div');
                     btn.className = 'upgrade-crate';
                     btn.innerHTML = upgradeIcons[i % upgradeIcons.length];
                     btn.dataset.cost = cost;
                     btn.setAttribute('data-tooltip', `${b.name} MK-${i + 1}\nx2 Producción\nCoste: ${formatNumber(cost)}`);
+
                     btn.onclick = () => window.buyUpgrade(uid, cost);
                     upgradesEl.appendChild(btn);
                 }
@@ -3284,44 +3562,68 @@ window.renderStore = function() {
         }
     });
 
-    // 2. LISTA DE MEJORAS ESPECIALES (OMEGA, ALIEN, ETC.)
+    // 2. LISTA DE MEJORAS ESPECIALES
     const specials = [
-        { id: 'protocol-omega', name: 'Protocolo Omega', icon: '⚠️', cost: 5000000, desc: 'Producción Global x1.2', req: () => game.totalCookiesEarned > 2000000 && !game.upgrades.includes('protocol-omega') },
+        // --- CADENA OMEGA ---
+        { id: 'protocol-omega', name: 'Protocolo Omega', icon: '⚠️', cost: 5000000, desc: 'Inicia el experimento prohibido.\nProducción Global x1.2', req: () => game.totalCookiesEarned > 2000000 && !game.upgrades.includes('protocol-omega') },
         { id: 'omega-phase-2', name: 'Resonancia Oscura', icon: '🔉', cost: 25000000, desc: 'Producción Global x1.5', req: () => game.upgrades.includes('protocol-omega') && !game.upgrades.includes('omega-phase-2') },
         { id: 'omega-phase-3', name: 'Fisura Dimensional', icon: '🌀', cost: 150000000, desc: 'Producción Global x2.0', req: () => game.upgrades.includes('omega-phase-2') && !game.upgrades.includes('omega-phase-3') },
         { id: 'omega-phase-4', name: 'Fallo de Contención', icon: '🚨', cost: 1000000000, desc: 'Producción Global x3.0', req: () => game.upgrades.includes('omega-phase-3') && !game.upgrades.includes('omega-phase-4') },
-        { id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, desc: 'LIBERA AL VACÍO.\nx5.0 + Perla Roja', req: () => game.upgrades.includes('omega-phase-4') && !game.upgrades.includes('omega-final') },
-        { id: 'scaling_efficiency_1', name: 'Retroalimentación Positiva', icon: '📈', cost: 100000000, desc: '+1% prod. extra por cada 10k W/s.', req: () => getCPS() > 50000 && !game.upgrades.includes('scaling_efficiency_1') },
-        { id: 'black_market_deal', name: 'Contrabando de Andrómeda', icon: '📦', cost: 2500000000, desc: 'Comerciantes +50% frecuencia.', req: () => game.heavenlyUpgrades.includes('andromeda_trade') && !game.upgrades.includes('black_market_deal') },
-        { id: 'alien_tech_1', name: 'Xenolingüística', icon: '🗣️', cost: 1000000, desc: 'Aliens +30% frecuencia.', req: () => game.heavenlyUpgrades.includes('alien_contact') && !game.upgrades.includes('alien_tech_1') },
-        { id: 'alien_tech_2', name: 'Disección de Grises', icon: '👽', cost: 50000000, desc: 'Aliens -20% Vida.', req: () => game.upgrades.includes('alien_tech_1') && !game.upgrades.includes('alien_tech_2') },
-        { id: 'alien_tech_3', name: 'Ingeniería Inversa', icon: '🛸', cost: 5000000000, desc: 'Producción Global x1.5.', req: () => game.upgrades.includes('alien_tech_2') && !game.upgrades.includes('alien_tech_3') }
+        { id: 'omega-final', name: 'EL DESPERTAR', icon: '👁️', cost: 5000000000, desc: 'LIBERA AL VACÍO.\nProducción x5.0 + Perla Roja', req: () => game.upgrades.includes('omega-phase-4') && !game.upgrades.includes('omega-final') },
+
+        // --- MEJORAS DE ESCALA ---
+        { id: 'scaling_efficiency_1', name: 'Retroalimentación Positiva', icon: '📈', cost: 100000000, desc: 'Gana +1% de prod. extra por cada 10k W/s.', req: () => getCPS() > 50000 && !game.upgrades.includes('scaling_efficiency_1') },
+
+        // --- NUEVO: MEJORA DE ANDRÓMEDA ---
+        {
+            id: 'black_market_deal',
+            name: 'Contrabando de Andrómeda',
+            icon: '📦',
+            cost: 2500000000,
+            desc: 'Los comerciantes aparecen un 50% más seguido.',
+            req: () => game.heavenlyUpgrades.includes('andromeda_trade') && !game.upgrades.includes('black_market_deal')
+        },
+
+        // --- NUEVO: TECNOLOGÍA ALIENÍGENA (Se desbloquea tras Ascensión) ---
+        {
+            id: 'alien_tech_1',
+            name: 'Xenolingüística',
+            icon: '🗣️',
+            cost: 1000000,
+            desc: 'Entendemos sus insultos. Los aliens aparecen un 30% más rápido.',
+            req: () => game.heavenlyUpgrades.includes('alien_contact') && !game.upgrades.includes('alien_tech_1')
+        },
+        {
+            id: 'alien_tech_2',
+            name: 'Disección de Grises',
+            icon: '👽',
+            cost: 50000000,
+            desc: 'Estudiar su anatomía revela puntos débiles. Aliens tienen -20% de vida.',
+            req: () => game.upgrades.includes('alien_tech_1') && !game.upgrades.includes('alien_tech_2')
+        },
+        {
+            id: 'alien_tech_3',
+            name: 'Ingeniería Inversa',
+            icon: '🛸',
+            cost: 5000000000,
+            desc: 'Robamos su tecnología de fusión. Producción Global x1.5.',
+            req: () => game.upgrades.includes('alien_tech_2') && !game.upgrades.includes('alien_tech_3')
+        }
     ];
 
-    // --- 3. MEJORAS DINÁMICAS DE OPERADORES (Precios Reajustados) ---
-    // Solo aparecen si el operador está actualmente TRABAJANDO (en game.helpers)
-    const currentStaff = game.helpers || [];
+    // --- MEJORAS DINÁMICAS PARA AYUDANTES ---
     helpersConfig.forEach(h => {
-        const isEquipped = currentStaff.includes(h.id);
+        const isEquipped = game.helpers.includes(h.id);
         const powerId = `upg_power_${h.id}`;
         const masterId = `upg_master_${h.id}`;
 
         if (isEquipped && !game.upgrades.includes(powerId)) {
-            // Precio aumentado a x2500 para evitar que sean triviales
-            const powerCost = h.cost * 2500; 
             specials.push({
-                id: powerId, 
-                name: `Sincronía: ${h.name}`, 
-                icon: '🔥', 
-                cost: powerCost, 
-                desc: `Efectividad de ${h.icon} +50% y Producción Global +25%.`, 
-                req: () => true
+                id: powerId, name: `Sincronía: ${h.name}`, icon: '🔥', cost: h.cost * 50, desc: `Efectividad de ${h.icon} +50% y Producción Global +25%.`, req: () => true
             });
         }
 
         if (isEquipped && game.upgrades.includes(powerId) && !game.upgrades.includes(masterId)) {
-            // Precio aumentado a x25000 (End-game estratégico)
-            const masterCost = h.cost * 25000;
             let masterDesc = "";
             switch (h.id) {
                 case 'h_clicker': masterDesc = "Dra. Thorne: +15% producción pasiva global."; break;
@@ -3333,7 +3635,7 @@ window.renderStore = function() {
                 default: masterDesc = "Desbloquea el potencial oculto.";
             }
             specials.push({
-                id: masterId, name: `Protocolo Maestro: ${h.icon}`, icon: '👑', cost: masterCost, desc: masterDesc, req: () => true
+                id: masterId, name: `Protocolo Maestro: ${h.icon}`, icon: '👑', cost: h.cost * 500, desc: masterDesc, req: () => true
             });
         }
     });
@@ -3343,8 +3645,7 @@ window.renderStore = function() {
         if (s.req()) {
             anyUp = true;
             const btn = document.createElement('div');
-            // Identificamos visualmente las mejoras caras
-            const isCritical = s.id.includes('omega') || s.id.includes('master') || s.id.includes('power') || s.id.includes('alien_tech');
+            const isCritical = s.id.includes('omega') || s.id.includes('master') || s.id.includes('andromeda') || s.id.includes('alien_tech');
             btn.className = `upgrade-crate ${isCritical ? 'special-upgrade' : ''}`;
             btn.innerHTML = s.icon;
             btn.dataset.cost = s.cost;
@@ -3356,10 +3657,12 @@ window.renderStore = function() {
 
     if (!anyUp) upgradesEl.innerHTML = '<div style="color:#444; font-size:0.8rem; width:100%; text-align:center;">Juega más para desbloquear tecnología...</div>';
 
-    // 4. RENDERIZAR LISTA DE EDIFICIOS
+    // 3. RENDERIZAR LISTA DE EDIFICIOS
     let lockedShown = 0;
     for (let i = 0; i < buildingsConfig.length; i++) {
         const b = buildingsConfig[i];
+
+        // --- FILTRO: Si es un edificio de Andrómeda, NO se muestra en la tienda normal ---
         if (b.isAndromeda) continue;
 
         const count = game.buildings[b.id] || 0;
@@ -3394,7 +3697,11 @@ window.renderStore = function() {
                 div.onclick = () => window.buyBuilding(b.id);
             }
             buildingsEl.appendChild(div);
-        } else if (lockedShown >= 2) break;
+        } else {
+            // No hacemos break aquí para permitir que el bucle revise todos los edificios
+            // pero controlamos que solo se muestren 2 bloqueados máximo
+            if (lockedShown >= 2) break;
+        }
     }
 }
 
@@ -3466,89 +3773,7 @@ function checkAvailability() {
 
 
 
-function doClickLogic(cx, cy) {
-    sfxClick(); // Sonido estándar agradable
 
-    // 1. AUMENTAR COMBO
-    const maxCombo = game.upgrades.includes('upg_master_h_combo') ? 10.0 : 5.0;
-
-    comboMultiplier += 0.05;
-    if (comboMultiplier > maxCombo) comboMultiplier = maxCombo;
-    comboTimer = 2.0;
-
-    const comboEl = document.getElementById('combo-display');
-    if (comboEl) {
-        comboEl.style.opacity = 1;
-        comboEl.style.transform = `scale(${1 + comboMultiplier / 10})`;
-        comboEl.innerText = `COMBO x${comboMultiplier.toFixed(2)}`;
-    }
-
-    // 2. CALCULAR DAÑO BASE
-    let val = getClickPower();
-    let isCrit = false;
-
-    // --- CÁLCULO DE CRÍTICO ---
-    let critChance = 0;
-    if (game.heavenlyUpgrades.includes('crit_master')) critChance += 0.05;
-
-    // Lógica de mejoras de ayudantes individuales
-    if (game.upgrades.includes('upg_master_h_crit')) {
-        critChance = 0.25;
-    } else if (game.helpers.includes('h_crit')) {
-        critChance += 0.10;
-    }
-
-    // --- SINERGIA: PROTOCOLO DE CAMPO (Thorne + Kael) ---
-    const hasThorne = game.helpers.includes('h_clicker');
-    const hasKael = game.helpers.includes('h_crit');
-    let critMult = 10; // Multiplicador base de crítico
-
-    if (hasThorne && hasKael) {
-        critChance += 0.15; // +15% de probabilidad extra por Build
-        critMult = 15;      // Los críticos ahora son x15
-    }
-
-    if (Math.random() < critChance) {
-        isCrit = true;
-        val *= critMult;
-
-        // Mantenemos el temblor de cámara para que se sienta el impacto
-        // Si hay sinergia activa, el temblor es un poco más intenso
-        const shakePower = (hasThorne && hasKael) ? 0.8 : 0.5;
-        camera.position.x += (Math.random() - 0.5) * shakePower;
-        camera.position.y += (Math.random() - 0.5) * shakePower;
-    }
-
-    // 3. APLICAR RESULTADO
-    game.cookies += val;
-    game.totalCookiesEarned += val;
-
-    if (!game.totalClicks) game.totalClicks = 0;
-    game.totalClicks++;
-    game.clickCount++;
-
-    // EVENTO PERLA AZUL
-    if (game.totalClicks >= 10000 && !game.pearls.includes('blue')) {
-        epicBluePearlScene();
-        unlockPearl('blue');
-        showSystemModal(
-            "🔵 HITO ALCANZADO",
-            "10,000 Clicks. La persistencia ha fracturado el tiempo. ¡Has desbloqueado la Perla del Cronos (Clicks x50)!",
-            false,
-            null
-        );
-    }
-
-    // 4. TEXTO FLOTANTE
-    if (isCrit) {
-        const critText = (hasThorne && hasKael) ? `¡GOLPE MAESTRO! +${formatNumber(val)}` : `¡CRÍTICO! +${formatNumber(val)}`;
-        createFloatingText(cx, cy, critText, true);
-    } else {
-        createFloatingText(cx, cy, `+${formatNumber(val)}`, false);
-    }
-
-    updateUI();
-}
 
 
 
@@ -4567,6 +4792,7 @@ gameLoop();
 
 // Auto-guardado cada 60s
 setInterval(saveGame, 60000);
+
 
 // INICIAR CICLO DE ANOMALÍAS (¡ESTO FALTABA!)
 setTimeout(spawnAnomaly, 5000); // Primera anomalía a los 5 segundos
