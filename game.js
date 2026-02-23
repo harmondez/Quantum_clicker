@@ -456,18 +456,33 @@ radioAudio.addEventListener('error', () => {
 // ==========================================
 // 0.6 PANEL DE AJUSTES (SETTINGS)
 // ==========================================
+
+
+
+
+
+
 window.openSettings = function () {
     const modal = document.getElementById('modal-settings');
     if (modal) {
-        // Sincronizar todos los checkboxes granulares
+        modal.style.zIndex = '10000'; 
+        
+        // --- AÑADE ESTO ---
+        // Forzamos al body a no scrollear por detrás mientras los ajustes están abiertos
+        document.body.style.overflow = 'hidden'; 
+        
         applySafeSettingsToDOM();
         modal.style.display = 'flex';
     }
 };
 
+// Y actualiza el close para devolver el scroll al juego
 window.closeSettings = function () {
     const modal = document.getElementById('modal-settings');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto'; // Devolver scroll al juego
+    }
 };
 
 function playTone(freq, type, duration, vol = 0.1) {
@@ -1821,6 +1836,9 @@ function collectAnomaly() {
 }
 
 
+
+
+
 function getPlayerLevel() {
     // Usamos la raíz cúbica: cada nivel pide exponencialmente más Watts
     // El "100" es el factor de dificultad, puedes subirlo a 500 si subes muy rápido
@@ -2507,46 +2525,68 @@ function checkGreenPearlMission() {
 
 
 
-
-
-
 window.renderInventory = function() {
     const grid = document.getElementById('inventory-grid');
-    const usage = document.getElementById('inv-usage');
-    const modalGC = document.getElementById('gc-modal-amount');
-    
     if (!grid) return;
     grid.innerHTML = '';
-    
-    usage.innerText = (game.inventory || []).length;
-    modalGC.innerText = formatNumber(game.galacticoins || 0);
 
-    for (let i = 0; i < 30; i++) {
+    const totalSlots = 30;
+    const items = game.inventory || [];
+
+    const rarityColors = {
+        mitico: "#ff4d4d",
+        legendario: "#ffcc00",
+        epico: "#c77dff",
+        raro: "#00d2ff",
+        poco_comun: "#00ff88",
+        comun: "#b0b0b0"
+    };
+
+    for (let i = 0; i < totalSlots; i++) {
+        const item = items[i];
         const slot = document.createElement('div');
-        const item = game.inventory ? game.inventory[i] : null;
         
         if (item) {
-            slot.className = `inv-slot-mini rarity-${item.rarity}`;
-            slot.innerHTML = getIconForItem(item.rarity);
+            // Aplicamos tu función de iconos directamente aquí
+            const iconoDinamico = getIconForItem(item.rarity);
             
-            // ELIMINADO: slot.onclick (Ya no hace nada al pulsar)
-            // Solo dejamos efectos visuales de hover
-            slot.style.cursor = "default"; 
-
-            // Gestión del Tooltip mejorada
+            slot.className = `inv-slot-mini rarity-${item.rarity} has-item`;
+            slot.innerHTML = `<div class="item-icon-wrapper">${iconoDinamico}</div>`;
+            
             slot.onmouseenter = (e) => {
-                showTooltip(e, item.name, `Valor: ${item.value} GC`, `Rareza: ${item.rarity.toUpperCase()}`, true);
+                const color = rarityColors[item.rarity] || "#fff";
+                // Si el item no tiene nombre/desc, usamos fallbacks genéricos
+                const name = item.name || `Artefacto ${item.rarity}`;
+                const desc = item.desc || "Tecnología recuperada del sector.";
+
+                showTooltip(e, 
+                    `<strong style="color: ${color}">${name}</strong>`, 
+                    `<span>${desc}</span>`, 
+                    `<em style="color: #6fb435; display:block; margin-top:5px;">💰 Valor: ${item.value || 0} GC</em>`
+                );
             };
-            slot.onmouseleave = () => {
-                hideTooltip();
+
+            slot.onmouseleave = hideTooltip;
+            slot.onmousemove = moveTooltip;
+            
+            // Click derecho para vender
+            slot.oncontextmenu = (e) => {
+                e.preventDefault();
+                if(window.sellItem) sellItem(i);
             };
-            slot.onmousemove = (e) => moveTooltip(e);
         } else {
             slot.className = 'inv-slot-mini empty';
+            slot.innerHTML = ''; 
         }
         grid.appendChild(slot);
     }
+
+    if(document.getElementById('inv-usage')) document.getElementById('inv-usage').innerText = items.length;
+    if(document.getElementById('gc-modal-amount')) document.getElementById('gc-modal-amount').innerText = Math.floor(game.galacticoins);
 };
+
+
+
 
 function getIconForItem(rarity) {
     if (rarity === 'mitico') return '💎';
@@ -2556,6 +2596,18 @@ function getIconForItem(rarity) {
     if (rarity === 'poco_comun') return '🔋';
     return '📦';
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 function tryDropItem(sourceName, dropChance) {
     // 1. Tirada inicial para ver si hay drop (30% anomalía, 100% alien)
@@ -3169,144 +3221,113 @@ function spawnMerchant() {
 }
 
 function openMerchantMenu() {
-    // 1. Seleccionar una estructura de Andrómeda al azar
-    const availableBuildings = buildingsConfig.filter(b => b.isAndromeda);
-    const offer = availableBuildings[Math.floor(Math.random() * availableBuildings.length)];
+    // --- LÓGICA DE GENERACIÓN DE OFERTAS ---
+    
+    // 1. "NECESITO ESTO": 3 items random de rarezas variadas
+    const allPossibleNames = [];
+    Object.keys(itemNames).forEach(rarity => {
+        itemNames[rarity].forEach(name => {
+            allPossibleNames.push({ name, rarity, baseVal: itemRarezas[rarity].price });
+        });
+    });
+    
+    const demandItems = [];
+    for(let i=0; i<3; i++) {
+        demandItems.push(allPossibleNames[Math.floor(Math.random() * allPossibleNames.length)]);
+    }
 
-    // 2. Cálculo del precio inicial
-    const currentCount = game.buildings[offer.id] || 0;
-    let currentPrice = Math.floor(offer.baseCost * Math.pow(1.15, currentCount));
+    // 2. "QUIERES ALGO?": Las 3 Tablets de coordenadas
+    const tablets = [
+        { id: 'tab_mars', name: 'Tablet: Marte', price: 5000, icon: '📟', desc: 'Vectores de salto sector Ares.' },
+        { id: 'tab_europa', name: 'Tablet: Europa', price: 25000, icon: '📟', desc: 'Criptografía de entrada Jovic.' },
+        { id: 'tab_titan', name: 'Tablet: Titán', price: 100000, icon: '📟', desc: 'Protocolos de aterrizaje saturnal.' }
+    ];
 
-    // 3. Crear el contenedor del menú (Overlay)
+    // --- CONSTRUCCIÓN DE INTERFAZ ---
     const overlay = document.createElement('div');
     overlay.id = 'merchant-overlay';
     overlay.style.cssText = `
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.85); z-index: 10000;
+        background: rgba(0,0,0,0.9); z-index: 10000;
         display: flex; align-items: center; justify-content: center;
-        backdrop-filter: blur(5px); font-family: 'Courier New', monospace;
+        backdrop-filter: blur(8px); font-family: 'Courier New', monospace;
     `;
 
     const content = document.createElement('div');
     content.style.cssText = `
-        background: #0a0514; border: 2px solid #b388ff; padding: 30px;
-        border-radius: 15px; text-align: center; color: white;
-        box-shadow: 0 0 50px rgba(179, 136, 255, 0.3); max-width: 450px;
-        position: relative; animation: modalIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        background: #0a0514; border: 2px solid #b388ff; padding: 25px;
+        border-radius: 15px; color: white; width: 90%; max-width: 700px;
+        box-shadow: 0 0 50px rgba(179, 136, 255, 0.3);
     `;
 
     content.innerHTML = `
-        <h2 style="color: #b388ff; text-shadow: 0 0 10px #b388ff; margin-top: 0;">📡 MERCADO NEGRO DE ANDRÓMEDA</h2>
-        <p style="font-size: 0.9rem; color: #aaa; font-style: italic;">"Tengo algo que hará que tu red cuántica parezca un juguete..."</p>
+        <h2 style="color: #b388ff; text-align: center; margin-top: 0;">📡 MERCADO NEGRO DE ANDRÓMEDA</h2>
         
-        <div style="background: rgba(179, 136, 255, 0.1); padding: 15px; border-radius: 10px; margin: 20px 0; border: 1px solid rgba(179, 136, 255, 0.2);">
-            <div id="merchant-icon" style="font-size: 3.5rem; margin-bottom: 10px; transition: transform 0.2s;">${offer.icon}</div>
-            <h3 style="margin: 0; letter-spacing: 1px;">${offer.name}</h3>
-            <p style="font-size: 0.8rem; margin: 8px 0 15px 0; color: #bbb; line-height: 1.4;">${offer.desc}</p>
-            <div id="merchant-price-display" style="font-size: 1.4rem; color: #00ff88; font-weight: bold; text-shadow: 0 0 10px rgba(0,255,136,0.3);">
-                ⚡ ${formatNumber(currentPrice)} Watts
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+            
+            <div style="background: rgba(255,170,0,0.05); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,170,0,0.2);">
+                <h3 style="color: #ffaa00; margin-top:0; font-size: 1rem;">📦 NECESITO ESTO</h3>
+                <p style="font-size: 0.7rem; color: #888; margin-bottom: 15px;">Compro estos componentes al 500% de su valor.</p>
+                <div id="demand-list"></div>
             </div>
+
+            <div style="background: rgba(0,255,136,0.05); padding: 15px; border-radius: 10px; border: 1px solid rgba(0,255,136,0.2);">
+                <h3 style="color: #00ff88; margin-top:0; font-size: 1rem;">🚀 ¿QUIERES ALGO?</h3>
+                <p style="font-size: 0.7rem; color: #888; margin-bottom: 15px;">Tecnología de navegación planetaria.</p>
+                <div id="offer-list"></div>
+            </div>
+
         </div>
 
-        <div id="merchant-actions" style="display: flex; flex-direction: column; gap: 12px;">
-            <button id="btn-buy-merchant" style="background: #00ff88; color: black; border: none; padding: 14px; cursor: pointer; font-weight: bold; border-radius: 5px; text-transform: uppercase; letter-spacing: 1px;">
-                ADQUIRIR TECNOLOGÍA
-            </button>
-            
-            <button id="btn-haggle-merchant" style="background: transparent; color: #b388ff; border: 1px solid #b388ff; padding: 10px; cursor: pointer; border-radius: 5px; font-weight: bold; transition: all 0.2s;">
-                REGATEAR (Probabilidad basada en Nivel)
-            </button>
-            
-            <button id="btn-decline-merchant" style="background: none; border: none; color: #666; cursor: pointer; font-size: 0.8rem; margin-top: 5px;">
-                [ DECLINAR OFERTA ]
+        <div style="text-align: center; margin-top: 20px;">
+            <button onclick="document.getElementById('merchant-overlay').remove()" 
+                    style="background: transparent; border: 1px solid #444; color: #666; padding: 8px 20px; cursor: pointer; border-radius: 5px;">
+                [ Despedirse ]
             </button>
         </div>
-        <p id="merchant-msg" style="font-size: 0.8rem; color: #ffaa00; margin-top: 15px; min-height: 1.2em; font-weight: bold;"></p>
     `;
 
     overlay.appendChild(content);
     document.body.appendChild(overlay);
 
-    // --- VARIABLES DE ESTADO LOCAL ---
-    let haggleAttempts = 0;
+    // --- RENDERIZAR LISTAS ---
 
-    // --- LÓGICA DE BOTONES ---
+    // Lista de Demanda (Lo que el mercader compra)
+    const demandContainer = content.querySelector('#demand-list');
+    demandItems.forEach(item => {
+        const hasItem = game.inventory.some(i => i.name === item.name);
+        const sellPrice = item.baseVal * 5;
+        
+        const div = document.createElement('div');
+        div.style.cssText = `background: #111; padding: 8px; margin-bottom: 8px; border-radius: 4px; border-left: 3px solid ${hasItem ? '#ffaa00' : '#333'};`;
+        div.innerHTML = `
+            <div style="font-size: 0.8rem;">${item.name}</div>
+            <div style="color: #00ff88; font-size: 0.7rem;">Ofrece: ${sellPrice} GC</div>
+            <button onclick="sellToMerchant('${item.name}', ${sellPrice})" ${!hasItem ? 'disabled' : ''} 
+                    style="width: 100%; margin-top: 5px; font-size: 0.6rem; cursor: pointer;">
+                ${hasItem ? 'ENTREGAR ITEM' : 'NO DISPONIBLE'}
+            </button>
+        `;
+        demandContainer.appendChild(div);
+    });
 
-    // 1. Botón de Comprar
-    document.getElementById('btn-buy-merchant').onclick = () => {
-        if (game.cookies >= currentPrice) {
-            game.cookies -= currentPrice;
-            game.buildings[offer.id] = (game.buildings[offer.id] || 0) + 1;
-            
-            if (typeof sfxBuy === 'function') sfxBuy();
-            showNotification("CONTRATO FIRMADO", `${offer.name} añadido a la flota.`, "#b388ff");
-            
-            overlay.remove();
-            recalculateStats();
-            updateUI();
-        } else {
-            const msg = document.getElementById('merchant-msg');
-            msg.innerText = "❌ Energía insuficiente para la transacción.";
-            msg.style.color = "#ff4444";
-            msg.style.animation = "shake 0.3s ease";
-            setTimeout(() => { msg.style.animation = ""; }, 300);
-        }
-    };
-
-    // 2. Botón de Regatear
-    document.getElementById('btn-haggle-merchant').onclick = function() {
-        haggleAttempts++;
-        const msg = document.getElementById('merchant-msg');
-        const priceDisplay = document.getElementById('merchant-price-display');
-        const icon = document.getElementById('merchant-icon');
-
-        // Lógica de probabilidad: El nivel del jugador ayuda a que no baje tan rápido
-        const levelBonus = (game.level || 1) * 0.005; 
-        const successChance = (0.5 / haggleAttempts) + levelBonus;
-        const roll = Math.random();
-
-        if (roll < successChance) {
-            // ✅ ÉXITO
-            currentPrice = Math.floor(currentPrice * 0.8);
-            priceDisplay.innerText = `⚡ ${formatNumber(currentPrice)} Watts`;
-            priceDisplay.style.color = "#00ff88";
-            
-            msg.innerText = "✅ El comerciante cede. ¡Precio rebajado!";
-            msg.style.color = "#00ff88";
-            
-            // Animación visual de éxito
-            icon.style.transform = "scale(1.2) rotate(5deg)";
-            setTimeout(() => { icon.style.transform = "scale(1)"; }, 200);
-            
-            priceDisplay.style.animation = "none";
-            setTimeout(() => { priceDisplay.style.animation = "pulseGreen 0.5s ease"; }, 10);
-        } else {
-            // ❌ FRACASO: Fin de la negociación
-            this.disabled = true;
-            msg.innerText = "💢 ¡Suficiente! No toleraré más insultos.";
-            msg.style.color = "#ff4444";
-            
-            document.getElementById('merchant-actions').innerHTML = `
-                <div style="padding: 15px; border: 1px solid #ff4444; color: #ff4444; font-weight: bold; border-radius: 5px; background: rgba(255,0,0,0.1); text-transform: uppercase;">
-                    Negociación Fallida
-                </div>
-            `;
-            
-            // Cerrar después de un momento
-            setTimeout(() => {
-                if (overlay && overlay.parentNode) {
-                    overlay.style.opacity = "0";
-                    overlay.style.transition = "opacity 0.5s ease";
-                    setTimeout(() => overlay.remove(), 500);
-                }
-            }, 1500);
-        }
-    };
-
-    // 3. Botón de Declinar
-    document.getElementById('btn-decline-merchant').onclick = () => {
-        overlay.remove();
-    };
+    // Lista de Oferta (Tablets)
+    const offerContainer = content.querySelector('#offer-list');
+    tablets.forEach(tab => {
+        const canAfford = game.galacticoins >= tab.price;
+        const div = document.createElement('div');
+        div.style.cssText = `background: #111; padding: 8px; margin-bottom: 8px; border-radius: 4px; border-left: 3px solid #00ff88;`;
+        div.innerHTML = `
+            <div style="font-size: 0.8rem;">${tab.icon} ${tab.name}</div>
+            <div style="color: #aaa; font-size: 0.6rem; margin-bottom: 4px;">${tab.desc}</div>
+            <div style="color: #ffaa00; font-size: 0.7rem;">Coste: ${tab.price} GC</div>
+            <button onclick="buyTablet('${tab.id}', '${tab.name}', ${tab.price})" ${!canAfford ? 'disabled' : ''} 
+                    style="width: 100%; margin-top: 5px; font-size: 0.6rem; cursor: pointer;">
+                ${canAfford ? 'ADQUIRIR COORDENADAS' : 'GC INSUFICIENTES'}
+            </button>
+        `;
+        offerContainer.appendChild(div);
+    });
 }
 
 // Función para comprar desde el mercader
@@ -3337,6 +3358,44 @@ function startMerchantLoop() {
     }, waitTime);
 }
 
+
+// Función para vender items específicos al mercader
+window.sellToMerchant = function(itemName, price) {
+    const itemIndex = game.inventory.findIndex(i => i.name === itemName);
+    if (itemIndex > -1) {
+        game.inventory.splice(itemIndex, 1);
+        game.galacticoins += price;
+        showNotification("🤝 CONTRATO CUMPLIDO", `Has vendido ${itemName} por ${price} GC`, "#00ff88");
+        
+        // Refrescar el menú para actualizar botones
+        document.getElementById('merchant-overlay').remove();
+        openMerchantMenu();
+        updateUI();
+    }
+};
+
+// Función para comprar Tablets de Coordenadas
+window.buyTablet = function(id, name, price) {
+    if (game.galacticoins >= price) {
+        if (game.inventory.length >= 30) {
+            showNotification("🎒 MOCHILA LLENA", "No hay espacio para la Tablet.", "#ff5252");
+            return;
+        }
+        game.galacticoins -= price;
+        game.inventory.push({
+            id: id + "_" + Date.now(),
+            name: name,
+            rarity: 'legendario',
+            value: Math.floor(price / 2),
+            isTablet: true
+        });
+        showNotification("📟 VECTORES ADQUIRIDOS", `Tablet de ${name} obtenida.`, "#b388ff");
+        document.getElementById('merchant-overlay').remove();
+        openMerchantMenu();
+        updateUI();
+    }
+};
+
 // Llama a esta función una sola vez al cargar el juego
 
 
@@ -3348,6 +3407,12 @@ const cpsEl = document.getElementById('cps-display');
 const upgradesEl = document.getElementById('upgrades-panel');
 const buildingsEl = document.getElementById('buildings-list');
 
+
+function formatCoins(n) {
+    // Retorna el número con separadores de miles (ej: 1.500) 
+    // y sin sufijos de energía.
+    return Math.floor(n).toLocaleString('es-ES');
+}
 
 function updateUI() {
     // 1. Actualización básica de energía (Watts)
@@ -3450,13 +3515,15 @@ function updateUI() {
     }
 
     // 7. SISTEMA DE ECONOMÍA GALÁCTICA
+    // 7. SISTEMA DE ECONOMÍA GALÁCTICA
     const gcHUD = document.getElementById('galacticoins-hud');
     const gcAmount = document.getElementById('gc-amount');
-    
+
     if (gcHUD && gcAmount) {
         if (game.galacticoins > 0 || game.totalCookiesEarned > 1000000) {
             gcHUD.style.display = 'block';
-            gcAmount.innerText = formatNumber(game.galacticoins || 0);
+            // CAMBIO: Usamos formatCoins para ver números como 1.500 en vez de 1.50 kW
+            gcAmount.innerText = formatCoins(game.galacticoins || 0); 
         } else {
             gcHUD.style.display = 'none';
         }
@@ -3467,7 +3534,9 @@ function updateUI() {
     if (invModal && invModal.style.display === 'flex') {
         const modalGC = document.getElementById('gc-modal-amount');
         const usage = document.getElementById('inv-usage');
-        if (modalGC) modalGC.innerText = formatNumber(game.galacticoins || 0);
+        
+        // CAMBIO: También aquí usamos formatCoins
+        if (modalGC) modalGC.innerText = formatCoins(game.galacticoins || 0); 
         if (usage) usage.innerText = (game.inventory || []).length;
     }
 }
@@ -4406,6 +4475,15 @@ let pendingAction = null;
 
 window.showSystemModal = function (title, message, isConfirm, actionCallback) {
     const modal = document.getElementById('modal-system');
+    
+    // 1. ELEVACIÓN MÁXIMA (Usa un número absurdamente alto)
+    modal.style.zIndex = '999999'; 
+    
+    // 2. TRUCO DE RE-INSERCIÓN: 
+    // Esto mueve el div al final de todo el body justo antes de mostrarlo.
+    // Así, por orden de lectura de HTML, siempre estará encima de los demás.
+    document.body.appendChild(modal); 
+
     const titleEl = document.getElementById('sys-title');
     const msgEl = document.getElementById('sys-msg');
     const cancelBtn = document.getElementById('sys-btn-cancel');
@@ -4417,6 +4495,12 @@ window.showSystemModal = function (title, message, isConfirm, actionCallback) {
     if (isConfirm) {
         cancelBtn.style.display = 'block';
         titleEl.style.color = '#ff5252';
+        
+        // Si el usuario cancela, cerramos
+        cancelBtn.onclick = function() {
+            closeSystemModal();
+            sfxClick();
+        };
     } else {
         cancelBtn.style.display = 'none';
         titleEl.style.color = '#00ff88';
@@ -4537,21 +4621,25 @@ window.renderCollection = function () {
 // --- LÓGICA DEL TOOLTIP FLOTANTE (GLOBAL) ---
 const globalTooltip = document.getElementById('global-tooltip');
 
-function showTooltip(e, title, desc, req, unlocked) {
-    if (!globalTooltip) return;
+window.showTooltip = function (e, title, desc, extra = "") {
+    const tooltip = document.getElementById('global-tooltip');
+    
+    // Si title es undefined o nulo, ponemos un fail-safe
+    let finalTitle = title || "???";
+    let finalDesc = desc || "Información clasificada";
 
-    // Construir HTML del tooltip
-    let html = '';
-    if (unlocked) {
-        html = `<strong style="color:#fff">${title}</strong>${desc}`;
-    } else {
-        html = `<strong style="color:#888">???</strong>Tecnología Bloqueada<em>${req}</em>`;
-    }
+    // ELIMINA cualquier línea que diga: 
+    // if (!unlocked) finalDesc = "Tecnología bloqueada"; <--- BORRA ESTO
 
-    globalTooltip.innerHTML = html;
-    globalTooltip.style.display = 'block';
-    moveTooltip(e); // Posicionar inmediatamente
-}
+    tooltip.innerHTML = `
+        ${finalTitle}
+        <div>${finalDesc}</div>
+        ${extra}
+    `;
+
+    tooltip.style.display = 'block';
+    moveTooltip(e);
+};
 
 function moveTooltip(e) {
     if (!globalTooltip) return;

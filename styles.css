@@ -18,6 +18,15 @@ body {
     user-select: none;
 }
 
+
+
+
+
+
+
+
+
+
 /* --- IZQUIERDA: ZONA 3D --- */
 #game-area {
     flex: 1;
@@ -863,6 +872,13 @@ button.sys-btn:hover {
     color: white;
 }
 
+
+
+
+
+
+
+
 /* --- VENTANA LOGROS --- */
 #achievements-grid {
     display: grid;
@@ -941,84 +957,89 @@ button.sys-btn:hover {
 
 
 /* Contenedor de la rejilla */
+
+/* Contenedor principal con efecto de panel hundido */
 #inventory-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr); /* 6 columnas fijas */
-    gap: 6px;
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.4);
-    border-radius: 4px;
-    border: 1px solid #222;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    padding: 12px;
+    background: #000 url('https://www.transparenttextures.com/patterns/dark-matter.png'); /* Textura de fondo */
+    border: 2px solid #444;
+    border-radius: 2px;
+    box-shadow: inset 0 0 15px rgba(0,0,0,1); /* Sombra interna para profundidad */
 }
 
-/* Estilo base de cada slot */
+/* Slot estilo Orteil (Biselado y profundidad) */
 .inv-slot-mini {
     width: 100%;
-    aspect-ratio: 1 / 1; /* Cuadrados perfectos */
-    background: #101015;
-    border: 1px solid #333;
-    border-radius: 3px;
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(135deg, #222 0%, #111 100%);
+    border: 2px solid #111;
+    border-top-color: #444; /* Luz desde arriba */
+    border-left-color: #333;
+    border-radius: 2px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.6rem; /* Tamaño del emoji */
+    font-size: 1.8rem;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: transform 0.1s, box-shadow 0.1s;
     position: relative;
-    user-select: none;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
 }
 
-/* Efecto al pasar el ratón */
+/* Hover: El slot se "ilumina" y sube ligeramente */
 .inv-slot-mini:not(.empty):hover {
-    background: #1a1a25;
-    border-color: #ffd700;
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(255, 215, 0, 0.15);
+    background: linear-gradient(135deg, #333 0%, #1a1a1a 100%);
+    border-color: #ffd700;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.8), 0 0 10px rgba(255, 215, 0, 0.2);
+    z-index: 5;
 }
 
-/* Slots vacíos */
-.inv-slot-mini.empty {
-    opacity: 0.15;
-    cursor: default;
-    border-style: dashed;
+/* Efecto al pulsar (Click) */
+.inv-slot-mini:active {
+    transform: translateY(1px);
+    box-shadow: inset 2px 2px 5px rgba(0,0,0,1);
 }
 
-/* Bordes de rareza */
-.inv-slot-mini.rarity-comun { border-bottom: 3px solid #888; }
-.inv-slot-mini.rarity-poco_comun { border-bottom: 3px solid #00ff44; }
-.inv-slot-mini.rarity-raro { border-bottom: 3px solid #0077ff; }
-.inv-slot-mini.rarity-epico { border-bottom: 3px solid #b388ff; }
-.inv-slot-mini.rarity-legendario { border-bottom: 3px solid #ffd700; }
+/* Rarezas: Estilo Cookie Clicker (Brillo en las esquinas o bordes) */
+/* En lugar de solo el fondo, le damos un resplandor interno */
+.inv-slot-mini.rarity-comun { box-shadow: inset 0 -4px 0 #555; }
+.inv-slot-mini.rarity-raro { box-shadow: inset 0 -4px 0 #0077ff, 0 0 5px rgba(0,119,255,0.3); }
+.inv-slot-mini.rarity-epico { box-shadow: inset 0 -4px 0 #b388ff, 0 0 8px rgba(179,136,255,0.4); }
 
-/* Animación especial para objetos Míticos (Rojos) */
+/* Legendario: Efecto dorado metálico */
+.inv-slot-mini.rarity-legendario {
+    border-color: #ffd700;
+    box-shadow: inset 0 -4px 0 #ffd700, 0 0 15px rgba(255,215,0,0.3);
+    background: linear-gradient(135deg, #443300 0%, #111 100%);
+}
+
+/* Mítico: El slot parece estar "corrompido" o ardiendo */
 .inv-slot-mini.rarity-mitico {
-    border-bottom: 3px solid #ff0000;
-    animation: mythicPulse 2s infinite alternate;
+    border-color: #ff0000;
+    animation: miticoGlow 1.5s infinite alternate ease-in-out;
 }
 
-@keyframes mythicPulse {
-    from { box-shadow: inset 0 0 5px rgba(255, 0, 0, 0.2); }
-    to { box-shadow: inset 0 0 15px rgba(255, 0, 0, 0.5), 0 0 10px rgba(255, 0, 0, 0.3); }
+@keyframes miticoGlow {
+    from { box-shadow: inset 0 0 10px #ff0000, 0 0 5px #ff0000; }
+    to { box-shadow: inset 0 0 20px #ff0000, 0 0 20px #ff0000; filter: brightness(1.2); }
 }
 
+/* Display de GC: Estilo "Papel pergamino antiguo" o "Consola retro" */
 .gc-mini-display {
-    display: inline-flex; /* Cambiado de block a inline-flex para que no ocupe todo el ancho */
-    align-items: center;
-    gap: 6px;
-    background: rgba(0, 0, 0, 0.7); /* Fondo más oscuro y profesional */
-    border: 1px solid #ffd700;
+    background: #111;
+    border: 2px solid #444;
+    border-top-color: #111;
+    border-left-color: #222;
+    padding: 6px 12px;
     color: #ffd700;
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    font-size: 0.9rem;
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
-    pointer-events: none; /* Para que no interfiera con los clicks del juego */
-    white-space: nowrap; /* Evita que el texto se rompa en dos líneas */
-    width: fit-content; /* Fuerza a que el recuadro se ajuste al contenido */
+    text-shadow: 2px 2px 0px #000;
+    font-family: 'Kavivanar', cursive, serif; /* Una fuente más decorativa si es posible */
+    box-shadow: 2px 2px 0px rgba(0,0,0,1);
 }
-
 
 
 
@@ -1082,63 +1103,125 @@ button.sys-btn:hover {
 /* --- TOOLTIP GLOBAL FLOTANTE (ESTILO COOKIE CLICKER) --- */
 .global-tooltip {
     position: fixed;
-    /* FLOTA SOBRE TODO */
     display: none;
-    /* Oculto por defecto */
     pointer-events: none;
-    /* El ratón lo atraviesa */
-    z-index: 100000;
-    /* Z-Index Infinito */
+    z-index: 200000; /* Lo subimos para que esté sobre el modal de sistema si hace falta */
 
-    background: #000;
-    border: 2px solid #fff;
-    padding: 10px;
-    width: 250px;
-    border-radius: 6px;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8), 0 10px 30px rgba(0, 0, 0, 1);
+    /* Fondo con textura de piedra/papel oscuro */
+    background: #161616 url('https://www.transparenttextures.com/patterns/dark-matter.png');
+    
+    /* El borde doble característico de Cookie Clicker */
+    border: 2px solid #444;
+    outline: 2px solid #000; /* Borde exterior negro */
+    box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5); /* Sombra dura, no difuminada */
+    
+    padding: 12px;
+    width: 280px;
+    border-radius: 0; /* Cookie Clicker usa bordes rectos para un look retro */
 
-    color: #eee;
-    font-family: 'Segoe UI', sans-serif;
-    font-size: 0.85rem;
-    line-height: 1.4;
+    color: #ccc;
+    font-family: 'Merriweather', Georgia, serif; /* Una fuente con serifa se siente más "mágica" */
+    font-size: 0.9rem;
+    line-height: 1.3;
     white-space: pre-wrap;
-    /* Respeta saltos de línea */
 }
 
-/* Título dentro del tooltip */
+/* Título: Color dorado y con más peso */
 .global-tooltip strong {
     display: block;
-    border-bottom: 1px solid #444;
-    padding-bottom: 5px;
-    margin-bottom: 5px;
-    color: var(--accent);
-    font-size: 0.95rem;
+    border-bottom: 1px solid #333;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    color: #fff;
+    text-shadow: 1px 1px 0px #000;
+    font-size: 1.1rem;
+    font-weight: bold;
 }
 
-/* Nota pequeña (Requisitos) */
+/* Notas de precio o requisitos: Color verde/rojo suave */
 .global-tooltip em {
     display: block;
-    margin-top: 8px;
-    color: #888;
-    font-size: 0.75rem;
+    margin-top: 10px;
+    color: #6fb435; /* El verde clásico de los precios de CC */
+    font-size: 0.8rem;
+    font-style: normal;
+    font-weight: bold;
+}
+
+/* Sección de descripción (Normalmente en blanco/gris) */
+.global-tooltip small {
+    display: block;
+    color: #999;
     font-style: italic;
+    margin-top: 5px;
+    line-height: 1.2;
 }
 
 /* Animación de entrada rápida */
-@keyframes tooltipPop {
+@keyframes tooltipFade {
     from {
         opacity: 0;
-        transform: translateX(-50%) scale(0.8);
+        transform: translateY(5px);
     }
-
     to {
         opacity: 1;
-        transform: translateX(-50%) scale(1);
+        transform: translateY(0);
     }
+}
+
+.global-tooltip.active {
+    display: block;
+    animation: tooltipFade 0.1s ease-out;
+}
+
+
+/* Contenedor de iconos en el inventario */
+.item-icon-wrapper {
+    font-size: 1.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(2px 2px 1px rgba(0,0,0,0.7));
+    transition: transform 0.1s;
+    user-select: none;
+    width: 100%;
+    height: 100%;
+}
+
+/* Efecto al pasar el ratón por el slot */
+.inv-slot-mini.has-item:hover .item-icon-wrapper {
+    transform: scale(1.15);
+}
+
+/* Estilo para slots vacíos (para que no parezcan rotos) */
+.inv-slot-mini.empty {
+    background: rgba(0,0,0,0.3) !important;
+    border: 1px dashed #444 !important;
+    opacity: 0.5;
 }
 
 
 
+
+
+/* Evita que aparezca el scroll horizontal accidentalmente */
+body, html {
+    overflow-x: hidden;
+    width: 100vw;
+}
+
+/* Fuerza a que el área de juego no afecte al resto del documento */
+#game-area {
+    overflow: hidden;
+    contain: paint; /* Optimización para que las animaciones no afecten al layout exterior */
+}
+
+/* Si usas animaciones de escala, asegúrate de que el contenedor no cambie de tamaño */
+.click-stretch-active {
+    animation: clickSquish 0.1s ease-out;
+    transform-origin: center;
+    will-change: transform;
+}
 
 /* --- RESPONSIVE --- */
 @media (max-width: 768px) {
@@ -2319,6 +2402,10 @@ body.intro-mode .floating-text {
    PANEL DE AJUSTES Y RADIO
    ========================================== */
 
+
+
+
+   
 .settings-section {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid #333;
