@@ -3021,109 +3021,6 @@ window.renderHelpers = function() {
 
 
 
-window.renderHelpers = function() {
-    const container = document.getElementById('helpers-list');
-    if (!container) return;
-
-    container.innerHTML = '';
-    const currentStaff = game.helpers || [];
-    // Calculamos nivel real: raíz cúbica del total/100 + 1
-    const playerLevel = Math.floor(Math.cbrt(game.totalCookiesEarned / 100)) + 1;
-
-    // --- 1. CABECERA ---
-    const header = document.createElement('div');
-    const slotsColor = currentStaff.length >= MAX_HELPERS ? '#ff5252' : '#00ff88';
-    header.style.cssText = "padding: 10px; margin-bottom: 5px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;";
-    header.innerHTML = `
-        <div style="display:flex; flex-direction:column">
-            <span style="color:#aaa; font-size:0.6rem; text-transform:uppercase; letter-spacing:1px;">Fuerza Operativa</span>
-            <span style="color:#fff; font-size:0.85rem; font-weight:bold;">SISTEMA DE SLOTS</span>
-        </div>
-        <span style="color: ${slotsColor}; font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 10px ${slotsColor}44;">
-            ${currentStaff.length} / ${MAX_HELPERS}
-        </span>
-    `;
-    container.appendChild(header);
-
-    // --- 2. ÁRBOL VISUAL DE RECLUTAMIENTO (Miniaturas) ---
-    const treeContainer = document.createElement('div');
-    treeContainer.style.cssText = "display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 15px; border: 1px solid #222;";
-    
-    helpersConfig.forEach(helper => {
-        const isHired = currentStaff.includes(helper.id);
-        const isLocked = playerLevel < helper.reqLevel;
-        
-        const dot = document.createElement('div');
-        dot.style.cssText = `
-            width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
-            font-size: 1.1rem; border: 1px solid ${isHired ? 'var(--accent)' : '#333'};
-            background: ${isLocked ? '#111' : (isHired ? 'rgba(0,255,136,0.1)' : '#222')};
-            opacity: ${isLocked ? '0.3' : '1'}; position: relative; cursor: help;
-        `;
-        dot.innerHTML = isLocked ? '?' : helper.icon;
-        dot.setAttribute('data-tooltip', isLocked ? `Bloqueado: Nivel ${helper.reqLevel}` : helper.name);
-        
-        // Indicador de nivel pequeño
-        const lvlTag = document.createElement('span');
-        lvlTag.style.cssText = "position: absolute; bottom: -2px; right: -2px; font-size: 0.5rem; color: #666; background: #000; padding: 0 2px; border-radius: 2px;";
-        lvlTag.innerText = helper.reqLevel;
-        dot.appendChild(lvlTag);
-        
-        treeContainer.appendChild(dot);
-    });
-    container.appendChild(treeContainer);
-
-    // --- 3. LISTA DE TARJETAS DETALLADAS ---
-    helpersConfig.forEach(helper => {
-        const isActive = currentStaff.includes(helper.id);
-        const isLocked = playerLevel < helper.reqLevel;
-
-        // Solo mostramos tarjetas de los que NO están bloqueados O del próximo a desbloquear
-        // Esto evita llenar la lista de "Sujetos Clasificados" innecesariamente
-        const nextToUnlock = helpersConfig.find(h => playerLevel < h.reqLevel);
-        if (isLocked && helper.id !== nextToUnlock?.id) return;
-
-        const div = document.createElement('div');
-        div.className = `helper-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`;
-        
-        if (isLocked) {
-            div.style.pointerEvents = "none";
-            div.style.filter = "grayscale(1) brightness(0.7)";
-        } else {
-            div.style.cursor = "pointer";
-            div.onmousedown = (e) => { e.preventDefault(); toggleHelper(helper.id); };
-        }
-
-        let statusText = "";
-        let btnContent = "";
-        let accentColor = "var(--accent)";
-
-        if (isLocked) {
-            statusText = `REQUISITO: NIVEL ${helper.reqLevel}`;
-            btnContent = "🔒";
-            accentColor = "#ff5252";
-        } else if (isActive) {
-            statusText = "⚡ EN LÍNEA";
-            btnContent = "❌";
-        } else {
-            let visualCost = helper.cost;
-            if (game.heavenlyUpgrades.includes('pension_plan')) visualCost *= 0.9;
-            statusText = `Coste: ${formatNumber(visualCost)}/s`;
-            btnContent = "➕";
-        }
-
-        div.innerHTML = `
-            <div class="helper-icon" style="${isLocked ? 'opacity:0.2' : ''}">${helper.icon}</div>
-            <div class="helper-info">
-                <h4 style="color: ${isLocked ? '#666' : '#fff'}">${isLocked ? 'PRÓXIMO OBJETIVO' : helper.name}</h4>
-                <p style="font-size:0.7rem; color:${isLocked ? '#444' : '#bbb'}">${isLocked ? `Sigue operando hasta el nivel ${helper.reqLevel}.` : helper.desc}</p>
-                <div style="font-family:monospace; font-size:0.65rem; margin-top:4px; color:${accentColor}; font-weight:bold;">${statusText}</div>
-            </div>
-            <div class="helper-toggle ${isActive ? 'active' : ''}">${btnContent}</div>
-        `;
-        container.appendChild(div);
-    });
-};
 
 // --- BUCLE PRINCIPAL ---
 let lastTime = Date.now();
@@ -3131,15 +3028,17 @@ let lastTime = Date.now();
 // Asegúrate de tener estas variables definidas antes del gameLoop en tu archivo
 // let lastTime = Date.now(); 
 
+let uiUpdateTimer = 0; // Temporizador para controlar el refresco visual
+
 function gameLoop() {
     requestAnimationFrame(gameLoop);
 
     const now = Date.now();
-    // Si por algún motivo lastTime falla, usamos 'now' para evitar que dt sea NaN
     const dt = (now - (lastTime || now)) / 1000;
     lastTime = now;
 
-    // --- 1. LÓGICA DE PRODUCCIÓN PASIVA (WPS) ---
+    // --- 1. LÓGICA DE PRODUCCIÓN PASIVA (60 FPS) ---
+    // La matemática debe ser precisa, por lo que se queda fuera de los timers
     const netCPS = typeof getNetCPS === 'function' ? getNetCPS() : 0;
     if (netCPS > 0) {
         const gained = netCPS * dt;
@@ -3147,55 +3046,64 @@ function gameLoop() {
         game.totalCookiesEarned += gained;
     }
 
-    // --- 2. LÓGICA DE COMBO (DINÁMICA) ---
-    // Si no tienes la función getMaxCombo aún, usamos 5.0 por defecto
-    const maxComboLimit = typeof getMaxCombo === 'function' ? getMaxCombo() : 5.0;
-    const comboEl = document.getElementById('combo-display');
-
+    // --- 2. LÓGICA DE COMBO (60 FPS) ---
     if (typeof comboTimer !== 'undefined' && comboTimer > 0) {
         comboTimer -= dt;
     } else if (typeof comboMultiplier !== 'undefined' && comboMultiplier > 1.0) {
         comboMultiplier -= dt * 2;
         if (comboMultiplier < 1.0) comboMultiplier = 1.0;
-
-        if (comboEl) {
-            comboEl.innerText = `COMBO x${comboMultiplier.toFixed(2)}`;
-            if (comboMultiplier <= 1.0) comboEl.style.opacity = 0;
-            else comboEl.style.opacity = 1;
-        }
     }
 
-    // --- 3. LÓGICA DE LA BARRA DE PROGRESO DE ANOMALÍAS ---
-    const barContainer = document.getElementById('buff-container');
-    const barFill = document.getElementById('buff-bar');
-
-    if (typeof buffEndTime !== 'undefined' && buffEndTime > now) {
-        if (barContainer) barContainer.style.display = 'block';
-        if (barFill) {
-            const remaining = buffEndTime - now;
-            const percentage = Math.max(0, (remaining / (buffDuration || 10000)) * 100);
-            barFill.style.width = percentage + "%";
-
-            // Color según el buff activo
-            const color = (typeof clickBuffMultiplier !== 'undefined' && clickBuffMultiplier > 1) ? '#00e5ff' : '#ffaa00';
-            barFill.style.backgroundColor = color;
-        }
-    } else if (barContainer) {
-        barContainer.style.display = 'none';
-    }
-
-    // --- 4. ACTUALIZACIÓN DE MOTORES Y UI ---
-    // Es vital que estas funciones existan para que no se quede en negro
+    // --- 3. ACTUALIZACIÓN DE MOTOR 3D (60 FPS) ---
+    // Three.js necesita correr suave para evitar saltos visuales
     if (typeof update3D === 'function') update3D();
-    if (typeof updateUI === 'function') updateUI();
 
-    // --- 5. OPTIMIZACIONES (CADA 1 SEGUNDO aprox) ---
-    // Usamos el residuo de 'now' para ejecutar tareas pesadas solo a veces
-    if (Math.floor(now / 200) % 5 === 0) {
+    // --- 4. OPTIMIZACIÓN DE INTERFAZ (10 FPS) ---
+    // Solo actualizamos el DOM cada 0.1 segundos. Ahorra un 80% de CPU.
+    uiUpdateTimer += dt;
+    if (uiUpdateTimer >= 0.1) {
+        
+        // Actualización de Watts, barra de nivel y multiplicadores
+        if (typeof updateUI === 'function') updateUI();
+
+        // Actualización de elementos de Combo
+        const comboEl = document.getElementById('combo-display');
+        if (comboEl && typeof comboMultiplier !== 'undefined') {
+            if (comboMultiplier > 1.0) {
+                comboEl.innerText = `COMBO x${comboMultiplier.toFixed(2)}`;
+                comboEl.style.opacity = 1;
+            } else {
+                comboEl.style.opacity = 0;
+            }
+        }
+
+        // Lógica de la barra de Buffs/Anomalías
+        const barContainer = document.getElementById('buff-container');
+        const barFill = document.getElementById('buff-bar');
+        if (typeof buffEndTime !== 'undefined' && buffEndTime > now) {
+            if (barContainer) barContainer.style.display = 'block';
+            if (barFill) {
+                const remaining = buffEndTime - now;
+                const percentage = Math.max(0, (remaining / (buffDuration || 10000)) * 100);
+                barFill.style.width = percentage + "%";
+                barFill.style.backgroundColor = (typeof clickBuffMultiplier !== 'undefined' && clickBuffMultiplier > 1) ? '#00e5ff' : '#ffaa00';
+            }
+        } else if (barContainer) {
+            barContainer.style.display = 'none';
+        }
+
+        // Tareas de tienda (Cada 0.1s es suficiente para habilitar/deshabilitar botones)
         if (typeof checkAvailability === 'function') checkAvailability();
+        
+        uiUpdateTimer = 0;
+    }
+
+    // --- 5. TAREAS PESADAS (CADA 1 SEGUNDO) ---
+    // Usamos el residuo de 'now' para tareas que no necesitan ser instantáneas
+    if (Math.floor(now / 1000) !== Math.floor((now - dt*1000) / 1000)) {
         if (typeof checkUnlocks === 'function') checkUnlocks();
         if (typeof checkAchievements === 'function') checkAchievements();
-        if (typeof renderHelpers === 'function') renderHelpers();
+        if (typeof renderHelpers === 'function') renderHelpers(); // Evita re-dibujar la lista de staff 60 veces/seg
     }
 }
 
@@ -3504,13 +3412,6 @@ function updateUI() {
             const currentPLevel = game.prestigeLevel || 0;
             const gain = totalPotential - currentPLevel;
 
-            if (gain > 0) {
-                pBtn.innerText = `ASCENDER (+${gain} Nivel)`;
-                pBtn.classList.add('available');
-            } else {
-                pBtn.innerText = `ASCENDER`;
-                pBtn.classList.remove('available');
-            }
         }
     } else if (pBtn) {
         pBtn.style.display = 'none';
@@ -4376,30 +4277,53 @@ window.doPrestige = function () {
     const modal = document.getElementById('modal-ascension');
     const PRESTIGE_BASE = 1000000;
 
-    // Tu potencial total histórico
+    // Cálculo de potencial basado en raíz cúbica (progresión justa)
     const totalPotential = Math.floor(Math.cbrt(game.totalCookiesEarned / PRESTIGE_BASE));
-
-    // Lo que ganas es: Potencial - Lo que ya has ganado en total (Nivel)
-    // Usamos prestigeLevel (o antimatter si es partida antigua, ver loadGame)
-    const currentLevel = game.prestigeLevel || game.antimatter;
+    const currentLevel = game.prestigeLevel || 0;
     let amountToGain = totalPotential - currentLevel;
 
     if (amountToGain <= 0) {
-        // ... lógica de aviso de error (igual que tenías) ...
         const nextPoint = currentLevel + 1;
         const energyNeed = Math.pow(nextPoint, 3) * PRESTIGE_BASE;
         const remaining = energyNeed - game.totalCookiesEarned;
-        showSystemModal("ENERGÍA INSUFICIENTE", `Necesitas ${formatNumber(remaining)} más de energía.`, false, null);
+        
+        showSystemModal(
+            "⚠️ NÚCLEO ESTABLE", 
+            `La presión cuántica no es suficiente para la Ascensión.\n\nFaltan: <span style="color:#ff5252">${formatNumber(remaining)} Watts</span> para el próximo nivel de Antimateria.`, 
+            false, 
+            null
+        );
         return;
     }
 
-    // Actualizar UI del modal
-    const nextMult = 1 + ((currentLevel + amountToGain) * 0.1);
-    document.getElementById('asc-gain-antimatter').innerText = `+${formatNumber(amountToGain)}`;
-    document.getElementById('asc-new-mult').innerText = `x${nextMult.toFixed(1)}`;
+    // --- EFECTO DE SONIDO ÉPICO AL ABRIR ---
+    if (typeof sfxPrestige === 'function') sfxPrestige();
+
+    // Cálculo del nuevo multiplicador (0.1x por nivel o 0.2x con Multiverso)
+    const hasMultiverse = game.heavenlyUpgrades.includes('multiverse');
+    const bonusPerLevel = hasMultiverse ? 0.2 : 0.1;
+    const nextMult = 1 + ((currentLevel + amountToGain) * bonusPerLevel);
+
+    // Actualizar elementos del Modal con colores dinámicos
+    const gainEl = document.getElementById('asc-gain-antimatter');
+    const multEl = document.getElementById('asc-new-mult');
+
+    if (gainEl) {
+        gainEl.innerText = `${formatNumber(amountToGain)} AM`;
+        gainEl.style.color = "#b388ff"; // Color Antimateria
+    }
+    
+    if (multEl) {
+        multEl.innerText = `${nextMult.toFixed(2)}`;
+        multEl.style.color = "#00ff88"; // Color Mejora
+    }
 
     modal.dataset.gain = amountToGain;
     modal.style.display = 'flex';
+    
+    // Animación de entrada para el contenido del modal
+    const content = modal.querySelector('.modal-content');
+    if (content) content.style.animation = "modalIn 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28)";
 };
 
 window.closeAscension = function () {
