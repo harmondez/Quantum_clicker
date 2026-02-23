@@ -1043,7 +1043,7 @@ const helpersConfig = [
     // TIER 1 (PRINCIPIANTE - NIVEL 1-10)
     {
         id: 'h_clicker',
-        name: '👩‍🔬 Dra. Aris Thorne',
+        name: 'Dra. Aris Thorne',
         quotes: ["La transferencia cinética es estable. Sigue pulsando.", "He ajustado los condensadores manuales."],
         desc: 'Teórica de Campos. Optimiza la transferencia cinética: Pulsos manuales +300%.',
         cost: 15, icon: '👩‍🔬',
@@ -1052,7 +1052,7 @@ const helpersConfig = [
     },
     {
         id: 'h_crit',
-        name: '👮‍♂️ Sargento Kael',
+        name: 'Sargento Kael',
         quotes: ["¡Fuego a discreción!", "Golpea en el ángulo de 45 grados."],
         desc: 'Seguridad de Red. Protocolos de choque: 10% probabilidad de Pulso Crítico (x10).',
         cost: 800, icon: '👮‍♂️',
@@ -1061,7 +1061,7 @@ const helpersConfig = [
     },
     {
         id: 'h_miner',
-        name: '👨‍💻 Ing. Marcus Voltz',
+        name: 'Ing. Marcus Voltz',
         quotes: ["He parcheado una fuga. La producción ha subido.", "¿Ves ese zumbido? Eficiencia pura."],
         desc: 'Arquitecto de Red. Maximiza el flujo constante de los generadores automáticos (+50% W/s).',
         cost: 50, icon: '👨‍💻',
@@ -1072,7 +1072,7 @@ const helpersConfig = [
     // TIER 2 (INTERMEDIO - NIVEL 11-25)
     {
         id: 'h_efficiency',
-        name: '🔬 Dra. Sarah Joule',
+        name: 'Dra. Sarah Joule',
         quotes: ["He optimizado los disipadores.", "La entropía es nuestra enemiga."],
         desc: 'Termodinámica Sénior. Disipación de calor: Mantenimiento del Staff -40% Watts.',
         cost: 1500, icon: '🔬',
@@ -1081,7 +1081,7 @@ const helpersConfig = [
     },
     {
         id: 'h_combo',
-        name: '👩‍⚡ Dra. Elena Flux',
+        name: 'Dra. Elena Flux',
         quotes: ["He estabilizado el campo temporal.", "Mantén el ritmo, desviando el exceso de calor."],
         desc: 'Especialista en Transitorios. Estabiliza picos de energía: Combos duran x2 tiempo.',
         cost: 200, icon: '👩‍⚡',
@@ -1090,7 +1090,7 @@ const helpersConfig = [
     },
     {
         id: 'h_discount',
-        name: '👔 Silas Vane',
+        name: 'Silas Vane',
         quotes: ["Materiales de grafeno a mitad de precio.", "Hoy los reactores salen baratos."],
         desc: 'Logista Cuántico. Negocia contratos de suministros: Estructuras -10% de coste.',
         cost: 100, icon: '👔',
@@ -1101,7 +1101,7 @@ const helpersConfig = [
     // TIER 3 (AVANZADO - NIVEL 30-50)
     {
         id: 'h_anomaly',
-        name: '🕵️‍♂️ Dorian Nox',
+        name: 'Dorian Nox',
         quotes: ["Mis escáneres detectan una fluctuación...", "El vacío nos está susurrando."],
         desc: 'Analista de Vacío. Sensores de largo alcance: Anomalías aparecen x2 rápido.',
         cost: 500, icon: '🕵️‍♂️',
@@ -1110,7 +1110,7 @@ const helpersConfig = [
     },
     {
         id: 'h_scavenger',
-        name: '🔧 "Recio" Miller',
+        name: 'Recio" Miller',
         quotes: ["La basura de uno es mi tesoro...", "He modificado tu mochila."],
         desc: 'Chatarrero Espacial. Optimización de desguace: +25% Valor de venta de ítems en Galacticoins.',
         cost: 1200, icon: '🔧',
@@ -1130,7 +1130,7 @@ const helpersConfig = [
     // TIER 4 (EXPERTO - NIVEL 60-80)
     {
         id: 'h_synergy',
-        name: '🤖 IA "Mente Enlazada"',
+        name: 'IA "Mente Enlazada"',
         quotes: ["Análisis completado.", "Integrando eficiencia estructural."],
         desc: 'Integración Sintética. Gestión total: +1% W/s por cada estructura desplegada.',
         cost: 5000, icon: '🤖',
@@ -1139,7 +1139,7 @@ const helpersConfig = [
     },
     {
         id: 'h_hunter',
-        name: '🏹 Kiana Vane',
+        name: 'Kiana Vane',
         quotes: ["Tengo a ese visitante en mi mira.", "Sus escudos no son nada contra mis balas."],
         desc: 'Cazadora de Recompensas. Rastreo Alien: Los Aliens tardan +10s en huir (dan x2 Watts).',
         cost: 3000, icon: '🏹',
@@ -1150,7 +1150,7 @@ const helpersConfig = [
     // TIER 5 (MAESTRO - NIVEL 90-100)
     {
         id: 'h_luck',
-        name: '🃏 Gambito Zero',
+        name: 'Gambito Zero',
         quotes: ["¿Quieres ver un truco?", "La suerte es solo una variable."],
         desc: 'Manipulador Probabilístico. Suerte del Diablo: Duplica la probabilidad de encontrar ítems Épicos.',
         cost: 7500, icon: '🃏',
@@ -1159,7 +1159,7 @@ const helpersConfig = [
     },
     {
         id: 'h_master',
-        name: '👨‍💼 Director Cipher',
+        name: 'Director Cipher',
         quotes: ["Protocolo Maestro activado.", "Todos los sistemas bajo control absoluto."],
         desc: 'Administrador General. Ejecuta el Protocolo Dios: Potencia Global x2.0.',
         cost: 10000, icon: '👨‍💼',
@@ -2422,15 +2422,22 @@ const omegaWarnings = {
 };
 
 // 2. Función para comprar estructuras
-window.buyBuilding = function (id) {
-    const cost = getCost(id);
+window.buyBuilding = function (id, amount = 1) {
+    let totalCost = 0;
+    
+    // Calculamos el coste acumulado para la cantidad pedida
+    for (let i = 0; i < amount; i++) {
+        // Suponiendo que tu getCost usa (game.buildings[id] + i) internamente
+        // Si no, lo calculamos aquí: base * 1.15^(cantidad_actual + i)
+        totalCost += getCost(id, (game.buildings[id] || 0) + i);
+    }
 
-    if (game.cookies >= cost) {
+    if (game.cookies >= totalCost) {
         sfxBuy();
-        game.cookies -= cost;
+        game.cookies -= totalCost;
 
         if (!game.buildings[id]) game.buildings[id] = 0;
-        game.buildings[id]++;
+        game.buildings[id] += amount; // Sumamos la cantidad (1 o 10)
 
         // Actualizar todo el sistema
         recalculateStats();
@@ -3676,7 +3683,6 @@ function renderStore() {
     for (let i = 0; i < buildingsConfig.length; i++) {
         const b = buildingsConfig[i];
 
-        // --- FILTRO: Si es un edificio de Andrómeda, NO se muestra en la tienda normal ---
         if (b.isAndromeda) continue;
 
         const count = game.buildings[b.id] || 0;
@@ -3684,6 +3690,14 @@ function renderStore() {
 
         if (owned || i === 0 || lockedShown < 2) {
             const cost = getCost(b.id);
+            
+            // --- CÁLCULO COSTE x10 PARA EL BOTÓN ---
+            let cost10 = 0;
+            for(let j = 0; j < 10; j++) {
+                cost10 += getCost(b.id, count + j);
+            }
+            const canAfford10 = game.cookies >= cost10;
+
             const div = document.createElement('div');
             div.className = 'building-item';
             div.dataset.cost = cost;
@@ -3694,13 +3708,22 @@ function renderStore() {
             const mult = b.currentPower / b.basePower;
             const multTxt = mult > 1 ? `<span style="color:var(--accent); font-size:0.8em">x${mult}</span>` : '';
 
+            // --- ESTRUCTURA CON BOTÓN x10 ---
             div.innerHTML = `
                 <div class="item-info">
                     <h4>${isMystery ? '???' : b.name} ${multTxt}</h4>
                     <p>${isMystery ? 'Datos clasificados...' : b.desc}</p>
                     <div class="item-cost">⚡ ${formatNumber(cost)}</div>
                 </div>
-                <div class="item-count">${count}</div>
+                <div class="building-controls">
+                    ${(!isMystery && owned) ? `
+                        <button class="buy-x10-btn ${canAfford10 ? 'active' : ''}" 
+                                onclick="event.stopPropagation(); window.buyBuilding('${b.id}', 10)">
+                            +10
+                        </button>
+                    ` : ''}
+                    <div class="item-count">${count}</div>
+                </div>
             `;
 
             if (isMystery) {
@@ -3708,12 +3731,11 @@ function renderStore() {
                 div.style.filter = "blur(1px)";
                 div.style.cursor = "default";
             } else {
-                div.onclick = () => window.buyBuilding(b.id);
+                // Compra normal (1 unidad) al hacer click en cualquier parte de la tarjeta
+                div.onclick = () => window.buyBuilding(b.id, 1);
             }
             buildingsEl.appendChild(div);
         } else {
-            // No hacemos break aquí para permitir que el bucle revise todos los edificios
-            // pero controlamos que solo se muestren 2 bloqueados máximo
             if (lockedShown >= 2) break;
         }
     }
@@ -4554,11 +4576,16 @@ window.renderCollection = function () {
     if (helpersGrid) helpersGrid.innerHTML = '';
     if (upgradesGrid) upgradesGrid.innerHTML = '';
 
-    // Función interna para crear el cuadradito (Tile)
+    // --- FUNCIÓN INTERNA ACTUALIZADA ---
     const createTile = (container, type, unlocked, icon, title, desc, req) => {
         const div = document.createElement('div');
         div.className = `collection-item ${type} ${unlocked ? 'unlocked' : 'locked'}`;
-        div.innerHTML = unlocked ? icon : '🔒';
+        
+        // Nueva estructura: Icono grande y nombre técnico debajo
+        div.innerHTML = `
+            <div class="item-icon">${unlocked ? icon : '🔒'}</div>
+            <div class="item-name">${unlocked ? title : '???'}</div>
+        `;
 
         // Conexión con el Tooltip Global
         div.onmouseenter = (e) => showTooltip(e, title, desc, req, unlocked);
@@ -4568,49 +4595,46 @@ window.renderCollection = function () {
         container.appendChild(div);
     };
 
-    // --- 1. ARTEFACTOS (RELIQUIAS CUÁNTICAS) ---
+    // --- 1. ARTEFACTOS ---
     const pearlsData = [
-        { id: 'red', name: '💎 Perla de la Entropía', desc: 'Sincronización total con el vacío. Multiplica la generación global x10.', icon: '🔴', req: 'Completar Protocolo: Singularidad Total' },
-        { id: 'blue', name: '💎 Perla del Cronos', desc: 'Manipulación del tiempo local. Aumenta la potencia de los pulsos cinéticos x50.', icon: '🔵', req: 'Registrar 10,000 pulsos manuales' },
-        { id: 'green', name: '💎 Perla de la Vida', desc: 'Optimización biológica extrema. Reduce el coste de todas las estructuras en un 50%.', icon: '🟢', req: 'Sincronizar Consejo de Sabios (4 activos)' }
+        { id: 'red', name: 'Perla de la Entropía', desc: 'Sincronización total con el vacío. Multiplica la generación global x10.', icon: '🔴', req: 'Completar Protocolo: Singularidad Total' },
+        { id: 'blue', name: 'Perla del Cronos', desc: 'Manipulación del tiempo local. Aumenta la potencia de los pulsos cinéticos x50.', icon: '🔵', req: 'Registrar 10,000 pulsos manuales' },
+        { id: 'green', name: 'Perla de la Vida', desc: 'Optimización biológica extrema. Reduce el coste de todas las estructuras en un 50%.', icon: '🟢', req: 'Sincronizar Consejo de Sabios (4 activos)' }
     ];
     pearlsData.forEach(p => {
         const has = game.pearls.includes(p.id);
         createTile(artifactsGrid, 'artifact', has, p.icon, p.name, p.desc, "Protocolo de obtención: " + p.req);
     });
 
-    // --- 2. ESPECIALISTAS (AYUDANTES ALIENÍGENAS) ---
+    // --- 2. ESPECIALISTAS ---
     helpersConfig.forEach(h => {
         const has = game.helpers.includes(h.id);
         createTile(helpersGrid, 'helper', has, h.icon, h.name, h.desc, "Estado: Pendiente de contrato.");
     });
 
-    // --- 3. MÓDULOS TECNOLÓGICOS (MEJORAS) ---
-    // A) Optimizaciones de Estructura (Niveles MK)
+    // --- 3. MÓDULOS TECNOLÓGICOS ---
     buildingsConfig.forEach(b => {
         milestones.forEach((th, i) => {
             const uid = `${b.id}-${th}`;
             const has = game.upgrades.includes(uid);
             const icon = upgradeIcons[i % upgradeIcons.length] || '⚡';
-
-            // Nombres Sci-Fi según nivel
             const mkNames = ["Optimización de Bobinas", "Refuerzo de Grafeno", "Núcleo de Superconducción", "Entrelazamiento Cuántico"];
             const currentMkName = mkNames[i] || "Protocolo de Hiper-Eficiencia";
 
             createTile(upgradesGrid, 'upgrade', has, icon,
-                `${b.name}: ${currentMkName} (MK-${i + 1})`,
+                `${b.name} MK-${i + 1}`, // Simplificamos el nombre para que quepa mejor
                 "Aumenta la salida de Watts al doble (x2).",
                 `Requisito: Desplegar ${th} unidades de ${b.name}.`
             );
         });
     });
 
-    // B) Proyectos Especiales de la Corporación
+    // B) Proyectos Especiales
     const specials = [
-        { id: 'entropy-antenna', icon: '📡', name: 'Sincronizador de Micro-Pulsos', desc: 'Sintoniza la frecuencia de las anomalías para que aparezcan un 20% más rápido.' },
-        { id: 'quantum-lens', icon: '🔍', name: 'Obturador de Persistencia', desc: 'Mantiene las anomalías estables en nuestra dimensión por 2 segundos extra.' },
-        { id: 'protocol-omega', icon: '⚠️', name: 'Horizonte de Sucesos', desc: 'Fase 1: Inicio de la inestabilidad cuántica. Producción global x1.2.' },
-        { id: 'omega-final', icon: '👁️', name: 'SINGULARIDAD TOTAL', desc: 'Fase Final: Rotura de las leyes físicas. Producción global x5.0.' }
+        { id: 'entropy-antenna', icon: '📡', name: 'Antena Entrópica', desc: 'Sintoniza la frecuencia de las anomalías para que aparezcan un 20% más rápido.' },
+        { id: 'quantum-lens', icon: '🔍', name: 'Lente Cuántica', desc: 'Mantiene las anomalías estables en nuestra dimensión por 2 segundos extra.' },
+        { id: 'protocol-omega', icon: '⚠️', name: 'Protocolo Omega', desc: 'Fase 1: Inicio de la inestabilidad cuántica. Producción global x1.2.' },
+        { id: 'omega-final', icon: '👁️', name: 'Singularidad', desc: 'Fase Final: Rotura de las leyes físicas. Producción global x5.0.' }
     ];
     specials.forEach(s => {
         const has = game.upgrades.includes(s.id);
